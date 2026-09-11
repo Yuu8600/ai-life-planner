@@ -30,11 +30,26 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# Windows
+Thumbs.db
+Desktop.ini
+
+# editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# local env files (keep the documented template only)
+.env
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo
+
+# tests
+coverage/
 
 # generated native folders
 /ios
