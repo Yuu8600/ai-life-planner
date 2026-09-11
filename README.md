@@ -5,9 +5,9 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 0.5 (Development Foundation)** です。Expoアプリを起動できる最小画面と、
-今後の機能を分離して実装するための土台・テスト環境だけを用意しています。Goal / Task /
-Calendar / Planner、Supabase、端末カレンダー、OpenAIとの実通信はまだ実装していません。
+現在は **Milestone 1 (Static Prototype)** です。ローカルのダミーデータだけを使い、Todayを
+中心とする5タブ、各機能画面、Settingsへの導線を実装しています。Supabase、端末カレンダー、
+OpenAIとの実通信や永続化はまだ実装していません。
 
 ## 技術構成
 
@@ -62,10 +62,13 @@ src/
 ├── __tests__/              # 画面・機能のテスト（Routerのルート外）
 ├── app/                    # Expo Routerのルート。画面構成とナビゲーションのみ
 ├── features/
-│   ├── goals/             # Goal機能
-│   ├── tasks/             # Task / Todo機能
-│   ├── calendar/          # 端末カレンダーと空き時間
-│   └── planner/           # Daily Planと再計画
+│   ├── today/             # 今日の計画サマリーとタイムライン
+│   ├── goals/             # Goal一覧
+│   ├── tasks/             # Task / Todo一覧
+│   ├── calendar/          # 日表示の静的タイムライン
+│   ├── ai-chat/           # 静的なAI相談画面
+│   ├── settings/          # 計画の前提設定画面
+│   └── planner/           # 後続Milestone向けの計画ドメイン
 ├── services/              # Supabase・Calendar・OpenAIなど外部I/Oの境界
 └── shared/
     ├── components/        # 機能に依存しない共通UI
@@ -79,7 +82,7 @@ src/
 
 ## 環境変数
 
-`.env.example` は将来必要になる変数名だけを示しています。Milestone 0.5では読み込みも通信も
+`.env.example` は将来必要になる変数名だけを示しています。Milestone 1では読み込みも通信も
 行いません。ローカル値を用意するときは `.env.local` などの追跡対象外ファイルを使用します。
 
 `EXPO_PUBLIC_` で始まる値はアプリへ埋め込まれるため秘密情報には使えません。
@@ -88,21 +91,22 @@ Functionだけで管理します。
 
 ## 現在のスコープ
 
-Milestone 0 / 0.5で用意したもの:
+Milestone 0 / 0.5 / 1で用意したもの:
 
 - Expo + React Native + TypeScriptの初期構成
-- Expo Routerと最小の初期画面
+- Expo Routerと5つのBottom Tab
 - TypeScript strict mode
 - ESLint / Prettier
 - 機能単位のディレクトリ構成
 - 環境変数テンプレートとGit除外設定
 - 要件定義書のバージョン管理用配置
-- Jest / React Native Testing Libraryと初期画面のスモークテスト
+- Today / Goals / Tasks / Calendar / AI / Settingsの静的画面
+- ローカルダミーデータと機能単位のUIコンポーネント
+- Jest / React Native Testing Libraryによるタブ構成とToday画面のテスト
 - 開発ガイド
 
 未実装のもの:
 
-- Bottom navigationおよび各機能画面
 - Supabaseプロジェクト、認証、DB、CRUD
 - 端末カレンダー権限・予定取得・空き時間算出
 - OpenAI API、Planner schema、計画生成・再計画

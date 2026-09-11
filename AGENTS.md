@@ -7,9 +7,9 @@ This repository contains the Japanese-first AI Life Planner mobile app described
 device calendar events, and AI-generated daily plans. Implement only the milestone requested by
 the user; do not bring later-milestone behavior forward.
 
-Milestone 0.5 adds development and test infrastructure to the repository scaffold. Supabase
-access, device-calendar permissions, OpenAI calls, CRUD behavior, planning logic, and feature
-screens are intentionally absent.
+Milestone 1 is a static prototype with five bottom tabs, a separate Settings route, and local
+dummy data. Supabase access, device-calendar permissions, OpenAI calls, CRUD behavior,
+persistence, and planning logic are intentionally absent.
 
 Treat the versioned requirements file as a project source of truth. Do not silently reformat or
 rewrite it; requirement changes need explicit user authorization and should be versioned.
@@ -32,6 +32,8 @@ rewrite it; requirement changes need explicit user authorization and should be v
 - Keep route files in `src/app` thin. They should compose feature screens and navigation only.
 - Put feature-owned code in `src/features/<feature>`. Goals, tasks, calendar, and planner must
   remain independently evolvable.
+- Keep Milestone 1 fixtures in each feature's `data.ts`; do not hide external I/O behind dummy
+  services or make static controls imply that data is persisted.
 - Keep business rules in feature domain/application modules or pure functions, never directly in
   route files or presentational components.
 - Put reusable, feature-neutral UI, configuration, and types in `src/shared`.
