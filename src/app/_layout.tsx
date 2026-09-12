@@ -1,9 +1,12 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+import { AuthProvider, useAuth } from '@/features/auth';
 import { colors } from '@/shared/theme';
 
-export default function RootLayout() {
+export function RootNavigator() {
+  const { isRestoring, session } = useAuth();
+
   return (
     <>
       <StatusBar style="dark" />
@@ -14,9 +17,22 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+        <Stack.Protected guard={!isRestoring && session === null}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+        <Stack.Protected guard={!isRestoring && session !== null}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+        </Stack.Protected>
       </Stack>
     </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
   );
 }

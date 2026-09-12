@@ -4,6 +4,7 @@ import { colors, radius, spacing } from '@/shared/theme';
 
 type ActionButtonProps = {
   accessibilityLabel?: string;
+  disabled?: boolean;
   label: string;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
@@ -12,6 +13,7 @@ type ActionButtonProps = {
 
 export function ActionButton({
   accessibilityLabel,
+  disabled = false,
   label,
   onPress,
   style,
@@ -27,11 +29,14 @@ export function ActionButton({
     <Pressable
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
         styles[variant],
-        pressed && onPress ? styles.pressed : null,
+        pressed && onPress && !disabled ? styles.pressed : null,
+        disabled ? styles.disabled : null,
         style,
       ]}
     >
@@ -61,6 +66,9 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.78,
+  },
+  disabled: {
+    opacity: 0.55,
   },
   label: {
     fontSize: 15,

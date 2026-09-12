@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AccountSection } from '@/features/auth';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
@@ -41,6 +42,8 @@ export function SettingsScreen({ onPressBack }: SettingsScreenProps) {
           </View>
         </View>
       ))}
+
+      <AccountSection />
     </AppScreen>
   );
 }

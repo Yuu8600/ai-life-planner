@@ -5,9 +5,9 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 2A (Supabase Foundation)** です。Milestone 1の静的UIを維持したまま、
-Supabase client、認証セッション永続化、DB migration、RLS、repository境界を追加しています。
-Goal / Task CRUDの画面接続、端末カレンダー、OpenAIとの実通信はまだ実装していません。
+現在は **Milestone 2B-1 (Supabase Authentication)** です。Email + Password認証、session復元、
+認証状態に応じた保護ルート、Logoutを追加しています。Milestone 1のGoal / Task画面は引き続き
+ローカルダミーデータを使用し、端末カレンダーとOpenAIとの実通信もまだ実装していません。
 
 ## 技術構成
 
@@ -63,8 +63,9 @@ docs/
     └── requirements-v0.1.md # 要件定義書
 src/
 ├── __tests__/              # 画面・機能のテスト（Routerのルート外）
-├── app/                    # Expo Routerのルート。画面構成とナビゲーションのみ
+├── app/                    # Expo Routerのルート。Auth guard、画面構成、ナビゲーション
 ├── features/
+│   ├── auth/              # 認証状態、Login / Signup画面、Logout UI
 │   ├── today/             # 今日の計画サマリーとタイムライン
 │   ├── goals/             # Goal一覧
 │   ├── tasks/             # Task / Todo一覧
@@ -106,9 +107,9 @@ EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
-`.env`はGit管理対象外です。未設定・不正なURLの場合、値そのものをログへ出さず、足りない環境
-変数名が分かるエラーを返します。Supabase clientは利用時に初期化されるため、Milestone 1の
-静的UIは`.env`なしでも起動できます。
+`.env`はGit管理対象外です。未設定・不正なURLの場合、値そのものをログへ出さず、Auth画面に
+接続設定エラーを表示します。Milestone 2B-1では認証が必要なため、既存の5タブを表示するには
+有効なSupabase設定とログインが必要です。
 
 `EXPO_PUBLIC_` で始まる値はアプリへ埋め込まれるため秘密情報には使えません。
 `OPENAI_API_KEY` は将来もモバイルアプリではなく、信頼できるサーバーまたはSupabase Edge
@@ -116,6 +117,25 @@ Functionだけで管理します。
 
 Supabaseの`service_role` keyはRLSを迂回できる秘密値です。モバイルアプリ、`.env`の
 `EXPO_PUBLIC_`変数、リポジトリには絶対に配置しません。
+
+## Email + Password認証
+
+起動時にExpo SQLiteへ保存されたsessionを復元し、確認が終わるまでは専用Loading画面を表示
+します。未ログインの場合はLogin / Signup画面、ログイン済みの場合は既存の5タブへ遷移します。
+SettingsのLogoutはこの端末のsessionだけを終了します。
+
+Supabase DashboardでConfirm emailが有効な場合、Signup後もLogin画面に留まり、確認メールの
+案内を表示します。メール内の確認を完了してからLoginしてください。Confirm emailが無効な場合
+はSignup時にsessionが作成され、そのままTodayへ移動します。
+
+Signup後のprofile自動作成は、DashboardのAuthentication > UsersにあるユーザーUUIDを使って
+次の読み取りで確認できます。アプリへservice role keyを追加する必要はありません。
+
+```sql
+select id, created_at
+from public.profiles
+where id = '<Authentication UsersのUUID>'::uuid;
+```
 
 ## Supabase migration運用
 
@@ -157,7 +177,7 @@ npm run supabase:verify:linked
 
 ## 現在のスコープ
 
-Milestone 0 / 0.5 / 1 / 2Aで用意したもの:
+Milestone 0 / 0.5 / 1 / 2A / 2B-1で用意したもの:
 
 - Expo + React Native + TypeScriptの初期構成
 - Expo Routerと5つのBottom Tab
@@ -174,11 +194,14 @@ Milestone 0 / 0.5 / 1 / 2Aで用意したもの:
 - GoalRepository / TaskRepositoryのinterface境界
 - Supabase CLIと安全なDatabase型生成導線
 - linked remoteへのcore migration適用、Database型生成、RLS境界検証
+- Email + PasswordによるSignup / Login / Logout
+- SQLiteからのsession復元とAuth state購読
+- Expo Routerの認証済み・未認証保護ルート
 - 開発ガイド
 
 未実装のもの:
 
-- Login / Signup UI、Goal / Task CRUD実装と画面接続
+- Goal / Task CRUD実装と画面接続
 - 端末カレンダー権限・予定取得・空き時間算出
 - OpenAI API、Planner schema、計画生成・再計画
 

@@ -7,11 +7,10 @@ This repository contains the Japanese-first AI Life Planner mobile app described
 device calendar events, and AI-generated daily plans. Implement only the milestone requested by
 the user; do not bring later-milestone behavior forward.
 
-Milestone 2A adds the Supabase client boundary, auth session foundation, migration-managed core
-schema, RLS policies, and repository contracts. The Milestone 1 UI still uses local dummy data.
-The remote project is linked, the core migration is applied, and generated types plus remote RLS
-behavior are verified. Feature CRUD implementations, device-calendar permissions, OpenAI calls,
-and planning logic remain intentionally absent.
+Milestone 2B-1 adds Email + Password authentication, persisted session restoration, protected
+routes, and logout on top of the verified Milestone 2A Supabase foundation. The Milestone 1 feature
+screens still use local dummy data. Goal/Task persistence, device-calendar permissions, OpenAI
+calls, and planning logic remain intentionally absent.
 
 Treat the versioned requirements file as a project source of truth. Do not silently reformat or
 rewrite it; requirement changes need explicit user authorization and should be versioned.
@@ -64,6 +63,8 @@ rewrite it; requirement changes need explicit user authorization and should be v
 
 - Keep Supabase access inside `src/services/supabase` and repository implementations. Do not call
   Supabase directly from routes or UI components.
+- Keep auth state and operations behind the public `src/features/auth` boundary. Route guards and
+  Settings must consume that boundary instead of creating another Supabase client.
 - Do not connect the Milestone 1 screens to Supabase until the requested CRUD milestone.
 - Do not add or call `expo-calendar` or OpenAI until the corresponding milestone.
 - Values prefixed with `EXPO_PUBLIC_` are bundled into the client and are not secrets.
