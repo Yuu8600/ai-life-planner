@@ -7,9 +7,11 @@ This repository contains the Japanese-first AI Life Planner mobile app described
 device calendar events, and AI-generated daily plans. Implement only the milestone requested by
 the user; do not bring later-milestone behavior forward.
 
-Milestone 1 is a static prototype with five bottom tabs, a separate Settings route, and local
-dummy data. Supabase access, device-calendar permissions, OpenAI calls, CRUD behavior,
-persistence, and planning logic are intentionally absent.
+Milestone 2A adds the Supabase client boundary, auth session foundation, migration-managed core
+schema, RLS policies, and repository contracts. The Milestone 1 UI still uses local dummy data.
+The remote project is linked, the core migration is applied, and generated types plus remote RLS
+behavior are verified. Feature CRUD implementations, device-calendar permissions, OpenAI calls,
+and planning logic remain intentionally absent.
 
 Treat the versioned requirements file as a project source of truth. Do not silently reformat or
 rewrite it; requirement changes need explicit user authorization and should be versioned.
@@ -26,6 +28,12 @@ rewrite it; requirement changes need explicit user authorization and should be v
 - `npm run format:check`: verify formatting without changing files.
 - `npm test`: run Jest in local watch mode.
 - `npm run test:ci`: run Jest once without watch mode.
+- `npm run supabase:migration:new -- <name>`: create a timestamped migration.
+- `npm run supabase:db:push`: apply migrations to the linked remote project.
+- `npm run supabase:types:linked`: generate public schema types from the linked project.
+- `npm run supabase:types:local`: generate public schema types from a running local stack.
+- `npm run supabase:verify:linked`: transactionally verify schema, grants, RLS, and FK behavior on
+  the linked remote project; all fixtures are rolled back.
 
 ## Architecture boundaries
 
@@ -54,11 +62,16 @@ rewrite it; requirement changes need explicit user authorization and should be v
 
 ## Integrations and secrets
 
-- Do not add or call Supabase, `expo-calendar`, or OpenAI until the corresponding milestone.
+- Keep Supabase access inside `src/services/supabase` and repository implementations. Do not call
+  Supabase directly from routes or UI components.
+- Do not connect the Milestone 1 screens to Supabase until the requested CRUD milestone.
+- Do not add or call `expo-calendar` or OpenAI until the corresponding milestone.
 - Values prefixed with `EXPO_PUBLIC_` are bundled into the client and are not secrets.
 - Never expose `OPENAI_API_KEY`, a Supabase service-role key, or other server credentials to the
   mobile bundle. OpenAI requests must eventually cross a trusted server/Edge Function boundary.
 - Keep real `.env` files untracked and update `.env.example` with placeholders only.
+- Treat `src/services/supabase/database.types.ts` as generated output. Regenerate it from a local
+  or linked schema after migrations; do not hand-write substitute database types.
 
 ## Dependency discipline
 

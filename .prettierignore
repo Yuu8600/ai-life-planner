@@ -6,4 +6,6 @@ node_modules/
 package-lock.json
 assets/
 docs/requirements/requirements-v0.1.md
+src/services/supabase/database.types.ts
+supabase/.temp/
 web-build/

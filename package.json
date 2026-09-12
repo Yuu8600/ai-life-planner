@@ -4,16 +4,19 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
+    "@supabase/supabase-js": "^2.116.0",
     "expo": "~57.0.22",
     "expo-constants": "~57.0.18",
     "expo-linking": "~57.0.10",
     "expo-router": "~57.0.21",
+    "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-url-polyfill": "^4.0.0",
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
@@ -27,6 +30,7 @@
     "jest": "~29.7.0",
     "jest-expo": "~57.0.5",
     "prettier": "^3.9.6",
+    "supabase": "^2.117.0",
     "test-renderer": "1.2.0",
     "typescript": "~6.0.3"
   },
@@ -37,6 +41,11 @@
     "lint": "expo lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "supabase:db:push": "supabase db push",
+    "supabase:migration:new": "supabase migration new",
+    "supabase:types:linked": "node scripts/generate-database-types.mjs --linked",
+    "supabase:types:local": "node scripts/generate-database-types.mjs --local",
+    "supabase:verify:linked": "supabase db query --linked --file supabase/tests/remote/milestone_2a_verification.sql",
     "test": "jest --watchAll",
     "test:ci": "jest --ci --runInBand",
     "typecheck": "tsc --noEmit"

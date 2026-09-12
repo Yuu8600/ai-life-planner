@@ -1,0 +1,1 @@
+-- Milestone 2A does not add shared seed data. Keep user-owned app data out of repository seeds.
