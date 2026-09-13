@@ -5,14 +5,16 @@ import { colors, radius, spacing } from '@/shared/theme';
 import type { TaskFilter } from '../types';
 
 type TaskFiltersProps = {
-  filters: TaskFilter[];
+  activeFilter: TaskFilter['id'];
+  filters: readonly TaskFilter[];
+  onChange: (filter: TaskFilter['id']) => void;
 };
 
-export function TaskFilters({ filters }: TaskFiltersProps) {
+export function TaskFilters({ activeFilter, filters, onChange }: TaskFiltersProps) {
   return (
     <View accessibilityLabel="タスクのフィルター" style={styles.container}>
-      {filters.map((filter, index) => {
-        const selected = index === 0;
+      {filters.map((filter) => {
+        const selected = filter.id === activeFilter;
 
         return (
           <Pressable
@@ -20,6 +22,7 @@ export function TaskFilters({ filters }: TaskFiltersProps) {
             accessibilityRole="button"
             accessibilityState={{ selected }}
             key={filter.id}
+            onPress={() => onChange(filter.id)}
             style={[styles.filter, selected ? styles.selectedFilter : null]}
           >
             <Text style={[styles.label, selected ? styles.selectedLabel : null]}>

@@ -5,8 +5,8 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 2B-2 (Goals CRUD)** です。Email + Password認証済みユーザーごとに、Goalsの
-作成・取得・更新・削除をSupabaseへ接続しています。Tasks、Today、Calendar、AI画面は引き続き
+現在は **Milestone 2B-3 (Tasks CRUD)** です。Email + Password認証済みユーザーごとに、Goalsと
+Tasksの作成・取得・更新・削除をSupabaseへ接続しています。Today、Calendar、AI画面は引き続き
 ローカルダミーデータを使用し、端末カレンダーとOpenAIとの実通信もまだ実装していません。
 
 ## 技術構成
@@ -68,7 +68,7 @@ src/
 │   ├── auth/              # 認証状態、Login / Signup画面、Logout UI
 │   ├── today/             # 今日の計画サマリーとタイムライン
 │   ├── goals/             # Goalの状態管理、validation、CRUD UI、repository契約
-│   ├── tasks/             # Task / Todo一覧
+│   ├── tasks/             # Taskの状態管理、validation、CRUD UI、repository契約
 │   ├── calendar/          # 日表示の静的タイムライン
 │   ├── ai-chat/           # 静的なAI相談画面
 │   ├── settings/          # 計画の前提設定画面
@@ -108,8 +108,8 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
 `.env`はGit管理対象外です。未設定・不正なURLの場合、値そのものをログへ出さず、Auth画面に
-接続設定エラーを表示します。認証とGoals CRUDを利用するには、有効なSupabase設定とログインが
-必要です。
+接続設定エラーを表示します。認証とGoals / Tasks CRUDを利用するには、有効なSupabase設定と
+ログインが必要です。
 
 `EXPO_PUBLIC_` で始まる値はアプリへ埋め込まれるため秘密情報には使えません。
 `OPENAI_API_KEY` は将来もモバイルアプリではなく、信頼できるサーバーまたはSupabase Edge
@@ -168,6 +168,17 @@ repositoryが設定し、全操作をRLS policyで保護します。
 優先度は高・中・低、状態は進行中・完了・アーカイブから選択します。通信失敗時はGoals画面の
 「再読み込み」を使用してください。
 
+## Tasks CRUD
+
+Tasksタブはログイン中ユーザーの`public.tasks`だけを読み込みます。「タスクを追加」から登録し、
+一覧の「編集」「削除」から更新・削除できます。作成時の`user_id`はAuth sessionのユーザーIDを
+repositoryが設定し、読み取り・更新・削除も明示的な`user_id`条件とRLS policyで保護します。
+
+タイトルと1分以上の整数の所要時間は必須です。期限は`YYYY-MM-DD`、優先度は高・中・低、状態は
+未予定・予定済み・完了・スキップから選択します。Taskは「Goalなし」またはログイン中ユーザー
+自身のGoalへ関連付けられます。Goalを削除した場合、DBの複合外部キーによりTaskは残り、
+`goal_id`だけが`NULL`になります。
+
 ## Database型生成
 
 生成型は`src/services/supabase/database.types.ts`へ出力し、schema変更と一緒に更新します。
@@ -199,7 +210,7 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2で用意したもの:
 - 機能単位のディレクトリ構成
 - 環境変数テンプレートとGit除外設定
 - 要件定義書のバージョン管理用配置
-- Today / Tasks / Calendar / AI / Settingsの静的画面とGoals CRUD画面
+- Today / Calendar / AI / Settingsの静的画面とGoals / Tasks CRUD画面
 - 未接続機能のローカルダミーデータと機能単位のUIコンポーネント
 - Jest / React Native Testing Libraryによるタブ構成とToday画面のテスト
 - Supabase clientとSQLiteベースの認証セッション永続化設定
@@ -213,11 +224,13 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2で用意したもの:
 - 生成Database型を使ったSupabase GoalRepository実装
 - ログイン中ユーザーのGoal一覧・作成・更新・削除
 - Goal入力validation、Loading / Empty / Error状態、二重送信防止
+- 生成Database型を使ったSupabase TaskRepository実装
+- ログイン中ユーザーのTask一覧・作成・更新・削除と任意のGoal関連付け
+- Task入力validation、Loading / Empty / Error状態、二重送信防止
 - 開発ガイド
 
 未実装のもの:
 
-- Task CRUD実装と画面接続
 - Today画面の実データ接続
 - 確認メールからアプリへ戻るDeep Link、Password reset、OAuth
 - 端末カレンダー権限・予定取得・空き時間算出
