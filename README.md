@@ -5,8 +5,8 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 2B-1 (Supabase Authentication)** です。Email + Password認証、session復元、
-認証状態に応じた保護ルート、Logoutを追加しています。Milestone 1のGoal / Task画面は引き続き
+現在は **Milestone 2B-2 (Goals CRUD)** です。Email + Password認証済みユーザーごとに、Goalsの
+作成・取得・更新・削除をSupabaseへ接続しています。Tasks、Today、Calendar、AI画面は引き続き
 ローカルダミーデータを使用し、端末カレンダーとOpenAIとの実通信もまだ実装していません。
 
 ## 技術構成
@@ -67,14 +67,14 @@ src/
 ├── features/
 │   ├── auth/              # 認証状態、Login / Signup画面、Logout UI
 │   ├── today/             # 今日の計画サマリーとタイムライン
-│   ├── goals/             # Goal一覧
+│   ├── goals/             # Goalの状態管理、validation、CRUD UI、repository契約
 │   ├── tasks/             # Task / Todo一覧
 │   ├── calendar/          # 日表示の静的タイムライン
 │   ├── ai-chat/           # 静的なAI相談画面
 │   ├── settings/          # 計画の前提設定画面
 │   └── planner/           # 後続Milestone向けの計画ドメイン
 ├── services/
-│   └── supabase/          # client、環境変数検証、Auth基盤、生成DB型の配置先
+│   └── supabase/          # client、Auth、生成DB型、Supabase repository実装
 └── shared/
     ├── components/        # 機能に依存しない共通UI
     ├── config/            # アプリ共通設定
@@ -108,8 +108,8 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
 `.env`はGit管理対象外です。未設定・不正なURLの場合、値そのものをログへ出さず、Auth画面に
-接続設定エラーを表示します。Milestone 2B-1では認証が必要なため、既存の5タブを表示するには
-有効なSupabase設定とログインが必要です。
+接続設定エラーを表示します。認証とGoals CRUDを利用するには、有効なSupabase設定とログインが
+必要です。
 
 `EXPO_PUBLIC_` で始まる値はアプリへ埋め込まれるため秘密情報には使えません。
 `OPENAI_API_KEY` は将来もモバイルアプリではなく、信頼できるサーバーまたはSupabase Edge
@@ -127,6 +127,9 @@ SettingsのLogoutはこの端末のsessionだけを終了します。
 Supabase DashboardでConfirm emailが有効な場合、Signup後もLogin画面に留まり、確認メールの
 案内を表示します。メール内の確認を完了してからLoginしてください。Confirm emailが無効な場合
 はSignup時にsessionが作成され、そのままTodayへ移動します。
+
+確認メールからアプリへ戻るDeep Linkは後続のAuth改善項目です。現在はメール確認後に手動で
+アプリへ戻り、Loginしてください。
 
 Signup後のprofile自動作成は、DashboardのAuthentication > UsersにあるユーザーUUIDを使って
 次の読み取りで確認できます。アプリへservice role keyを追加する必要はありません。
@@ -155,6 +158,16 @@ npm run supabase:verify:linked
 従ってください。Dockerを使うローカル環境は任意です。利用する場合だけ`npx supabase start`と
 `npx supabase db reset`を使用します。
 
+## Goals CRUD
+
+Goalsタブはログイン中ユーザーの`public.goals`だけを読み込みます。「新しい目標」から登録し、
+一覧の「編集」「削除」から更新・削除できます。作成時の`user_id`はAuth sessionのユーザーIDを
+repositoryが設定し、全操作をRLS policyで保護します。
+
+タイトルは必須です。現在値・目標値は整数または小数、期限は`YYYY-MM-DD`で入力します。
+優先度は高・中・低、状態は進行中・完了・アーカイブから選択します。通信失敗時はGoals画面の
+「再読み込み」を使用してください。
+
 ## Database型生成
 
 生成型は`src/services/supabase/database.types.ts`へ出力し、schema変更と一緒に更新します。
@@ -177,7 +190,7 @@ npm run supabase:verify:linked
 
 ## 現在のスコープ
 
-Milestone 0 / 0.5 / 1 / 2A / 2B-1で用意したもの:
+Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2で用意したもの:
 
 - Expo + React Native + TypeScriptの初期構成
 - Expo Routerと5つのBottom Tab
@@ -186,8 +199,8 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1で用意したもの:
 - 機能単位のディレクトリ構成
 - 環境変数テンプレートとGit除外設定
 - 要件定義書のバージョン管理用配置
-- Today / Goals / Tasks / Calendar / AI / Settingsの静的画面
-- ローカルダミーデータと機能単位のUIコンポーネント
+- Today / Tasks / Calendar / AI / Settingsの静的画面とGoals CRUD画面
+- 未接続機能のローカルダミーデータと機能単位のUIコンポーネント
 - Jest / React Native Testing Libraryによるタブ構成とToday画面のテスト
 - Supabase clientとSQLiteベースの認証セッション永続化設定
 - profiles / goals / tasksのmigration、制約、RLS policy、明示的な権限
@@ -197,11 +210,16 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1で用意したもの:
 - Email + PasswordによるSignup / Login / Logout
 - SQLiteからのsession復元とAuth state購読
 - Expo Routerの認証済み・未認証保護ルート
+- 生成Database型を使ったSupabase GoalRepository実装
+- ログイン中ユーザーのGoal一覧・作成・更新・削除
+- Goal入力validation、Loading / Empty / Error状態、二重送信防止
 - 開発ガイド
 
 未実装のもの:
 
-- Goal / Task CRUD実装と画面接続
+- Task CRUD実装と画面接続
+- Today画面の実データ接続
+- 確認メールからアプリへ戻るDeep Link、Password reset、OAuth
 - 端末カレンダー権限・予定取得・空き時間算出
 - OpenAI API、Planner schema、計画生成・再計画
 

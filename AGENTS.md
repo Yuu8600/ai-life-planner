@@ -7,10 +7,11 @@ This repository contains the Japanese-first AI Life Planner mobile app described
 device calendar events, and AI-generated daily plans. Implement only the milestone requested by
 the user; do not bring later-milestone behavior forward.
 
-Milestone 2B-1 adds Email + Password authentication, persisted session restoration, protected
-routes, and logout on top of the verified Milestone 2A Supabase foundation. The Milestone 1 feature
-screens still use local dummy data. Goal/Task persistence, device-calendar permissions, OpenAI
-calls, and planning logic remain intentionally absent.
+Milestone 2B-2 connects only the Goals feature to Supabase through the existing GoalRepository
+contract. Email + Password authentication, protected routes, and session restoration remain the
+auth foundation. Tasks, Today, Calendar, and AI screens still use local dummy data. Task
+persistence, email-confirmation deep links, device-calendar permissions, OpenAI calls, and
+planning logic remain intentionally absent.
 
 Treat the versioned requirements file as a project source of truth. Do not silently reformat or
 rewrite it; requirement changes need explicit user authorization and should be versioned.
@@ -39,8 +40,8 @@ rewrite it; requirement changes need explicit user authorization and should be v
 - Keep route files in `src/app` thin. They should compose feature screens and navigation only.
 - Put feature-owned code in `src/features/<feature>`. Goals, tasks, calendar, and planner must
   remain independently evolvable.
-- Keep Milestone 1 fixtures in each feature's `data.ts`; do not hide external I/O behind dummy
-  services or make static controls imply that data is persisted.
+- Keep the remaining Milestone 1 fixtures in their feature `data.ts` files; do not hide external
+  I/O behind dummy services or make static controls imply that data is persisted.
 - Keep business rules in feature domain/application modules or pure functions, never directly in
   route files or presentational components.
 - Put reusable, feature-neutral UI, configuration, and types in `src/shared`.
@@ -65,7 +66,11 @@ rewrite it; requirement changes need explicit user authorization and should be v
   Supabase directly from routes or UI components.
 - Keep auth state and operations behind the public `src/features/auth` boundary. Route guards and
   Settings must consume that boundary instead of creating another Supabase client.
-- Do not connect the Milestone 1 screens to Supabase until the requested CRUD milestone.
+- Keep Goals UI and state management dependent on `GoalRepository`; the Supabase adapter belongs
+  under `src/services/supabase/repositories` and must receive the authenticated user id at the
+  composition boundary.
+- Do not connect Tasks, Today, Calendar, or AI dummy data to Supabase until their requested
+  milestones.
 - Do not add or call `expo-calendar` or OpenAI until the corresponding milestone.
 - Values prefixed with `EXPO_PUBLIC_` are bundled into the client and are not secrets.
 - Never expose `OPENAI_API_KEY`, a Supabase service-role key, or other server credentials to the

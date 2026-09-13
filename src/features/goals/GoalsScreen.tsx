@@ -1,25 +1,142 @@
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, radius, spacing } from '@/shared/theme';
 
+import type { CreateGoalInput, Goal, GoalRepository } from './repositories/GoalRepository';
+import { toGoalListItemModel } from './presentation';
+import { useGoals } from './useGoals';
+import { GoalFormModal } from './components/GoalFormModal';
 import { GoalListItem } from './components/GoalListItem';
-import { GOALS } from './data';
+import { GoalStatePanel } from './components/GoalStatePanel';
 
-export function GoalsScreen() {
+type GoalsScreenProps = {
+  repository: GoalRepository | null;
+};
+
+export function GoalsScreen({ repository }: GoalsScreenProps) {
+  const {
+    clearMutationError,
+    createGoal,
+    deleteGoal,
+    goals,
+    isLoading,
+    loadError,
+    mutationError,
+    pendingMutation,
+    retry,
+    updateGoal,
+  } = useGoals(repository);
+  const [editingGoal, setEditingGoal] = useState<Goal | null | undefined>(undefined);
+  const isMutating = pendingMutation !== null;
+  const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
+
+  const openCreateForm = () => {
+    if (isMutating || !repository) return;
+    clearMutationError();
+    setEditingGoal(null);
+  };
+
+  const openEditForm = (goal: Goal) => {
+    if (isMutating) return;
+    clearMutationError();
+    setEditingGoal(goal);
+  };
+
+  const saveGoal = async (input: CreateGoalInput): Promise<boolean> => {
+    const saved = editingGoal ? await updateGoal(editingGoal.id, input) : await createGoal(input);
+
+    if (saved) setEditingGoal(undefined);
+    return saved;
+  };
+
+  const confirmDelete = (goal: Goal) => {
+    if (isMutating) return;
+
+    Alert.alert(
+      '目標を削除しますか？',
+      `「${goal.title}」を削除します。この操作は取り消せません。`,
+      [
+        { style: 'cancel', text: 'キャンセル' },
+        {
+          onPress: () => void deleteGoal(goal.id),
+          style: 'destructive',
+          text: '削除',
+        },
+      ],
+    );
+  };
+
   return (
     <AppScreen testID="goals-screen">
       <ScreenHeader subtitle="目指す状態と、いまの進捗をまとめて確認します。" title="目標" />
 
-      <View style={styles.list}>
-        {GOALS.map((goal, index) => (
-          <GoalListItem goal={goal} isLast={index === GOALS.length - 1} key={goal.id} />
-        ))}
-      </View>
+      {isLoading ? (
+        <GoalStatePanel
+          isLoading
+          message="Supabaseから目標を取得しています。"
+          testID="goals-loading-state"
+          title="読み込み中"
+        />
+      ) : loadError ? (
+        <GoalStatePanel
+          actionLabel={repository ? '再読み込み' : undefined}
+          message={loadError}
+          onPressAction={repository ? retry : undefined}
+          testID="goals-error-state"
+          title={repository ? '目標を読み込めませんでした' : 'ログインが必要です'}
+        />
+      ) : goals.length === 0 ? (
+        <GoalStatePanel
+          message="最初の目標を登録すると、ここで進捗を確認できます。"
+          testID="goals-empty-state"
+          title="まだ目標がありません"
+        />
+      ) : (
+        <View style={styles.list}>
+          {goals.map((goal, index) => (
+            <GoalListItem
+              disabled={isMutating}
+              goal={toGoalListItemModel(goal)}
+              isDeleting={pendingMutation === `delete:${goal.id}`}
+              isLast={index === goals.length - 1}
+              key={goal.id}
+              onDelete={() => confirmDelete(goal)}
+              onEdit={() => openEditForm(goal)}
+            />
+          ))}
+        </View>
+      )}
 
-      <ActionButton label="＋ 新しい目標" style={styles.addButton} variant="secondary" />
+      {mutationError && editingGoal === undefined ? (
+        <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}>
+          {mutationError}
+        </Text>
+      ) : null}
+
+      {repository && !isLoading ? (
+        <ActionButton
+          accessibilityLabel="新しい目標を作成する"
+          disabled={isMutating}
+          label="＋ 新しい目標"
+          onPress={openCreateForm}
+          style={styles.addButton}
+          variant="secondary"
+        />
+      ) : null}
+
+      {editingGoal !== undefined ? (
+        <GoalFormModal
+          errorMessage={mutationError}
+          goal={editingGoal}
+          isSubmitting={isSaving}
+          onClose={() => setEditingGoal(undefined)}
+          onSubmit={saveGoal}
+        />
+      ) : null}
     </AppScreen>
   );
 }
@@ -35,5 +152,14 @@ const styles = StyleSheet.create({
   },
   addButton: {
     marginTop: spacing.lg,
+  },
+  error: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.warningSoft,
+    color: colors.warning,
+    fontSize: 13,
+    lineHeight: 19,
   },
 });
