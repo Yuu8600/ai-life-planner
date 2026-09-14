@@ -1,20 +1,12 @@
-export type TimelineItemKind = 'calendar' | 'planned';
-export type TimelineItemStatus = 'completed' | 'fixed' | 'scheduled';
+export type TimelineItemStatus = 'completed' | 'scheduled' | 'skipped';
 
 export type TimelineItem = {
   end: string;
+  goalTitle?: string | null;
   id: string;
-  kind: TimelineItemKind;
   start: string;
   status: TimelineItemStatus;
   statusLabel: string;
+  taskTitle?: string | null;
   title: string;
-};
-
-export type TodayPlan = {
-  completedActions: number;
-  dateLabel: string;
-  greeting: string;
-  summary: string;
-  totalActions: number;
 };

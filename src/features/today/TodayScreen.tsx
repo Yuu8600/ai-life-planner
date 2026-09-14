@@ -6,16 +6,24 @@ import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { colors, radius, spacing } from '@/shared/theme';
 
-import { TODAY_PLAN, TODAY_TIMELINE } from './data';
+import { formatTodayDateLabel, toTimelineItems } from './presentation';
+import type { TodayRepository } from './repositories/TodayRepository';
+import { useToday } from './useToday';
 import { PlanSummary } from './components/PlanSummary';
 import { Timeline } from './components/Timeline';
+import { TodayStatePanel } from './components/TodayStatePanel';
 
 type TodayScreenProps = {
   onPressAi: () => void;
   onPressSettings: () => void;
+  repository: TodayRepository | null;
 };
 
-export function TodayScreen({ onPressAi, onPressSettings }: TodayScreenProps) {
+export function TodayScreen({ onPressAi, onPressSettings, repository }: TodayScreenProps) {
+  const { isLoading, loadError, retry, today } = useToday(repository);
+  const timelineItems = today ? toTimelineItems(today) : [];
+  const completedActions = today?.actions.filter((action) => action.status === 'completed').length;
+
   return (
     <AppScreen testID="today-screen">
       <ScreenHeader
@@ -30,19 +38,47 @@ export function TodayScreen({ onPressAi, onPressSettings }: TodayScreenProps) {
             <Text style={styles.settingsIcon}>⚙</Text>
           </Pressable>
         }
-        eyebrow={TODAY_PLAN.dateLabel}
+        eyebrow={today ? formatTodayDateLabel(today.localDate) : undefined}
         subtitle="今日も、使える時間から始めましょう。"
-        title={TODAY_PLAN.greeting}
+        title={today?.greeting ?? '今日の予定'}
       />
 
-      <PlanSummary
-        completedActions={TODAY_PLAN.completedActions}
-        summary={TODAY_PLAN.summary}
-        totalActions={TODAY_PLAN.totalActions}
-      />
+      {isLoading ? (
+        <TodayStatePanel
+          isLoading
+          message="Supabaseから今日の予定を取得しています。"
+          testID="today-loading-state"
+          title="読み込み中"
+        />
+      ) : loadError ? (
+        <TodayStatePanel
+          actionLabel={repository ? '再読み込み' : undefined}
+          message={loadError}
+          onPressAction={repository ? retry : undefined}
+          testID="today-error-state"
+          title={repository ? '今日の予定を読み込めませんでした' : 'ログインが必要です'}
+        />
+      ) : today && today.actions.length === 0 ? (
+        <>
+          <SectionHeader detail="実行予定のAction" title="今日のタイムライン" />
+          <TodayStatePanel
+            message="今日実行する予定はまだありません。"
+            testID="today-empty-state"
+            title="今日の予定はありません"
+          />
+        </>
+      ) : today ? (
+        <>
+          <PlanSummary
+            completedActions={completedActions ?? 0}
+            summary={today.summary ?? '今日の実行予定を確認しましょう。'}
+            totalActions={today.actions.length}
+          />
 
-      <SectionHeader detail="固定予定とAIプラン" title="今日のタイムライン" />
-      <Timeline items={TODAY_TIMELINE} />
+          <SectionHeader detail="実行予定のAction" title="今日のタイムライン" />
+          <Timeline items={timelineItems} />
+        </>
+      ) : null}
 
       <ActionButton
         accessibilityLabel="AIに今日の計画を相談する"

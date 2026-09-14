@@ -13,16 +13,18 @@ export function Timeline({ items }: TimelineProps) {
   return (
     <View style={styles.list}>
       {items.map((item, index) => {
-        const isCalendar = item.kind === 'calendar';
-
         return (
           <View
             accessibilityLabel={[
               item.start + 'から' + item.end,
               item.title,
-              isCalendar ? 'カレンダー予定' : 'AIプラン',
+              '予定アクション',
+              item.taskTitle ? 'タスク ' + item.taskTitle : null,
+              item.goalTitle ? 'Goal ' + item.goalTitle : null,
               item.statusLabel,
-            ].join('、')}
+            ]
+              .filter(Boolean)
+              .join('、')}
             key={item.id}
             style={[styles.row, index === items.length - 1 ? styles.lastRow : null]}
           >
@@ -31,18 +33,24 @@ export function Timeline({ items }: TimelineProps) {
               <Text style={styles.endTime}>{item.end}</Text>
             </View>
             <View style={styles.rail}>
-              <View style={[styles.dot, isCalendar ? styles.calendarDot : styles.plannedDot]} />
+              <View style={[styles.dot, styles.plannedDot]} />
               {index < items.length - 1 ? <View style={styles.line} /> : null}
             </View>
             <View style={styles.details}>
               <Text style={styles.title}>{item.title}</Text>
+              {item.taskTitle ? <Text style={styles.relation}>Task: {item.taskTitle}</Text> : null}
+              {item.goalTitle ? <Text style={styles.relation}>Goal: {item.goalTitle}</Text> : null}
               <View style={styles.meta}>
-                <Text style={styles.source}>
-                  {isCalendar ? 'Calendar Event' : 'AI Planned Action'}
-                </Text>
+                <Text style={styles.source}>予定アクション</Text>
                 <Badge
                   label={item.statusLabel}
-                  tone={item.status === 'completed' ? 'accent' : 'neutral'}
+                  tone={
+                    item.status === 'completed'
+                      ? 'accent'
+                      : item.status === 'skipped'
+                        ? 'warning'
+                        : 'neutral'
+                  }
                 />
               </View>
             </View>
@@ -91,9 +99,6 @@ const styles = StyleSheet.create({
     marginTop: 17,
     borderRadius: 5,
   },
-  calendarDot: {
-    backgroundColor: colors.calendar,
-  },
   plannedDot: {
     backgroundColor: colors.accent,
   },
@@ -113,6 +118,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     fontWeight: '700',
+  },
+  relation: {
+    marginTop: spacing.xs,
+    color: colors.textMuted,
+    fontSize: 13,
   },
   meta: {
     flexDirection: 'row',

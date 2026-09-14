@@ -46,6 +46,7 @@
     "supabase:types:linked": "node scripts/generate-database-types.mjs --linked",
     "supabase:types:local": "node scripts/generate-database-types.mjs --local",
     "supabase:verify:linked": "supabase db query --linked --file supabase/tests/remote/milestone_2a_verification.sql",
+    "supabase:verify:linked:2b4": "supabase db query --linked --file supabase/tests/remote/milestone_2b4_verification.sql",
     "test": "jest --watchAll",
     "test:ci": "jest --ci --runInBand",
     "typecheck": "tsc --noEmit"

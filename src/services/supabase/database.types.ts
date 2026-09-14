@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_plans: {
+        Row: {
+          created_at: string
+          id: string
+          plan_date: string
+          summary: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan_date: string
+          summary?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan_date?: string
+          summary?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_plans_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           created_at: string
@@ -60,6 +95,70 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "goals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planned_actions: {
+        Row: {
+          created_at: string
+          daily_plan_id: string
+          end_at: string
+          id: string
+          reason: string | null
+          start_at: string
+          status: string
+          task_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_plan_id: string
+          end_at: string
+          id?: string
+          reason?: string | null
+          start_at: string
+          status?: string
+          task_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_plan_id?: string
+          end_at?: string
+          id?: string
+          reason?: string | null
+          start_at?: string
+          status?: string
+          task_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planned_actions_daily_plan_owner_fkey"
+            columns: ["daily_plan_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "daily_plans"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "planned_actions_task_owner_fkey"
+            columns: ["task_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "planned_actions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

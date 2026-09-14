@@ -5,9 +5,10 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 2B-3 (Tasks CRUD)** です。Email + Password認証済みユーザーごとに、Goalsと
-Tasksの作成・取得・更新・削除をSupabaseへ接続しています。Today、Calendar、AI画面は引き続き
-ローカルダミーデータを使用し、端末カレンダーとOpenAIとの実通信もまだ実装していません。
+現在は **Milestone 2B-4 (Today実データ化)** まで完了しています。Goals / Tasks CRUDに加え、
+Today画面が`planned_actions`を読み込む構成で、remote migration、Database型生成、RLS検証まで
+完了しています。CalendarとAI画面は引き続き静的表示で、端末カレンダーとOpenAIとの実通信も
+まだ実装していません。
 
 ## 技術構成
 
@@ -81,6 +82,7 @@ src/
     └── types/             # 機能横断で共有する型
 supabase/
 ├── config.toml            # Supabase CLIのローカル設定
+├── fixtures/development/  # 明示実行する開発確認用SQL（自動seed対象外）
 ├── migrations/            # Git管理するDB schema変更
 ├── tests/remote/          # linked remoteで実行するtransactional検証
 └── seed.sql               # ローカル開発用seed（現在は空）
@@ -108,8 +110,8 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
 `.env`はGit管理対象外です。未設定・不正なURLの場合、値そのものをログへ出さず、Auth画面に
-接続設定エラーを表示します。認証とGoals / Tasks CRUDを利用するには、有効なSupabase設定と
-ログインが必要です。
+接続設定エラーを表示します。認証、Goals / Tasks CRUD、Todayの実データ表示を利用するには、
+有効なSupabase設定とログインが必要です。
 
 `EXPO_PUBLIC_` で始まる値はアプリへ埋め込まれるため秘密情報には使えません。
 `OPENAI_API_KEY` は将来もモバイルアプリではなく、信頼できるサーバーまたはSupabase Edge
@@ -149,7 +151,9 @@ DB schemaの正本は`supabase/migrations/`です。remote DashboardのTable Edi
 npm run supabase:migration:new -- add_example_column
 npx supabase login
 npx supabase link --project-ref <project-ref>
+npx supabase db push --dry-run
 npm run supabase:db:push
+npm run supabase:types:linked
 npm run supabase:verify:linked
 ```
 
@@ -179,6 +183,24 @@ repositoryが設定し、読み取り・更新・削除も明示的な`user_id`�
 自身のGoalへ関連付けられます。Goalを削除した場合、DBの複合外部キーによりTaskは残り、
 `goal_id`だけが`NULL`になります。
 
+## Today（Milestone 2B-4）
+
+Todayタブはログイン中ユーザーの`public.profiles.timezone`を取得し、そのローカル日の00:00以上・
+翌日00:00未満をUTCの半開区間へ変換して、`planned_actions.start_at`で絞り込みます。
+`tasks.deadline`は使用しません。無効なtimezoneは暗黙に端末timezoneへ置き換えず、安全な日本語
+エラーとして表示します。
+
+Action自身が`title`を保持するため、関連Taskの削除で`task_id`が`NULL`になっても予定内容は残り
+ます。Taskが存在する場合はTask名と、そのTaskに紐づくGoal名も表示します。Calendar Eventは
+端末カレンダー連携のMilestoneまでTodayへ表示しません。
+
+AI計画生成を実装する前の手動確認には、
+`supabase/fixtures/development/create_today_planned_action.sql`を使用できます。このSQLは自動seed
+対象外で、UUID未置換時は書き込み前に停止します。remote migration適用後、開発用Supabaseの
+SQL Editorへ内容をコピーし、先頭の`fixture_user_id`だけを確認対象の`public.profiles.id`へ
+置き換えて実行してください。既存の自分のTaskがあれば関連付け、なければ`task_id = NULL`で
+当日18:00〜18:30のActionを冪等に作成します。
+
 ## Database型生成
 
 生成型は`src/services/supabase/database.types.ts`へ出力し、schema変更と一緒に更新します。
@@ -199,9 +221,20 @@ linked remoteのschema、grants、RLS、所有者別CRUD、複合FKの動作は�
 npm run supabase:verify:linked
 ```
 
+Milestone 2B-4 migration適用後は、型を再生成してから追加検証も実行します。
+
+```bash
+npm run supabase:types:linked
+npm run supabase:verify:linked:2b4
+```
+
+TodayのSupabase adapterは生成済みDatabase型から`daily_plans`、`planned_actions`、`tasks`、
+`goals`のRow型を参照します。Supabase clientは同じ生成型のInsert / Update型も使用するため、
+schema変更後は型再生成とtypecheckを必ずセットで実行します。
+
 ## 現在のスコープ
 
-Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2で用意したもの:
+Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4で用意したもの:
 
 - Expo + React Native + TypeScriptの初期構成
 - Expo Routerと5つのBottom Tab
@@ -210,7 +243,7 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2で用意したもの:
 - 機能単位のディレクトリ構成
 - 環境変数テンプレートとGit除外設定
 - 要件定義書のバージョン管理用配置
-- Today / Calendar / AI / Settingsの静的画面とGoals / Tasks CRUD画面
+- Supabase実データのToday画面、Calendar / AI / Settingsの静的画面、Goals / Tasks CRUD画面
 - 未接続機能のローカルダミーデータと機能単位のUIコンポーネント
 - Jest / React Native Testing Libraryによるタブ構成とToday画面のテスト
 - Supabase clientとSQLiteベースの認証セッション永続化設定
@@ -227,11 +260,13 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2で用意したもの:
 - 生成Database型を使ったSupabase TaskRepository実装
 - ログイン中ユーザーのTask一覧・作成・更新・削除と任意のGoal関連付け
 - Task入力validation、Loading / Empty / Error状態、二重送信防止
+- daily_plans / planned_actionsの新規migration、複合FK、制約、RLS、検証SQL
+- profile timezone基準のToday RepositoryとLoading / Empty / Error / Retry状態
+- TodayのCalendarダミー削除とTask / Goal情報を含むAction表示
 - 開発ガイド
 
 未実装のもの:
 
-- Today画面の実データ接続
 - 確認メールからアプリへ戻るDeep Link、Password reset、OAuth
 - 端末カレンダー権限・予定取得・空き時間算出
 - OpenAI API、Planner schema、計画生成・再計画
