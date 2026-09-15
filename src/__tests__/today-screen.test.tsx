@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { TodayScreen } from '@/features/today/TodayScreen';
 import type {
@@ -152,5 +152,44 @@ describe('TodayScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: '設定を開く' }));
     expect(onPressAi).toHaveBeenCalledTimes(1);
     expect(onPressSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('reloads profile timezone and Today data when the screen is focused again', async () => {
+    const changedTimezoneToday = {
+      ...emptyToday,
+      localDate: '2026-09-10',
+      timezone: 'America/New_York',
+    };
+    const getToday = jest
+      .fn<ReturnType<TodayRepository['getToday']>, Parameters<TodayRepository['getToday']>>()
+      .mockResolvedValueOnce(emptyToday)
+      .mockResolvedValueOnce(changedTimezoneToday);
+    const repository = createRepository({ getToday });
+    const screen = await render(
+      <TodayScreen
+        onPressAi={jest.fn()}
+        onPressSettings={jest.fn()}
+        refreshToken={0}
+        repository={repository}
+      />,
+    );
+
+    expect(await screen.findByText('2026年9月11日 金曜日')).toBeTruthy();
+
+    await act(async () => {
+      screen.rerender(
+        <TodayScreen
+          onPressAi={jest.fn()}
+          onPressSettings={jest.fn()}
+          refreshToken={1}
+          repository={repository}
+        />,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(getToday).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('2026年9月10日 木曜日')).toBeTruthy();
   });
 });

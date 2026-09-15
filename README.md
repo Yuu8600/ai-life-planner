@@ -5,10 +5,9 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 2B-4 (Today実データ化)** まで完了しています。Goals / Tasks CRUDに加え、
-Today画面が`planned_actions`を読み込む構成で、remote migration、Database型生成、RLS検証まで
-完了しています。CalendarとAI画面は引き続き静的表示で、端末カレンダーとOpenAIとの実通信も
-まだ実装していません。
+現在は **Milestone 3A (Settings ↔ profiles)** まで完了しています。Goals / Tasks CRUDとTodayの
+`planned_actions`表示に加え、Settingsからプロフィールの計画設定を取得・更新できます。
+CalendarとAI画面は引き続き静的表示で、端末カレンダーとOpenAIとの実通信はまだ実装していません。
 
 ## 技術構成
 
@@ -72,7 +71,7 @@ src/
 │   ├── tasks/             # Taskの状態管理、validation、CRUD UI、repository契約
 │   ├── calendar/          # 日表示の静的タイムライン
 │   ├── ai-chat/           # 静的なAI相談画面
-│   ├── settings/          # 計画の前提設定画面
+│   ├── settings/          # Profile計画設定の状態管理、validation、編集UI、repository契約
 │   └── planner/           # 後続Milestone向けの計画ドメイン
 ├── services/
 │   └── supabase/          # client、Auth、生成DB型、Supabase repository実装
@@ -110,8 +109,8 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
 `.env`はGit管理対象外です。未設定・不正なURLの場合、値そのものをログへ出さず、Auth画面に
-接続設定エラーを表示します。認証、Goals / Tasks CRUD、Todayの実データ表示を利用するには、
-有効なSupabase設定とログインが必要です。
+接続設定エラーを表示します。認証、Goals / Tasks CRUD、Todayの実データ表示、SettingsのProfile編集を
+利用するには、有効なSupabase設定とログインが必要です。
 
 `EXPO_PUBLIC_` で始まる値はアプリへ埋め込まれるため秘密情報には使えません。
 `OPENAI_API_KEY` は将来もモバイルアプリではなく、信頼できるサーバーまたはSupabase Edge
@@ -201,6 +200,17 @@ SQL Editorへ内容をコピーし、先頭の`fixture_user_id`だけを確認�
 置き換えて実行してください。既存の自分のTaskがあれば関連付け、なければ`task_id = NULL`で
 当日18:00〜18:30のActionを冪等に作成します。
 
+## Settings（Milestone 3A）
+
+Settings画面はログイン中ユーザーの`public.profiles`から`timezone`、`planning_start`、
+`planning_end`、`minimum_free_minutes`を読み込み、この4項目だけを更新します。PostgreSQLの
+`time`値は取得時に`HH:mm`へ変換し、保存時は秒を`:00`に正規化します。
+
+timezoneは標準の`Intl.DateTimeFormat`でIANA timezoneとして検証します。活動時間は同日内の
+`planning_start < planning_end`、最小空き時間はPostgreSQL `integer`の範囲に収まる1以上の整数が
+必要です。保存結果はSupabaseから返されたrowで画面へ同期します。Settingsを閉じてTodayへ戻ると
+Todayを再取得するため、変更後のtimezoneがローカル日付判定に使われます。
+
 ## Database型生成
 
 生成型は`src/services/supabase/database.types.ts`へ出力し、schema変更と一緒に更新します。
@@ -234,7 +244,7 @@ schema変更後は型再生成とtypecheckを必ずセットで実行します�
 
 ## 現在のスコープ
 
-Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4で用意したもの:
+Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3Aで用意したもの:
 
 - Expo + React Native + TypeScriptの初期構成
 - Expo Routerと5つのBottom Tab
@@ -243,7 +253,7 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4で用意したもの:
 - 機能単位のディレクトリ構成
 - 環境変数テンプレートとGit除外設定
 - 要件定義書のバージョン管理用配置
-- Supabase実データのToday画面、Calendar / AI / Settingsの静的画面、Goals / Tasks CRUD画面
+- Supabase実データのToday画面とSettings編集画面、Calendar / AIの静的画面、Goals / Tasks CRUD画面
 - 未接続機能のローカルダミーデータと機能単位のUIコンポーネント
 - Jest / React Native Testing Libraryによるタブ構成とToday画面のテスト
 - Supabase clientとSQLiteベースの認証セッション永続化設定
@@ -263,6 +273,8 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4で用意したもの:
 - daily_plans / planned_actionsの新規migration、複合FK、制約、RLS、検証SQL
 - profile timezone基準のToday RepositoryとLoading / Empty / Error / Retry状態
 - TodayのCalendarダミー削除とTask / Goal情報を含むAction表示
+- Profile計画設定のRepository、Supabase adapter、入力validation、Loading / Error / Save状態
+- Settingsからのtimezone変更後にTodayを再取得するフォーカス更新
 - 開発ガイド
 
 未実装のもの:

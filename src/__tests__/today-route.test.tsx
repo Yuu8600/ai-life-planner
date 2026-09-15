@@ -11,6 +11,7 @@ const mockTodayScreen = jest.fn(({ repository }: { repository: unknown }) => (
 ));
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: jest.fn(),
   useRouter: () => ({ push: mockPush }),
 }));
 

@@ -13,15 +13,6 @@ export type SettingSection = {
 
 export const SETTING_SECTIONS: SettingSection[] = [
   {
-    id: 'daily-rhythm',
-    title: '一日の基本設定',
-    items: [
-      { id: 'start-time', label: '活動開始時間', value: '08:00' },
-      { id: 'end-time', label: '活動終了時間', value: '22:00' },
-      { id: 'minimum-slot', label: '最小空き時間', value: '20分' },
-    ],
-  },
-  {
     id: 'connections',
     title: '計画との連携',
     items: [

@@ -16,11 +16,17 @@ import { TodayStatePanel } from './components/TodayStatePanel';
 type TodayScreenProps = {
   onPressAi: () => void;
   onPressSettings: () => void;
+  refreshToken?: number;
   repository: TodayRepository | null;
 };
 
-export function TodayScreen({ onPressAi, onPressSettings, repository }: TodayScreenProps) {
-  const { isLoading, loadError, retry, today } = useToday(repository);
+export function TodayScreen({
+  onPressAi,
+  onPressSettings,
+  refreshToken = 0,
+  repository,
+}: TodayScreenProps) {
+  const { isLoading, loadError, retry, today } = useToday(repository, refreshToken);
   const timelineItems = today ? toTimelineItems(today) : [];
   const completedActions = today?.actions.filter((action) => action.status === 'completed').length;
 

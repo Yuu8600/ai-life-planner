@@ -7,13 +7,30 @@ import { SectionHeader } from '@/shared/components/SectionHeader';
 import { colors, radius, spacing } from '@/shared/theme';
 
 import { SettingRow } from './components/SettingRow';
+import { PlanningSettingsForm } from './components/PlanningSettingsForm';
+import { SettingsStatePanel } from './components/SettingsStatePanel';
 import { SETTING_SECTIONS } from './data';
+import type { SettingsRepository } from './repositories/SettingsRepository';
+import { usePlanningSettings } from './usePlanningSettings';
 
 type SettingsScreenProps = {
   onPressBack: () => void;
+  repository: SettingsRepository | null;
 };
 
-export function SettingsScreen({ onPressBack }: SettingsScreenProps) {
+export function SettingsScreen({ onPressBack, repository }: SettingsScreenProps) {
+  const {
+    clearSaveFeedback,
+    isLoading,
+    isSaving,
+    loadError,
+    retry,
+    save,
+    saveError,
+    saveSucceeded,
+    settings,
+  } = usePlanningSettings(repository);
+
   return (
     <AppScreen testID="settings-screen">
       <ScreenHeader
@@ -31,6 +48,36 @@ export function SettingsScreen({ onPressBack }: SettingsScreenProps) {
         subtitle="暮らしに合わせて、計画の前提を整えます。"
         title="設定"
       />
+
+      <View style={styles.section}>
+        <SectionHeader title="一日の基本設定" />
+        {isLoading ? (
+          <SettingsStatePanel
+            isLoading
+            message="Supabaseからプロフィール設定を取得しています。"
+            testID="settings-loading-state"
+            title="読み込み中"
+          />
+        ) : loadError ? (
+          <SettingsStatePanel
+            actionLabel={repository ? '再読み込み' : undefined}
+            message={loadError}
+            onPressAction={repository ? retry : undefined}
+            testID="settings-error-state"
+            title={repository ? 'プロフィール設定を読み込めませんでした' : 'ログインが必要です'}
+          />
+        ) : settings ? (
+          <PlanningSettingsForm
+            clearSaveFeedback={clearSaveFeedback}
+            isSaving={isSaving}
+            key={`${settings.timezone}:${settings.planningStart}:${settings.planningEnd}:${settings.minimumFreeMinutes}`}
+            onSubmit={save}
+            saveError={saveError}
+            saveSucceeded={saveSucceeded}
+            settings={settings}
+          />
+        ) : null}
+      </View>
 
       {SETTING_SECTIONS.map((section) => (
         <View key={section.id} style={styles.section}>

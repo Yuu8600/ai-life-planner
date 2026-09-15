@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getTodayErrorMessage } from './errors';
 import type { TodayProjection, TodayRepository } from './repositories/TodayRepository';
 
-export function useToday(repository: TodayRepository | null) {
+export function useToday(repository: TodayRepository | null, refreshToken = 0) {
   const [today, setToday] = useState<TodayProjection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -26,6 +26,13 @@ export function useToday(repository: TodayRepository | null) {
       };
     }
 
+    void Promise.resolve().then(() => {
+      if (isActive) {
+        setIsLoading(true);
+        setLoadError(null);
+      }
+    });
+
     void repository
       .getToday()
       .then((loadedToday) => {
@@ -47,7 +54,7 @@ export function useToday(repository: TodayRepository | null) {
     return () => {
       isActive = false;
     };
-  }, [loadAttempt, repository]);
+  }, [loadAttempt, refreshToken, repository]);
 
   const retry = useCallback(() => {
     if (!repository) return;
