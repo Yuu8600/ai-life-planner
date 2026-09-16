@@ -1,0 +1,199 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import type { SettingsRepository } from '@/features/settings';
+import {
+  addLocalDays,
+  getLocalDate,
+  getUtcDayBounds,
+  resolveTimeZone,
+  type LocalDate,
+} from '@/features/today';
+
+import { CalendarUnavailableError, getCalendarErrorMessage } from './errors';
+import type { CalendarRepository } from './repositories/CalendarRepository';
+import type { CalendarEvent } from './types';
+
+export type CalendarAccessState =
+  'checking' | 'denied' | 'error' | 'granted' | 'unavailable' | 'undetermined';
+
+type UseDeviceCalendarResult = {
+  accessState: CalendarAccessState;
+  calendarCount: number | null;
+  canAskAgain: boolean;
+  events: CalendarEvent[];
+  goToNextDay: () => void;
+  goToPreviousDay: () => void;
+  goToToday: () => void;
+  isLoadingEvents: boolean;
+  isRequestingPermission: boolean;
+  loadError: string | null;
+  requestPermission: () => Promise<void>;
+  retry: () => void;
+  selectedDate: LocalDate | null;
+  timeZone: string | null;
+};
+
+const getCurrentDate = () => new Date();
+
+function isUnavailable(error: unknown): boolean {
+  return error instanceof CalendarUnavailableError;
+}
+
+export function useDeviceCalendar(
+  calendarRepository: CalendarRepository | null,
+  settingsRepository: SettingsRepository | null,
+  refreshToken = 0,
+  now: () => Date = getCurrentDate,
+): UseDeviceCalendarResult {
+  const [accessState, setAccessState] = useState<CalendarAccessState>('checking');
+  const [calendarCount, setCalendarCount] = useState<number | null>(null);
+  const [canAskAgain, setCanAskAgain] = useState(false);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [initializationAttempt, setInitializationAttempt] = useState(0);
+  const [eventLoadAttempt, setEventLoadAttempt] = useState(0);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<LocalDate | null>(null);
+  const [timeZone, setTimeZone] = useState<string | null>(null);
+  const isRequestingRef = useRef(false);
+
+  useEffect(() => {
+    let isActive = true;
+
+    void Promise.resolve().then(() => {
+      if (!isActive) return;
+      setAccessState('checking');
+      setCalendarCount(null);
+      setCanAskAgain(false);
+      setEvents([]);
+      setIsLoadingEvents(false);
+      setLoadError(null);
+      setSelectedDate(null);
+      setTimeZone(null);
+    });
+
+    if (!calendarRepository || !settingsRepository) {
+      void Promise.resolve().then(() => {
+        if (!isActive) return;
+        setAccessState('error');
+        setLoadError('カレンダーを表示するにはログインが必要です。');
+      });
+      return () => {
+        isActive = false;
+      };
+    }
+
+    Promise.all([
+      settingsRepository.getProfilePlanningSettings(),
+      calendarRepository.getPermission(),
+    ])
+      .then(([settings, permission]) => {
+        if (!isActive) return;
+
+        const canonicalTimeZone = resolveTimeZone(settings.timezone);
+        setTimeZone(canonicalTimeZone);
+        setSelectedDate(getLocalDate(now(), canonicalTimeZone));
+        setCanAskAgain(permission.canAskAgain);
+        setAccessState(permission.status);
+      })
+      .catch((error: unknown) => {
+        if (!isActive) return;
+        setLoadError(getCalendarErrorMessage(error));
+        setAccessState(isUnavailable(error) ? 'unavailable' : 'error');
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [calendarRepository, initializationAttempt, now, refreshToken, settingsRepository]);
+
+  useEffect(() => {
+    if (accessState !== 'granted' || !calendarRepository || !selectedDate || !timeZone) {
+      return;
+    }
+
+    let isActive = true;
+    void Promise.resolve().then(() => {
+      if (!isActive) return;
+      setCalendarCount(null);
+      setEvents([]);
+      setIsLoadingEvents(true);
+      setLoadError(null);
+    });
+
+    calendarRepository
+      .listEvents(getUtcDayBounds(selectedDate, timeZone), selectedDate)
+      .then((result) => {
+        if (!isActive) return;
+        setCalendarCount(result.calendarCount);
+        setEvents(result.events);
+      })
+      .catch((error: unknown) => {
+        if (!isActive) return;
+        setLoadError(getCalendarErrorMessage(error));
+        if (isUnavailable(error)) setAccessState('unavailable');
+      })
+      .finally(() => {
+        if (isActive) setIsLoadingEvents(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [accessState, calendarRepository, eventLoadAttempt, selectedDate, timeZone]);
+
+  const requestPermission = useCallback(async () => {
+    if (!calendarRepository || isRequestingRef.current) return;
+
+    isRequestingRef.current = true;
+    setIsRequestingPermission(true);
+    setLoadError(null);
+
+    try {
+      const permission = await calendarRepository.requestPermission();
+      setCanAskAgain(permission.canAskAgain);
+      setAccessState(permission.status);
+    } catch (error) {
+      setLoadError(getCalendarErrorMessage(error));
+      setAccessState(isUnavailable(error) ? 'unavailable' : 'error');
+    } finally {
+      isRequestingRef.current = false;
+      setIsRequestingPermission(false);
+    }
+  }, [calendarRepository]);
+
+  const selectRelativeDay = useCallback((amount: number) => {
+    setSelectedDate((current) => (current ? addLocalDays(current, amount) : current));
+  }, []);
+
+  const goToPreviousDay = useCallback(() => selectRelativeDay(-1), [selectRelativeDay]);
+  const goToNextDay = useCallback(() => selectRelativeDay(1), [selectRelativeDay]);
+  const goToToday = useCallback(() => {
+    if (timeZone) setSelectedDate(getLocalDate(now(), timeZone));
+  }, [now, timeZone]);
+  const retry = useCallback(() => {
+    if (accessState === 'granted') {
+      setEventLoadAttempt((current) => current + 1);
+    } else {
+      setInitializationAttempt((current) => current + 1);
+    }
+  }, [accessState]);
+
+  return {
+    accessState,
+    calendarCount,
+    canAskAgain,
+    events,
+    goToNextDay,
+    goToPreviousDay,
+    goToToday,
+    isLoadingEvents,
+    isRequestingPermission,
+    loadError,
+    requestPermission,
+    retry,
+    selectedDate,
+    timeZone,
+  };
+}

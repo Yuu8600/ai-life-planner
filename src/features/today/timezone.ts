@@ -184,6 +184,19 @@ export function getLocalDate(instant: Date | number | string, timeZone: string):
   return getLocalDateWithFormatter(toDate(instant), formatter);
 }
 
+export function addLocalDays(localDate: string, amount: number): LocalDate {
+  if (!Number.isInteger(amount)) throw new InvalidLocalDateError();
+
+  const parts = parseLocalDate(localDate);
+  const date = new Date(toUtcMidnight(parts) + amount * MILLISECONDS_PER_DAY);
+
+  return toLocalDate({
+    day: date.getUTCDate(),
+    month: date.getUTCMonth() + 1,
+    year: date.getUTCFullYear(),
+  });
+}
+
 export function getUtcDayBounds(localDate: string, timeZone: string): UtcDayBounds {
   const canonicalTimeZone = resolveTimeZone(timeZone);
   const startParts = parseLocalDate(localDate);

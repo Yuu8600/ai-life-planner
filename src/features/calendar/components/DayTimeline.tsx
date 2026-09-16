@@ -2,84 +2,50 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/shared/theme';
 
-import type { CalendarItem } from '../types';
-
-const START_HOUR = 8;
-const END_HOUR = 19;
-const HOUR_HEIGHT = 64;
-const TIME_COLUMN_WIDTH = 52;
-const TIMELINE_HEIGHT = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
+import type { CalendarEventViewModel } from '../presentation';
 
 type DayTimelineProps = {
-  items: CalendarItem[];
+  events: CalendarEventViewModel[];
 };
 
-function getItemLayout(item: CalendarItem) {
-  const dayStartMinutes = START_HOUR * 60;
-  const top = ((item.startMinutes - dayStartMinutes) / 60) * HOUR_HEIGHT;
-  const durationHeight = ((item.endMinutes - item.startMinutes) / 60) * HOUR_HEIGHT;
-
-  return {
-    height: Math.max(durationHeight, 34),
-    top,
-  };
-}
-
-export function DayTimeline({ items }: DayTimelineProps) {
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => {
-    return START_HOUR + index;
-  });
-
+export function DayTimeline({ events }: DayTimelineProps) {
   return (
     <View style={styles.container}>
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, styles.calendarDot]} />
-          <Text style={styles.legendLabel}>Calendar Event</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, styles.plannedDot]} />
-          <Text style={styles.legendLabel}>AI Planned Action</Text>
+          <Text style={styles.legendLabel}>端末カレンダー（読み取り専用）</Text>
         </View>
       </View>
 
-      <View style={styles.timeline}>
-        {hours.map((hour, index) => (
-          <View key={hour} style={[styles.hourRow, { top: index * HOUR_HEIGHT }]}>
-            <Text style={styles.hourLabel}>{String(hour).padStart(2, '0')}:00</Text>
-            <View style={styles.hourLine} />
+      <View style={styles.list}>
+        {events.map((event) => (
+          <View accessibilityLabel={event.accessibilityLabel} key={event.key} style={styles.event}>
+            <View style={styles.timeColumn}>
+              <Text style={styles.eventTime}>{event.timeLabel}</Text>
+              <Text style={styles.availability}>{event.availabilityLabel}</Text>
+            </View>
+            <View style={styles.eventBody}>
+              <Text
+                numberOfLines={2}
+                style={[styles.eventTitle, event.isCanceled ? styles.canceled : null]}
+              >
+                {event.title}
+              </Text>
+              {event.calendarTitle ? (
+                <Text numberOfLines={1} style={styles.metadata}>
+                  {event.calendarTitle}
+                </Text>
+              ) : null}
+              {event.location ? (
+                <Text numberOfLines={1} style={styles.metadata}>
+                  {event.location}
+                </Text>
+              ) : null}
+              {event.isCanceled ? <Text style={styles.canceledLabel}>キャンセル済み</Text> : null}
+            </View>
           </View>
         ))}
-
-        <View style={styles.eventsColumn}>
-          {items.map((item) => {
-            const isCalendar = item.kind === 'calendar';
-
-            return (
-              <View
-                accessibilityLabel={`${item.startTime}から${item.endTime}、${item.title}、${
-                  isCalendar ? 'カレンダー予定' : 'AIプラン'
-                }`}
-                key={item.id}
-                style={[
-                  styles.event,
-                  isCalendar ? styles.calendarEvent : styles.plannedEvent,
-                  getItemLayout(item),
-                ]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[styles.eventTitle, isCalendar ? styles.calendarTitle : null]}
-                >
-                  {item.title}
-                </Text>
-                <Text style={[styles.eventTime, isCalendar ? styles.calendarTime : null]}>
-                  {item.startTime}–{item.endTime}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
       </View>
     </View>
   );
@@ -108,75 +74,56 @@ const styles = StyleSheet.create({
   calendarDot: {
     backgroundColor: colors.calendar,
   },
-  plannedDot: {
-    backgroundColor: colors.accent,
-  },
   legendLabel: {
     color: colors.textMuted,
     fontSize: 12,
   },
-  timeline: {
-    height: TIMELINE_HEIGHT + 20,
-  },
-  hourRow: {
-    position: 'absolute',
-    right: 0,
-    left: 0,
-    height: HOUR_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  hourLabel: {
-    width: TIME_COLUMN_WIDTH,
-    marginTop: -7,
-    color: colors.textSubtle,
-    fontSize: 11,
-  },
-  hourLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-  },
-  eventsColumn: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: TIME_COLUMN_WIDTH,
+  list: {
+    gap: spacing.sm,
   },
   event: {
-    position: 'absolute',
-    right: 0,
-    left: spacing.sm,
-    minHeight: 34,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
+    minHeight: 74,
+    flexDirection: 'row',
+    padding: spacing.md,
     borderLeftWidth: 3,
-    borderRadius: radius.sm,
-  },
-  calendarEvent: {
     borderLeftColor: colors.calendar,
+    borderRadius: radius.md,
     backgroundColor: colors.calendarSoft,
   },
-  plannedEvent: {
-    borderLeftColor: colors.accent,
-    backgroundColor: colors.accentSoft,
+  timeColumn: {
+    width: 104,
+    paddingRight: spacing.sm,
+  },
+  eventBody: {
+    flex: 1,
   },
   eventTitle: {
-    color: colors.accent,
+    color: colors.text,
     fontSize: 13,
     fontWeight: '700',
   },
-  calendarTitle: {
-    color: colors.text,
-  },
   eventTime: {
-    marginTop: 2,
-    color: colors.accent,
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  availability: {
+    marginTop: spacing.xs,
+    color: colors.textSubtle,
+    fontSize: 10,
+  },
+  metadata: {
+    marginTop: spacing.xs,
+    color: colors.textMuted,
     fontSize: 11,
   },
-  calendarTime: {
-    color: colors.textMuted,
+  canceled: {
+    textDecorationLine: 'line-through',
+  },
+  canceledLabel: {
+    marginTop: spacing.xs,
+    color: colors.warning,
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

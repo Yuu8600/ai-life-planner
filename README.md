@@ -5,9 +5,9 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 3A (Settings ↔ profiles)** まで完了しています。Goals / Tasks CRUDとTodayの
-`planned_actions`表示に加え、Settingsからプロフィールの計画設定を取得・更新できます。
-CalendarとAI画面は引き続き静的表示で、端末カレンダーとOpenAIとの実通信はまだ実装していません。
+現在は **Milestone 3B (Device Calendar Integration)** まで実装済みです。Goals / Tasks CRUD、
+Todayの`planned_actions`表示、Settingsのプロフィール計画設定に加え、Calendarタブで端末の予定を
+読み取り専用表示できます。空き時間計算とAI画面のOpenAI通信はまだ実装していません。
 
 ## 技術構成
 
@@ -16,33 +16,37 @@ CalendarとAI画面は引き続き静的表示で、端末カレンダーとOpen
 - Expo Router
 - Supabase JS / Supabase CLI
 - Expo SQLite（認証セッション保存）
+- Expo Calendar（端末予定の読み取り）
+- Expo development client
 - ESLint（Expo flat config）
 - Prettier
 - Jest / React Native Testing Library
 
-将来の採用予定は`expo-calendar`とOpenAI APIです。これらのSDKは必要になるMilestoneまで
-追加しません。
+OpenAI APIは、対応するMilestoneまで追加しません。
 
 ## セットアップ
 
-前提としてNode.js `^22.13.0 || >=24` とnpm、および実行先に応じてExpo Goまたは
-Android/iOSの開発環境が必要です。このNode.js範囲はReact Native Testing Library 14の要件に
-合わせています。
+前提としてNode.js `^22.13.0 || >=24` とnpm、およびAndroid/iOSの開発環境が必要です。
+このNode.js範囲はReact Native Testing Library 14の要件に合わせています。Calendar連携は
+Expo Goでは利用できないため、development buildを使用します。
 
 ```bash
 npm install
 npm run typecheck
-npm start
+npm run android:dev
 ```
 
-起動後はExpo CLIの案内に従うか、次のコマンドで対象を指定します。
+`android:dev`はCNGでAndroid native projectを生成し、接続中のEmulatorへdevelopment buildを
+インストールして起動します。native依存や`app.json`を変更していない2回目以降は、次でMetroを
+起動してインストール済みbuildへ接続できます。
 
 ```bash
-npm run android
-npm run ios
+npm run start:dev
 ```
 
-`ios` のローカルシミュレーター実行にはmacOSが必要です。
+通常の`npm start` / `npm run android`も残しており、インストール済みdevelopment buildへの接続に
+利用できます。ただしExpo GoではCalendar APIを確認できません。`ios`のローカルシミュレーター
+実行にはmacOSが必要です。
 
 ## 品質チェック
 
@@ -69,11 +73,12 @@ src/
 │   ├── today/             # 今日の計画サマリーとタイムライン
 │   ├── goals/             # Goalの状態管理、validation、CRUD UI、repository契約
 │   ├── tasks/             # Taskの状態管理、validation、CRUD UI、repository契約
-│   ├── calendar/          # 日表示の静的タイムライン
+│   ├── calendar/          # 端末Calendarの契約、正規化、権限・日付状態、読み取り専用UI
 │   ├── ai-chat/           # 静的なAI相談画面
 │   ├── settings/          # Profile計画設定の状態管理、validation、編集UI、repository契約
 │   └── planner/           # 後続Milestone向けの計画ドメイン
 ├── services/
+│   ├── calendar/          # expo-calendar adapter
 │   └── supabase/          # client、Auth、生成DB型、Supabase repository実装
 └── shared/
     ├── components/        # 機能に依存しない共通UI
@@ -211,6 +216,25 @@ timezoneは標準の`Intl.DateTimeFormat`でIANA timezoneとして検証しま�
 必要です。保存結果はSupabaseから返されたrowで画面へ同期します。Settingsを閉じてTodayへ戻ると
 Todayを再取得するため、変更後のtimezoneがローカル日付判定に使われます。
 
+## Device Calendar（Milestone 3B）
+
+Calendarタブは、ログイン中ユーザーの`profiles.timezone`を3AのSettings repositoryから取得し、
+そのtimezoneにおける選択日のUTC境界を使って端末予定を読み取ります。日付は前日・今日・翌日へ
+移動できます。権限要求はCalendarタブのボタンを押したときだけ行い、拒否、API利用不可、
+calendar 0件、event 0件、取得失敗をそれぞれ画面で扱います。
+
+`CalendarRepository`の実装だけが`expo-calendar`へ依存します。SDK 57向けの新しい安定APIである
+`getCalendarPermissions`、`requestCalendarPermissions`、`getCalendars`、`listEvents`を使用し、
+deprecatedな`*Async` legacy APIは使用しません。イベントはISO 8601のstart/end instant、
+`allDay`、`availability`、event timezone、calendar情報へ正規化します。platformが期間内へ展開した
+繰り返し予定を受け取り、アプリ側でも`eventStart < dayEnd && eventEnd > dayStart`の半開区間で
+絞り込みます。不正な日時のeventは正規化境界で個別に除外します。
+
+連携は読み取り専用で、イベントの作成・更新・削除APIは呼びません。端末予定をSupabaseへ複製せず、
+新しいtableやmigrationも追加していません。Androidでは`expo-calendar` 57.0.3のnative実装とconfig
+pluginが`READ_CALENDAR`と`WRITE_CALENDAR`の両方を要求しますが、アプリの処理自体は読み取りだけです。
+app configにはiOSのカレンダー利用目的文を設定し、使用しないRemindersの目的文は無効化しています。
+
 ## Database型生成
 
 生成型は`src/services/supabase/database.types.ts`へ出力し、schema変更と一緒に更新します。
@@ -244,7 +268,7 @@ schema変更後は型再生成とtypecheckを必ずセットで実行します�
 
 ## 現在のスコープ
 
-Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3Aで用意したもの:
+Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3A / 3Bで用意したもの:
 
 - Expo + React Native + TypeScriptの初期構成
 - Expo Routerと5つのBottom Tab
@@ -253,7 +277,7 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3Aで用意したもの
 - 機能単位のディレクトリ構成
 - 環境変数テンプレートとGit除外設定
 - 要件定義書のバージョン管理用配置
-- Supabase実データのToday画面とSettings編集画面、Calendar / AIの静的画面、Goals / Tasks CRUD画面
+- Supabase実データのToday画面とSettings編集画面、端末予定を表示するCalendar画面、静的AI画面、Goals / Tasks CRUD画面
 - 未接続機能のローカルダミーデータと機能単位のUIコンポーネント
 - Jest / React Native Testing Libraryによるタブ構成とToday画面のテスト
 - Supabase clientとSQLiteベースの認証セッション永続化設定
@@ -275,12 +299,16 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3Aで用意したもの
 - TodayのCalendarダミー削除とTask / Goal情報を含むAction表示
 - Profile計画設定のRepository、Supabase adapter、入力validation、Loading / Error / Save状態
 - Settingsからのtimezone変更後にTodayを再取得するフォーカス更新
+- Calendar権限、event calendar一覧、指定日のevent occurrence取得を分離したrepository adapter
+- Expo型に依存しないCalendar Event model、availability保持、半開区間intersection、不正event除外
+- profile timezone基準のCalendar日付移動とLoading / Permission / Empty / Error / Retry状態
+- Expo Go非対応のCalendar APIを確認するdevelopment build導線
 - 開発ガイド
 
 未実装のもの:
 
 - 確認メールからアプリへ戻るDeep Link、Password reset、OAuth
-- 端末カレンダー権限・予定取得・空き時間算出
+- Calendar Eventからの空き時間算出とTodayへの統合
 - OpenAI API、Planner schema、計画生成・再計画
 
 ## 依存バージョンについて

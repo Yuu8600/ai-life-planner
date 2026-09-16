@@ -7,11 +7,12 @@ This repository contains the Japanese-first AI Life Planner mobile app described
 device calendar events, and AI-generated daily plans. Implement only the milestone requested by
 the user; do not bring later-milestone behavior forward.
 
-Milestone 3A connects Settings to the existing `profiles` planning fields through a repository
-contract, in addition to the Goals, Tasks, and Today adapters completed through Milestone 2B-4.
-The existing remote migrations, generated Database types, and transactional RLS verification are
-complete. Calendar and AI remain static; email-confirmation deep links, device-calendar
-permissions, OpenAI calls, and planning logic are intentionally absent.
+Milestone 3B reads device calendar events through a `CalendarRepository`, normalizes them into an
+Expo-independent event model, and displays them in the Calendar tab using the profile timezone.
+Milestone 3A Settings plus the Goals, Tasks, and Today adapters remain complete. The existing remote
+migrations, generated Database types, and transactional RLS verification are complete. Free-time
+calculation, Calendar integration into Today, email-confirmation deep links, OpenAI calls, and AI
+planning logic are intentionally absent.
 
 Treat the versioned requirements file as a project source of truth. Do not silently reformat or
 rewrite it; requirement changes need explicit user authorization and should be versioned.
@@ -20,7 +21,9 @@ rewrite it; requirement changes need explicit user authorization and should be v
 
 - `npm install`: install the locked dependencies.
 - `npm start`: start Expo.
+- `npm run start:dev`: start Metro for an installed development build.
 - `npm run android`: open the Android target.
+- `npm run android:dev`: generate/build the Android development client and run it.
 - `npm run ios`: open the iOS target (requires macOS for a local simulator).
 - `npm run typecheck`: run TypeScript without emitting files.
 - `npm run lint`: run the Expo ESLint configuration.
@@ -45,7 +48,8 @@ rewrite it; requirement changes need explicit user authorization and should be v
   remain independently evolvable.
 - Keep the remaining Milestone 1 fixtures in their feature `data.ts` files; do not hide external
   I/O behind dummy services or make static controls imply that data is persisted. Goals, Tasks,
-  Today, and Settings are the exceptions because their requested Supabase milestones are implemented.
+  Today, Settings, and Calendar are exceptions because their requested integration milestones are
+  implemented.
 - Keep business rules in feature domain/application modules or pure functions, never directly in
   route files or presentational components.
 - Put reusable, feature-neutral UI, configuration, and types in `src/shared`.
@@ -81,8 +85,14 @@ rewrite it; requirement changes need explicit user authorization and should be v
 - Keep Settings UI and state management dependent on `SettingsRepository`. Read and update only
   `timezone`, `planning_start`, `planning_end`, and `minimum_free_minutes`; scope every adapter
   operation to the authenticated profile id and validate inputs before writing.
-- Do not connect Calendar or AI dummy data to external services until their requested milestones.
-- Do not add or call `expo-calendar` or OpenAI until the corresponding milestone.
+- Keep Calendar UI and state management dependent on `CalendarRepository`; only the adapter under
+  `src/services/calendar` may import `expo-calendar`. Keep integration read-only, retain all-day and
+  availability metadata without assigning busy semantics, and never persist device events to
+  Supabase. Use the profile timezone and the public Today date utilities for local-day bounds.
+- Use the stable SDK 57 Calendar API (`getCalendarPermissions`, `requestCalendarPermissions`,
+  `getCalendars`, and `listEvents`), not the deprecated legacy `*Async` methods. Calendar requires a
+  development build; Expo Go is unsupported for this API version.
+- Do not connect AI dummy data to external services or add OpenAI until its requested milestone.
 - Values prefixed with `EXPO_PUBLIC_` are bundled into the client and are not secrets.
 - Never expose `OPENAI_API_KEY`, a Supabase service-role key, or other server credentials to the
   mobile bundle. OpenAI requests must eventually cross a trusted server/Edge Function boundary.

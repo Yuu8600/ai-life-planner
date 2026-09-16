@@ -1,4 +1,5 @@
 import {
+  addLocalDays,
   formatLocalDateJa,
   formatLocalTimeJa,
   getLocalDate,
@@ -35,6 +36,12 @@ describe('Today timezone utilities', () => {
       startAt: '2024-03-10T05:00:00.000Z',
     });
     expect(Date.parse(bounds.endAt) - Date.parse(bounds.startAt)).toBe(23 * 60 * 60 * 1_000);
+  });
+
+  it('navigates local calendar dates independently of daylight-saving duration', () => {
+    expect(addLocalDays('2024-03-10', 1)).toBe('2024-03-11');
+    expect(addLocalDays('2024-03-10', -1)).toBe('2024-03-09');
+    expect(addLocalDays('2024-02-28', 1)).toBe('2024-02-29');
   });
 
   it('formats Japanese local dates and zero-padded times in the profile timezone', () => {
