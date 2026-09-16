@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { SettingsRepository } from '@/features/settings';
+import type { ProfilePlanningSettings, SettingsRepository } from '@/features/settings';
 import {
   addLocalDays,
   getLocalDate,
@@ -27,6 +27,7 @@ type UseDeviceCalendarResult = {
   isLoadingEvents: boolean;
   isRequestingPermission: boolean;
   loadError: string | null;
+  planningSettings: ProfilePlanningSettings | null;
   requestPermission: () => Promise<void>;
   retry: () => void;
   selectedDate: LocalDate | null;
@@ -54,6 +55,7 @@ export function useDeviceCalendar(
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [planningSettings, setPlanningSettings] = useState<ProfilePlanningSettings | null>(null);
   const [selectedDate, setSelectedDate] = useState<LocalDate | null>(null);
   const [timeZone, setTimeZone] = useState<string | null>(null);
   const isRequestingRef = useRef(false);
@@ -69,6 +71,7 @@ export function useDeviceCalendar(
       setEvents([]);
       setIsLoadingEvents(false);
       setLoadError(null);
+      setPlanningSettings(null);
       setSelectedDate(null);
       setTimeZone(null);
     });
@@ -92,6 +95,7 @@ export function useDeviceCalendar(
         if (!isActive) return;
 
         const canonicalTimeZone = resolveTimeZone(settings.timezone);
+        setPlanningSettings({ ...settings, timezone: canonicalTimeZone });
         setTimeZone(canonicalTimeZone);
         setSelectedDate(getLocalDate(now(), canonicalTimeZone));
         setCanAskAgain(permission.canAskAgain);
@@ -191,6 +195,7 @@ export function useDeviceCalendar(
     isLoadingEvents,
     isRequestingPermission,
     loadError,
+    planningSettings,
     requestPermission,
     retry,
     selectedDate,

@@ -10,3 +10,4 @@ export type {
   CalendarEventStatus,
   CalendarInterval,
 } from './types';
+export { occursOnCalendarDate } from './normalization';

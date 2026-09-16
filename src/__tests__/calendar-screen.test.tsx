@@ -60,6 +60,15 @@ const allDayEvent: CalendarEvent = {
   title: '終日予定',
 };
 
+const busyEvent: CalendarEvent = {
+  ...timedEvent,
+  availability: 'busy',
+  endAt: '2026-09-15T01:00:00.000Z',
+  id: 'busy',
+  startAt: '2026-09-15T00:00:00.000Z',
+  title: '会議',
+};
+
 function createSettingsRepository(
   overrides: Partial<SettingsRepository> = {},
 ): jest.Mocked<SettingsRepository> {
@@ -199,9 +208,33 @@ describe('CalendarScreen', () => {
     expect(screen.getByText('終日')).toBeTruthy();
     expect(screen.getByText('朝会')).toBeTruthy();
     expect(screen.getByText('08:00–09:00')).toBeTruthy();
-    expect(screen.getByText('空き時間')).toBeTruthy();
+    expect(screen.getAllByText('空き時間')).toHaveLength(2);
     expect(screen.getAllByText('仕事')).toHaveLength(2);
     expect(screen.getByText('会議室A')).toBeTruthy();
+  });
+
+  it('shows free time calculated from profile planning settings and blocking events', async () => {
+    const repository = createCalendarRepository({
+      listEvents: jest.fn(async () => ({
+        calendarCount: 1,
+        discardedEventCount: 0,
+        events: [busyEvent],
+      })),
+    });
+    const screen = await renderCalendar(repository);
+
+    expect(await screen.findByTestId('calendar-free-time')).toBeTruthy();
+    expect(screen.getByText('08:00–09:00')).toBeTruthy();
+    expect(screen.getByText('60分')).toBeTruthy();
+    expect(screen.getByText('10:00–22:00')).toBeTruthy();
+    expect(screen.getByText('720分')).toBeTruthy();
+  });
+
+  it('shows no free slots when a blocking all-day event covers the selected date', async () => {
+    const screen = await renderCalendar(createCalendarRepository());
+
+    expect(await screen.findByTestId('calendar-free-time')).toBeTruthy();
+    expect(screen.getByText('条件を満たす空き時間はありません。')).toBeTruthy();
   });
 
   it('shows a safe error and retries event loading', async () => {

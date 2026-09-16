@@ -7,12 +7,12 @@ This repository contains the Japanese-first AI Life Planner mobile app described
 device calendar events, and AI-generated daily plans. Implement only the milestone requested by
 the user; do not bring later-milestone behavior forward.
 
-Milestone 3B reads device calendar events through a `CalendarRepository`, normalizes them into an
-Expo-independent event model, and displays them in the Calendar tab using the profile timezone.
-Milestone 3A Settings plus the Goals, Tasks, and Today adapters remain complete. The existing remote
-migrations, generated Database types, and transactional RLS verification are complete. Free-time
-calculation, Calendar integration into Today, email-confirmation deep links, OpenAI calls, and AI
-planning logic are intentionally absent.
+Milestone 3C derives deterministic free-time slots from profile planning settings and normalized
+device calendar events through a pure planner calculator, and shows the result in the Calendar tab.
+Milestone 3A Settings, Milestone 3B Calendar, and the Goals, Tasks, and Today adapters remain
+complete. The existing remote migrations, generated Database types, and transactional RLS
+verification are complete. Calendar integration into Today, email-confirmation deep links, OpenAI
+calls, and AI planning logic are intentionally absent.
 
 Treat the versioned requirements file as a project source of truth. Do not silently reformat or
 rewrite it; requirement changes need explicit user authorization and should be versioned.
@@ -92,6 +92,9 @@ rewrite it; requirement changes need explicit user authorization and should be v
 - Use the stable SDK 57 Calendar API (`getCalendarPermissions`, `requestCalendarPermissions`,
   `getCalendars`, and `listEvents`), not the deprecated legacy `*Async` methods. Calendar requires a
   development build; Expo Go is unsupported for this API version.
+- Keep free-time calculation under the planner feature as pure TypeScript. Resolve planning clock
+  times with the public Today timezone utilities, preserve Calendar all-day date semantics, and do
+  not make the calculator depend on Expo, React, Supabase, or UI components.
 - Do not connect AI dummy data to external services or add OpenAI until its requested milestone.
 - Values prefixed with `EXPO_PUBLIC_` are bundled into the client and are not secrets.
 - Never expose `OPENAI_API_KEY`, a Supabase service-role key, or other server credentials to the

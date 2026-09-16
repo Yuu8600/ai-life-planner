@@ -5,9 +5,10 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 3B (Device Calendar Integration)** まで実装済みです。Goals / Tasks CRUD、
+現在は **Milestone 3C (Free Time Calculation)** まで実装済みです。Goals / Tasks CRUD、
 Todayの`planned_actions`表示、Settingsのプロフィール計画設定に加え、Calendarタブで端末の予定を
-読み取り専用表示できます。空き時間計算とAI画面のOpenAI通信はまだ実装していません。
+読み取り専用表示し、計画可能時間と予定から空き時間を計算できます。AI画面のOpenAI通信は
+まだ実装していません。
 
 ## 技術構成
 
@@ -76,7 +77,7 @@ src/
 │   ├── calendar/          # 端末Calendarの契約、正規化、権限・日付状態、読み取り専用UI
 │   ├── ai-chat/           # 静的なAI相談画面
 │   ├── settings/          # Profile計画設定の状態管理、validation、編集UI、repository契約
-│   └── planner/           # 後続Milestone向けの計画ドメイン
+│   └── planner/           # 空き時間計算と後続AI Planner向けの計画ドメイン
 ├── services/
 │   ├── calendar/          # expo-calendar adapter
 │   └── supabase/          # client、Auth、生成DB型、Supabase repository実装
@@ -227,13 +228,27 @@ calendar 0件、event 0件、取得失敗をそれぞれ画面で扱います。
 `getCalendarPermissions`、`requestCalendarPermissions`、`getCalendars`、`listEvents`を使用し、
 deprecatedな`*Async` legacy APIは使用しません。イベントはISO 8601のstart/end instant、
 `allDay`、`availability`、event timezone、calendar情報へ正規化します。platformが期間内へ展開した
-繰り返し予定を受け取り、アプリ側でも`eventStart < dayEnd && eventEnd > dayStart`の半開区間で
-絞り込みます。不正な日時のeventは正規化境界で個別に除外します。
+繰り返し予定を受け取り、通常予定は`eventStart < dayEnd && eventEnd > dayStart`の半開区間で
+絞り込みます。終日予定はUTC instantをprofile timezoneへ変換せず、date-onlyの開始日と
+end-exclusive終了日で表示日を判定します。不正な日時のeventは正規化境界で個別に除外します。
 
 連携は読み取り専用で、イベントの作成・更新・削除APIは呼びません。端末予定をSupabaseへ複製せず、
 新しいtableやmigrationも追加していません。Androidでは`expo-calendar` 57.0.3のnative実装とconfig
 pluginが`READ_CALENDAR`と`WRITE_CALENDAR`の両方を要求しますが、アプリの処理自体は読み取りだけです。
 app configにはiOSのカレンダー利用目的文を設定し、使用しないRemindersの目的文は無効化しています。
+
+## Free Time Calculation（Milestone 3C）
+
+`src/features/planner` のCalculatorは、選択日、profile timezone、`planning_start`、
+`planning_end`、`minimum_free_minutes`、正規化済みCalendar Eventを入力とし、UTC ISOの
+planning window、merge済みbusy intervals、duration付きfree slotsを返します。Expo、React、
+Supabase、UIに依存しないpure TypeScriptです。
+
+通常予定はabsolute instantのままplanning windowへclampし、重複・包含・接するbusy intervalを
+mergeします。`canceled`と`availability=free`はblockingせず、その他は安全側でblockingします。
+対象日のblocking終日予定はplanning window全体を塞ぎます。計画時刻のUTC変換はTodayの
+timezone utilityを再利用し、DSTによるoffset変化を固定offsetとして扱いません。Calendarタブは
+同じCalculatorの結果を「空き時間」として表示します。
 
 ## Database型生成
 
@@ -268,7 +283,7 @@ schema変更後は型再生成とtypecheckを必ずセットで実行します�
 
 ## 現在のスコープ
 
-Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3A / 3Bで用意したもの:
+Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3A / 3B / 3Cで用意したもの:
 
 - Expo + React Native + TypeScriptの初期構成
 - Expo Routerと5つのBottom Tab
@@ -303,12 +318,14 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3A / 3Bで用意した�
 - Expo型に依存しないCalendar Event model、availability保持、半開区間intersection、不正event除外
 - profile timezone基準のCalendar日付移動とLoading / Permission / Empty / Error / Retry状態
 - Expo Go非対応のCalendar APIを確認するdevelopment build導線
+- profile timezoneのplanning window、blocking予定、終日予定からの空き時間算出
+- busy intervalのclamp / merge、最小空き時間フィルタ、Calendarタブでの結果表示
 - 開発ガイド
 
 未実装のもの:
 
 - 確認メールからアプリへ戻るDeep Link、Password reset、OAuth
-- Calendar Eventからの空き時間算出とTodayへの統合
+- Calendar Eventと空き時間のTodayへの統合
 - OpenAI API、Planner schema、計画生成・再計画
 
 ## 依存バージョンについて

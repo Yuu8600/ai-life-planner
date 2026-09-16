@@ -1,6 +1,7 @@
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1_000;
 const SEARCH_WINDOW_MILLISECONDS = 3 * MILLISECONDS_PER_DAY;
 const LOCAL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const LOCAL_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export type LocalDate = `${number}-${number}-${number}`;
 
@@ -36,10 +37,24 @@ export class InvalidInstantError extends Error {
   }
 }
 
+export class InvalidLocalTimeError extends Error {
+  readonly code = 'INVALID_LOCAL_TIME';
+
+  constructor() {
+    super('時刻を正しく取得できませんでした。');
+    this.name = 'InvalidLocalTimeError';
+  }
+}
+
 type LocalDateParts = {
   day: number;
   month: number;
   year: number;
+};
+
+type LocalDateTimeParts = LocalDateParts & {
+  hour: number;
+  minute: number;
 };
 
 function toDate(instant: Date | number | string): Date {
@@ -82,6 +97,16 @@ function parseLocalDate(localDate: string): LocalDateParts {
   return parts;
 }
 
+function parseLocalTime(localTime: string): Pick<LocalDateTimeParts, 'hour' | 'minute'> {
+  const match = LOCAL_TIME_PATTERN.exec(localTime);
+  if (!match) throw new InvalidLocalTimeError();
+
+  return {
+    hour: Number(match[1]),
+    minute: Number(match[2]),
+  };
+}
+
 function toLocalDate(parts: LocalDateParts): LocalDate {
   const year = String(parts.year).padStart(4, '0');
   const month = String(parts.month).padStart(2, '0');
@@ -114,6 +139,58 @@ function createDatePartsFormatter(timeZone: string): Intl.DateTimeFormat {
     timeZone,
     year: 'numeric',
   });
+}
+
+function createDateTimePartsFormatter(timeZone: string): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat('en-CA', {
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+    minute: '2-digit',
+    month: '2-digit',
+    timeZone,
+    year: 'numeric',
+  });
+}
+
+function getDateTimeParts(
+  formatter: Intl.DateTimeFormat,
+  instant: Date | number,
+): LocalDateTimeParts {
+  const values = new Map(
+    formatter
+      .formatToParts(instant)
+      .filter(
+        ({ type }) =>
+          type === 'day' ||
+          type === 'hour' ||
+          type === 'minute' ||
+          type === 'month' ||
+          type === 'year',
+      )
+      .map(({ type, value }) => [type, Number(value)]),
+  );
+  const day = values.get('day');
+  const hour = values.get('hour');
+  const minute = values.get('minute');
+  const month = values.get('month');
+  const year = values.get('year');
+
+  if (
+    day === undefined ||
+    hour === undefined ||
+    minute === undefined ||
+    month === undefined ||
+    year === undefined
+  ) {
+    throw new InvalidLocalTimeError();
+  }
+
+  return { day, hour, minute, month, year };
+}
+
+function toComparableUtcMinute({ day, hour, minute, month, year }: LocalDateTimeParts): number {
+  return toUtcMidnight({ day, month, year }) + (hour * 60 + minute) * 60 * 1_000;
 }
 
 function getLocalDateWithFormatter(
@@ -212,6 +289,28 @@ export function getUtcDayBounds(localDate: string, timeZone: string): UtcDayBoun
     endAt: new Date(endAt).toISOString(),
     startAt: new Date(startAt).toISOString(),
   };
+}
+
+export function getUtcInstantForLocalTime(
+  localDate: string,
+  localTime: string,
+  timeZone: string,
+): string {
+  const canonicalTimeZone = resolveTimeZone(timeZone);
+  const target = { ...parseLocalDate(localDate), ...parseLocalTime(localTime) };
+  const targetComparable = toComparableUtcMinute(target);
+  const formatter = createDateTimePartsFormatter(canonicalTimeZone);
+  let candidate = targetComparable;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const actual = getDateTimeParts(formatter, candidate);
+    const difference = targetComparable - toComparableUtcMinute(actual);
+
+    if (difference === 0) return new Date(candidate).toISOString();
+    candidate += difference;
+  }
+
+  throw new InvalidLocalTimeError();
 }
 
 export function formatLocalDateJa(instant: Date | number | string, timeZone: string): string {

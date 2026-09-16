@@ -4,7 +4,9 @@ import {
   formatLocalTimeJa,
   getLocalDate,
   getUtcDayBounds,
+  getUtcInstantForLocalTime,
   InvalidLocalDateError,
+  InvalidLocalTimeError,
   InvalidTimeZoneError,
   resolveTimeZone,
 } from '@/features/today/timezone';
@@ -36,6 +38,24 @@ describe('Today timezone utilities', () => {
       startAt: '2024-03-10T05:00:00.000Z',
     });
     expect(Date.parse(bounds.endAt) - Date.parse(bounds.startAt)).toBe(23 * 60 * 60 * 1_000);
+  });
+
+  it('converts local clock times to UTC instants without assuming a fixed daily offset', () => {
+    expect(getUtcInstantForLocalTime('2026-09-16', '08:00', 'Asia/Tokyo')).toBe(
+      '2026-09-15T23:00:00.000Z',
+    );
+    expect(getUtcInstantForLocalTime('2024-03-10', '00:00', 'America/New_York')).toBe(
+      '2024-03-10T05:00:00.000Z',
+    );
+    expect(getUtcInstantForLocalTime('2024-03-10', '04:00', 'America/New_York')).toBe(
+      '2024-03-10T08:00:00.000Z',
+    );
+  });
+
+  it('rejects a nonexistent local clock time during the DST spring-forward gap', () => {
+    expect(() => getUtcInstantForLocalTime('2024-03-10', '02:30', 'America/New_York')).toThrow(
+      InvalidLocalTimeError,
+    );
   });
 
   it('navigates local calendar dates independently of daylight-saving duration', () => {

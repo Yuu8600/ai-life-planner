@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+
+import { calculateFreeTime } from '@/features/planner';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 
@@ -6,6 +9,7 @@ import type { SettingsRepository } from '@/features/settings';
 import { CalendarDateNavigator } from './components/CalendarDateNavigator';
 import { CalendarStatePanel } from './components/CalendarStatePanel';
 import { DayTimeline } from './components/DayTimeline';
+import { FreeTimeSummary } from './components/FreeTimeSummary';
 import { getCalendarDateLabel, toCalendarEventViewModel } from './presentation';
 import type { CalendarRepository } from './repositories/CalendarRepository';
 import { useDeviceCalendar } from './useDeviceCalendar';
@@ -34,6 +38,33 @@ export function CalendarScreen({
     selectedDate && timeZone
       ? calendar.events.map((event) => toCalendarEventViewModel(event, selectedDate, timeZone))
       : [];
+  const freeTimeCalculation = useMemo(() => {
+    if (!selectedDate || !timeZone || !calendar.planningSettings) return null;
+
+    try {
+      return {
+        error: null,
+        result: calculateFreeTime({
+          events: calendar.events,
+          minimumFreeMinutes: calendar.planningSettings.minimumFreeMinutes,
+          planningEnd: calendar.planningSettings.planningEnd,
+          planningStart: calendar.planningSettings.planningStart,
+          selectedDate,
+          timezone: timeZone,
+        }),
+      };
+    } catch {
+      return {
+        error: 'プロフィールの設定と予定を確認してください。',
+        result: null,
+      };
+    }
+  }, [calendar.events, calendar.planningSettings, selectedDate, timeZone]);
+  const canShowFreeTime =
+    calendar.accessState === 'granted' &&
+    !calendar.isLoadingEvents &&
+    calendar.calendarCount !== null &&
+    !calendar.loadError;
 
   return (
     <AppScreen testID="calendar-screen">
@@ -129,6 +160,16 @@ export function CalendarScreen({
       ) : (
         <DayTimeline events={eventViewModels} />
       )}
+
+      {canShowFreeTime && freeTimeCalculation?.result && timeZone ? (
+        <FreeTimeSummary result={freeTimeCalculation.result} timezone={timeZone} />
+      ) : canShowFreeTime && freeTimeCalculation?.error ? (
+        <CalendarStatePanel
+          message={freeTimeCalculation.error}
+          testID="calendar-free-time-error"
+          title="空き時間を計算できませんでした"
+        />
+      ) : null}
     </AppScreen>
   );
 }
