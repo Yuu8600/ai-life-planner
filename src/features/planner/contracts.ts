@@ -30,7 +30,8 @@ export type PlannerGoal = {
 };
 
 export type PlannerTask = {
-  deadline: string | null;
+  /** Profile-timezone local date, normalized from the current persisted Task deadline instant. */
+  deadline: LocalDate | null;
   estimatedMinutes: number;
   goalId: string | null;
   id: string;

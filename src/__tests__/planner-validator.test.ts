@@ -43,7 +43,7 @@ const input: PlannerInput = {
   },
   tasks: [
     {
-      deadline: '2026-09-30T14:59:59.999Z',
+      deadline: '2026-09-30',
       estimatedMinutes: 30,
       goalId,
       id: firstTaskId,

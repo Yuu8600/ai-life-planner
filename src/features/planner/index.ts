@@ -5,7 +5,9 @@ export {
   isBlockingCalendarEvent,
   mergeTimeIntervals,
 } from './freeTimeCalculator';
+export { buildPlannerInput, PlannerInputBuildError } from './buildPlannerInput';
 export { generatePlannerProposal } from './generatePlannerProposal';
+export { selectPlannerTasks } from './selectPlannerTasks';
 export { validatePlannerProposal } from './plannerValidator';
 export type { PlannerProvider } from './providers/PlannerProvider';
 export type {
@@ -27,3 +29,9 @@ export type {
   FreeTimeSlot,
   TimeInterval,
 } from './types';
+export type { BuildPlannerInputInput, PlannerCalendarEventSource } from './buildPlannerInput';
+export type {
+  PlannerGoalSource,
+  PlannerTaskSource,
+  SelectPlannerTasksInput,
+} from './selectPlannerTasks';
