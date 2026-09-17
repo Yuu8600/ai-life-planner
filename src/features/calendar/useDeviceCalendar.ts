@@ -16,7 +16,7 @@ import type { CalendarEvent } from './types';
 export type CalendarAccessState =
   'checking' | 'denied' | 'error' | 'granted' | 'unavailable' | 'undetermined';
 
-type UseDeviceCalendarResult = {
+export type UseDeviceCalendarResult = {
   accessState: CalendarAccessState;
   calendarCount: number | null;
   canAskAgain: boolean;

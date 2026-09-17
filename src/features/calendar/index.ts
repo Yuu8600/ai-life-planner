@@ -11,3 +11,5 @@ export type {
   CalendarInterval,
 } from './types';
 export { occursOnCalendarDate } from './normalization';
+export { useDeviceCalendar } from './useDeviceCalendar';
+export type { CalendarAccessState, UseDeviceCalendarResult } from './useDeviceCalendar';
