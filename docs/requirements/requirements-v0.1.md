@@ -1,6 +1,7 @@
 # AI Life Planner — 要件定義書 v0.1
 
 作成日: 2026-09-11  
+最終更新日: 2026-09-17\
 状態: Draft / MVP Definition  
 仮称: AI Life Planner
 
@@ -20,7 +21,7 @@
 本アプリでは、それらを構造化データとして保持し、
 
 1. 状況を自動取得する
-2. AIが計画を提案する
+2. 選択されたPlannerProviderが計画を提案する
 3. 提案を実際の予定として扱う
 4. 実行結果を記録する
 5. 未実行や予定変更に応じて再計画する
@@ -76,9 +77,17 @@ AI Life Planner
 
 最初のバージョンでは以下のみを完成させる。
 
-**Goal + Todo + Device Calendar + AI Daily Planner + Replanning**
+**Goal + Todo + Device Calendar + Provider-neutral Daily Planner + Replanning**
 
 食事・運動・睡眠はまだ本格実装しない。
+
+Daily Plannerは共通のPlanner ContractとPlannerProvider interfaceを使用する。
+GitHub公開版を含むCore Appでは、RuleBased Plannerなど外部AI APIを必要としないProviderで
+計画を生成できることを必須とする。
+
+OpenAIによる計画生成は任意機能とし、利用する場合のみSupabase Edge Functionから
+OpenAI APIを呼び出す。OpenAI API keyが未設定でも、Core Appの起動、Goal・Todo・Calendar、
+空き時間算出、Daily Plan生成が動作しなければならない。
 
 ---
 
@@ -133,7 +142,7 @@ status:
 - end
 - all_day
 
-MVPではイベント本文や参加者情報などは原則AIへ渡さない。
+MVPではイベント本文や参加者情報などは原則PlannerProviderへ渡さない。
 
 ### F04. 空き時間算出
 既存カレンダー予定から、ユーザーが行動可能な空き時間を算出する。
@@ -143,8 +152,8 @@ MVPではイベント本文や参加者情報などは原則AIへ渡さない。
 - planning_end_time
 - minimum_slot_minutes
 
-### F05. AIによるDaily Plan生成
-AIは以下を入力として受け取る。
+### F05. PlannerによるDaily Plan生成
+選択されたPlannerProviderは以下をPlanner Contractに従った入力として受け取る。
 
 - 日付
 - Goals
@@ -154,7 +163,12 @@ AIは以下を入力として受け取る。
 - 直近の実行実績
 - ユーザー設定
 
-出力は自由文ではなく構造化データとする。
+配置可能時間の正は空き時間とし、Calendar eventsは計画理由や要約のための文脈情報として扱う。
+ProviderがCalendar eventのbusy / free判定を再実装してはならない。
+
+出力はProviderの種類にかかわらず自由文ではなく構造化データとし、共通Validatorで検証する。
+入力されたTodoは、原則としてActionまたは理由付きのunscheduledのどちらか一方に含める。
+Taskに紐づかない休憩・食事・運動などのActionは、`taskId: null` として表現できる。
 
 例:
 
@@ -164,25 +178,26 @@ AIは以下を入力として受け取る。
   "summary": "大学後の空き時間を利用してTOEIC学習を進めます。",
   "actions": [
     {
-      "task_id": "task_001",
+      "taskId": "11111111-1111-4111-8111-111111111111",
       "title": "TOEIC Listening",
-      "start": "2026-09-11T17:00:00+09:00",
-      "end": "2026-09-11T17:30:00+09:00",
+      "startAt": "2026-09-11T17:00:00+09:00",
+      "endAt": "2026-09-11T17:30:00+09:00",
       "reason": "期限が近く、今週の進捗が不足しているため"
     }
-  ]
+  ],
+  "unscheduled": []
 }
 ```
 
 ### F06. Today画面
-今日の固定予定とAI提案予定を1つのタイムライン上に表示する。
+今日の固定予定とPlanner提案予定を1つのタイムライン上に表示する。
 
 区別:
 - Calendar Event
-- AI Planned Action
+- Planner Planned Action
 
 ### F07. 実行記録
-AI Planned Actionに対して以下を記録できる。
+Planner Planned Actionに対して以下を記録できる。
 
 - 完了
 - 未完了
@@ -209,7 +224,7 @@ AIは説明だけで終わらず、必要に応じて計画変更案を返す。
 - 新しい予定と衝突した
 - ユーザーが計画の変更を依頼した
 
-MVPでは、AIが変更案を生成し、ユーザー承認後に反映する。
+MVPでは、Plannerが変更案を生成し、ユーザー承認後に反映する。
 
 ---
 
@@ -240,7 +255,7 @@ MVPでは、AIが変更案を生成し、ユーザー承認後に反映する。
 - 今日の日付
 - 今日の要約
 - Calendar Event
-- AI Planned Action
+- Planner Planned Action
 - 完了ボタン
 - スキップ
 - 再計画
@@ -262,7 +277,7 @@ MVPでは、AIが変更案を生成し、ユーザー承認後に反映する。
 
 ## S04. Calendar
 - 端末カレンダー予定
-- AI予定
+- Planner予定
 - 日 / 週表示は将来拡張
 
 ## S05. AI Chat
@@ -275,13 +290,13 @@ MVPでは、AIが変更案を生成し、ユーザー承認後に反映する。
 - 活動可能時間
 - 最小空き時間
 - カレンダー権限
-- AI提案設定
+- Planner Provider / Optional AI設定
 
 ---
 
-# 7. AI Plannerの基本ルール
+# 7. Plannerの基本ルール
 
-AIは必ず以下を守る。
+すべてのPlannerProviderは必ず以下を守り、Provider出力は共通Validatorで検証する。
 
 1. Calendar Eventと重複する予定を配置しない
 2. Todoのestimated_minutesを原則満たす
@@ -291,7 +306,7 @@ AIは必ず以下を守る。
 6. 同じ時間に複数Actionを配置しない
 7. 出力はSchemaに従った構造化データにする
 8. 不可能な場合は無理に配置せずunscheduledとして返す
-9. AIが勝手に端末の固定予定を削除しない
+9. Plannerが勝手に端末の固定予定を削除しない
 10. 計画変更はMVPでは原則ユーザー確認後に適用する
 
 ---
@@ -317,10 +332,16 @@ MVPではGoogle Calendar APIを直接使用せず、
   - Edge Functions
   - Row Level Security
 
-## AI
-- OpenAI API
-- 構造化されたPlanner Output
-- API Keyはモバイルアプリへ直接埋め込まない
+## Planner
+- Provider-neutralなPlanner Contract
+- Core / GitHub公開版ではRuleBased PlannerなどAPI不要のProviderを使用可能
+- すべてのProviderで構造化されたPlanner Outputと共通Validatorを使用
+
+## Optional AI
+- Supabase Edge Function経由のOpenAI API
+- OpenAI API keyはSupabase Secretとして管理
+- API keyをモバイルアプリへ直接埋め込まない
+- OpenAI未設定時もCore AppとPlannerを利用可能
 
 ## Repository
 - GitHub
@@ -394,7 +415,7 @@ MVPではGoogle Calendar APIを直接使用せず、
 
 ### US01
 ユーザーとして、長期目標を登録したい。
-なぜなら、AIに何を優先すべきか判断してほしいから。
+なぜなら、Plannerに何を優先すべきか判断してほしいから。
 
 ### US02
 ユーザーとして、目標に関連するTodoを登録したい。
@@ -428,14 +449,15 @@ MVPではGoogle Calendar APIを直接使用せず、
 - [ ] スマホカレンダーの読み取り権限を取得できる
 - [ ] 今日の既存Calendar Eventを取得できる
 - [ ] Calendar Eventと重複しない空き時間を計算できる
-- [ ] 「今日の計画を作成」でAIがPlanを生成する
-- [ ] AI出力をSchema Validationできる
-- [ ] Today画面にCalendar EventとAI Actionを表示できる
-- [ ] AI Actionを完了できる
-- [ ] AI Actionをスキップできる
+- [ ] 「今日の計画を作成」で選択されたPlannerProviderがPlanを生成する
+- [ ] OpenAI API keyなしでCore AppとPlannerが動作する
+- [ ] すべてのPlannerProvider出力をSchema / Domain Validationできる
+- [ ] Today画面にCalendar EventとPlanner Actionを表示できる
+- [ ] Planner Actionを完了できる
+- [ ] Planner Actionをスキップできる
 - [ ] AIチャットから予定変更を依頼できる
 - [ ] 未完了Todoを別の空き時間へ再計画できる
-- [ ] AIが固定Calendar Eventを勝手に削除しない
+- [ ] Plannerが固定Calendar Eventを勝手に削除しない
 - [ ] 基本機能に自動テストがある
 - [ ] READMEからセットアップ・実行方法が分かる
 
@@ -471,13 +493,14 @@ MVPではGoogle Calendar APIを直接使用せず、
 3. 空き時間計算
 4. Todayへ統合
 
-## Milestone 4 — AI Planner
-1. Planner input生成
-2. AI API
-3. Output schema
-4. Plan validation
+## Milestone 4 — Planner
+1. Provider-neutral Contract / Provider interface / Output validation
+2. Planner input生成
+3. API不要のRuleBased Planner
+4. Preview / User confirmation
 5. Daily Plan保存
 6. Today表示
+7. Optional: Supabase Edge Function経由のOpenAI Provider
 
 ## Milestone 5 — Replanning
 1. Complete / Skip
