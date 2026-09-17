@@ -1,4 +1,4 @@
-import type { PlannerInput, PlannerProposal, PlannerTask } from './contracts';
+import type { PlannerAction, PlannerInput, PlannerProposal, PlannerTask } from './contracts';
 import type { FreeTimeSlot } from './types';
 
 const MILLISECONDS_PER_MINUTE = 60 * 1_000;
@@ -40,6 +40,14 @@ function createSummary(scheduledCount: number, unscheduledCount: number): string
   return `${scheduledCount}件を予定に配置し、${unscheduledCount}件を未配置としました。`;
 }
 
+function compareActionsByStart(left: PlannerAction, right: PlannerAction): number {
+  return (
+    left.startAt.localeCompare(right.startAt) ||
+    left.endAt.localeCompare(right.endAt) ||
+    (left.taskId ?? '').localeCompare(right.taskId ?? '')
+  );
+}
+
 export function schedulePlannerTasks(input: PlannerInput): PlannerProposal {
   const availableSlots = toAvailableSlots(input.freeSlots);
   const actions: PlannerProposal['actions'] = [];
@@ -72,7 +80,7 @@ export function schedulePlannerTasks(input: PlannerInput): PlannerProposal {
   }
 
   return {
-    actions,
+    actions: actions.sort(compareActionsByStart),
     date: input.date,
     summary: createSummary(actions.length, unscheduled.length),
     unscheduled,

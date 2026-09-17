@@ -1,4 +1,5 @@
 import {
+  buildPlannerInput,
   generatePlannerProposal,
   RuleBasedPlannerProvider,
   type FreeTimeSlot,
@@ -76,14 +77,14 @@ describe('RuleBasedPlannerProvider scheduling', () => {
     ]);
   });
 
-  it('preserves Task priority order while applying first-fit across multiple slots', () => {
+  it('schedules in Task order and returns actions in chronological order', () => {
     const proposal = schedulePlannerTasks(
       input({
         freeSlots: [
           slot('2026-09-17T04:00:00.000Z', '2026-09-17T06:00:00.000Z'),
-          slot('2026-09-16T23:00:00.000Z', '2026-09-17T01:00:00.000Z'),
+          slot('2026-09-16T23:00:00.000Z', '2026-09-17T00:00:00.000Z'),
         ],
-        tasks: [task(firstTaskId, 60), task(secondTaskId, 90), task(thirdTaskId, 30)],
+        tasks: [task(firstTaskId, 90), task(secondTaskId, 30), task(thirdTaskId, 120)],
       }),
     );
 
@@ -91,21 +92,17 @@ describe('RuleBasedPlannerProvider scheduling', () => {
       proposal.actions.map(({ taskId, startAt, endAt }) => ({ taskId, startAt, endAt })),
     ).toEqual([
       {
-        endAt: '2026-09-17T00:00:00.000Z',
+        endAt: '2026-09-16T23:30:00.000Z',
         startAt: '2026-09-16T23:00:00.000Z',
-        taskId: firstTaskId,
+        taskId: secondTaskId,
       },
       {
         endAt: '2026-09-17T05:30:00.000Z',
         startAt: '2026-09-17T04:00:00.000Z',
-        taskId: secondTaskId,
-      },
-      {
-        endAt: '2026-09-17T00:30:00.000Z',
-        startAt: '2026-09-17T00:00:00.000Z',
-        taskId: thirdTaskId,
+        taskId: firstTaskId,
       },
     ]);
+    expect(proposal.unscheduled.map(({ taskId }) => taskId)).toEqual([thirdTaskId]);
   });
 
   it('accepts an exact fit without splitting the Task', () => {
@@ -266,5 +263,72 @@ describe('RuleBasedPlannerProvider integration', () => {
     expect(result.warnings).toEqual([]);
     expect(result.proposal.actions.map(({ taskId }) => taskId)).toEqual([firstTaskId]);
     expect(result.proposal.unscheduled.map(({ taskId }) => taskId)).toEqual([secondTaskId]);
+  });
+
+  it('validates the builder-to-Provider pipeline with an oversized top-ranked Task', async () => {
+    const freeTimeResult = {
+      busyIntervals: [],
+      freeSlots: [
+        slot('2026-09-16T23:00:00.000Z', '2026-09-17T00:00:00.000Z'),
+        slot('2026-09-17T04:00:00.000Z', '2026-09-17T05:00:00.000Z'),
+      ],
+      planningWindow: {
+        endAt: '2026-09-17T05:00:00.000Z',
+        startAt: '2026-09-16T23:00:00.000Z',
+      },
+    };
+    const plannerInput = buildPlannerInput({
+      calendarEvents: [],
+      date: '2026-09-17',
+      freeTimeResult,
+      goals: [],
+      tasks: [
+        {
+          deadline: null,
+          estimatedMinutes: 300,
+          goalId: null,
+          id: firstTaskId,
+          priority: 'high',
+          status: 'pending',
+          title: '長時間Task',
+        },
+        {
+          deadline: null,
+          estimatedMinutes: 30,
+          goalId: null,
+          id: secondTaskId,
+          priority: 'medium',
+          status: 'pending',
+          title: '短時間Task',
+        },
+        {
+          deadline: null,
+          estimatedMinutes: 60,
+          goalId: null,
+          id: thirdTaskId,
+          priority: 'low',
+          status: 'pending',
+          title: '通常Task',
+        },
+      ],
+      timezone: 'Asia/Tokyo',
+    });
+
+    expect(plannerInput.tasks.map(({ id }) => id)).toEqual([
+      firstTaskId,
+      secondTaskId,
+      thirdTaskId,
+    ]);
+
+    const result = await generatePlannerProposal(new RuleBasedPlannerProvider(), plannerInput);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected stabilized Planner pipeline to pass validation.');
+    expect(result.warnings).toEqual([]);
+    expect(result.proposal.actions.map(({ taskId }) => taskId)).toEqual([
+      secondTaskId,
+      thirdTaskId,
+    ]);
+    expect(result.proposal.unscheduled.map(({ taskId }) => taskId)).toEqual([firstTaskId]);
   });
 });

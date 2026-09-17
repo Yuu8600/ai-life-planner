@@ -153,6 +153,78 @@ describe('Planner Task candidate selection', () => {
     expect(selected.reduce((total, candidate) => total + candidate.estimatedMinutes, 0)).toBe(60);
   });
 
+  it('keeps an oversized top-ranked Task without letting it consume candidate budget', () => {
+    const selected = select(
+      [
+        task('11111111-1111-4111-8111-111111111111', {
+          deadline: '2026-09-16T14:59:59.999Z',
+          estimatedMinutes: 300,
+        }),
+        task('22222222-2222-4222-8222-222222222222', {
+          deadline: '2026-09-17T14:59:59.999Z',
+          estimatedMinutes: 30,
+        }),
+        task('33333333-3333-4333-8333-333333333333', {
+          deadline: '2026-09-18T14:59:59.999Z',
+          estimatedMinutes: 60,
+        }),
+      ],
+      [freeSlot(60), freeSlot(60)],
+    );
+
+    expect(selected.map(({ estimatedMinutes }) => estimatedMinutes)).toEqual([300, 30, 60]);
+  });
+
+  it('does not let multiple oversized Tasks push out later Tasks that can fit a slot', () => {
+    const selected = select(
+      [
+        task('11111111-1111-4111-8111-111111111111', {
+          deadline: '2026-09-16T14:59:59.999Z',
+          estimatedMinutes: 300,
+        }),
+        task('22222222-2222-4222-8222-222222222222', {
+          deadline: '2026-09-17T14:59:59.999Z',
+          estimatedMinutes: 240,
+        }),
+        task('33333333-3333-4333-8333-333333333333', {
+          deadline: '2026-09-18T14:59:59.999Z',
+          estimatedMinutes: 30,
+        }),
+        task('44444444-4444-4444-8444-444444444444', {
+          estimatedMinutes: 60,
+        }),
+      ],
+      [freeSlot(60)],
+    );
+
+    expect(selected.map(({ estimatedMinutes }) => estimatedMinutes)).toEqual([300, 240, 30, 60]);
+  });
+
+  it('counts a Task whose duration equals the largest slot against the normal budget', () => {
+    const selected = select(
+      [
+        task('11111111-1111-4111-8111-111111111111', {
+          estimatedMinutes: 60,
+          priority: 'high',
+        }),
+        task('22222222-2222-4222-8222-222222222222', {
+          estimatedMinutes: 60,
+          priority: 'high',
+        }),
+        task('33333333-3333-4333-8333-333333333333', {
+          estimatedMinutes: 30,
+          priority: 'low',
+        }),
+      ],
+      [freeSlot(60), freeSlot(60)],
+    );
+
+    expect(selected.map(({ id }) => id)).toEqual([
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222',
+    ]);
+  });
+
   it('returns no candidates without Tasks or available time', () => {
     expect(select([])).toEqual([]);
     expect(select([task('11111111-1111-4111-8111-111111111111')], [])).toEqual([]);

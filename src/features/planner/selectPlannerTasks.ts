@@ -87,6 +87,13 @@ function getAvailableMinutes(freeSlots: readonly FreeTimeSlot[]): number {
   return freeSlots.reduce((total, slot) => total + slot.durationMinutes, 0);
 }
 
+function getLargestFreeSlotMinutes(freeSlots: readonly FreeTimeSlot[]): number {
+  return freeSlots.reduce(
+    (largestDuration, slot) => Math.max(largestDuration, slot.durationMinutes),
+    0,
+  );
+}
+
 export function selectPlannerTasks({
   date,
   freeSlots,
@@ -96,6 +103,7 @@ export function selectPlannerTasks({
 }: SelectPlannerTasksInput): PlannerTask[] {
   const availableMinutes = getAvailableMinutes(freeSlots);
   if (availableMinutes <= 0) return [];
+  const largestFreeSlotMinutes = getLargestFreeSlotMinutes(freeSlots);
 
   const activeGoals = new Map(
     goals.filter((goal) => goal.status === 'active').map((goal) => [goal.id, goal]),
@@ -130,6 +138,9 @@ export function selectPlannerTasks({
 
   for (const { task } of rankedTasks) {
     selected.push(task);
+
+    if (task.estimatedMinutes > largestFreeSlotMinutes) continue;
+
     selectedMinutes += task.estimatedMinutes;
 
     if (selectedMinutes >= availableMinutes) break;
