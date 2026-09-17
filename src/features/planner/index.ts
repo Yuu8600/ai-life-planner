@@ -7,6 +7,7 @@ export {
 } from './freeTimeCalculator';
 export { buildPlannerInput, PlannerInputBuildError } from './buildPlannerInput';
 export { generatePlannerProposal } from './generatePlannerProposal';
+export { RuleBasedPlannerProvider } from './providers/RuleBasedPlannerProvider';
 export { selectPlannerTasks } from './selectPlannerTasks';
 export { validatePlannerProposal } from './plannerValidator';
 export type { PlannerProvider } from './providers/PlannerProvider';
