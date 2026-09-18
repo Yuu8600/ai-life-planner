@@ -1,7 +1,7 @@
 # AI Life Planner — 要件定義書 v0.1
 
 作成日: 2026-09-11  
-最終更新日: 2026-09-17\
+最終更新日: 2026-09-18\
 状態: Draft / MVP Definition  
 仮称: AI Life Planner
 
@@ -387,6 +387,7 @@ MVPではGoogle Calendar APIを直接使用せず、
 - id
 - user_id
 - plan_date
+- timezone
 - summary
 - created_at
 - updated_at

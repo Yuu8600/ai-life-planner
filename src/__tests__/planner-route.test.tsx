@@ -7,12 +7,23 @@ const userId = '11111111-1111-4111-8111-111111111111';
 const mockUseAuth = jest.fn();
 const mockCreateCalendarRepository = jest.fn(() => ({ type: 'calendar' }));
 const mockCreateGoalRepository = jest.fn((_userId: string) => ({ type: 'goals' }));
+const mockCreatePersistenceRepository = jest.fn(() => ({ type: 'persistence' }));
 const mockCreateSettingsRepository = jest.fn((_userId: string) => ({ type: 'settings' }));
 const mockCreateTaskRepository = jest.fn((_userId: string) => ({ type: 'tasks' }));
 const mockPlannerScreen = jest.fn(
-  ({ goalRepository, taskRepository }: { goalRepository: unknown; taskRepository: unknown }) => (
+  ({
+    goalRepository,
+    persistenceRepository,
+    taskRepository,
+  }: {
+    goalRepository: unknown;
+    persistenceRepository: unknown;
+    taskRepository: unknown;
+  }) => (
     <Text testID="planner-route-probe">
-      {goalRepository && taskRepository ? 'with-user-data' : 'without-user-data'}
+      {goalRepository && persistenceRepository && taskRepository
+        ? 'with-user-data'
+        : 'without-user-data'}
     </Text>
   ),
 );
@@ -26,8 +37,11 @@ jest.mock('@/features/auth', () => ({
 }));
 
 jest.mock('@/features/planner/PlannerPreviewScreen', () => ({
-  PlannerPreviewScreen: (props: { goalRepository: unknown; taskRepository: unknown }) =>
-    mockPlannerScreen(props),
+  PlannerPreviewScreen: (props: {
+    goalRepository: unknown;
+    persistenceRepository: unknown;
+    taskRepository: unknown;
+  }) => mockPlannerScreen(props),
 }));
 
 jest.mock('@/services/calendar/ExpoCalendarRepository', () => ({
@@ -36,6 +50,10 @@ jest.mock('@/services/calendar/ExpoCalendarRepository', () => ({
 
 jest.mock('@/services/supabase/repositories/SupabaseGoalRepository', () => ({
   createSupabaseGoalRepository: (id: string) => mockCreateGoalRepository(id),
+}));
+
+jest.mock('@/services/supabase/repositories/SupabasePlannerPersistenceRepository', () => ({
+  createSupabasePlannerPersistenceRepository: () => mockCreatePersistenceRepository(),
 }));
 
 jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => ({
@@ -58,6 +76,7 @@ describe('Planner route composition', () => {
     expect(screen.getByTestId('planner-route-probe').props.children).toBe('without-user-data');
     expect(mockCreateCalendarRepository).toHaveBeenCalledTimes(1);
     expect(mockCreateGoalRepository).not.toHaveBeenCalled();
+    expect(mockCreatePersistenceRepository).not.toHaveBeenCalled();
     expect(mockCreateSettingsRepository).not.toHaveBeenCalled();
     expect(mockCreateTaskRepository).not.toHaveBeenCalled();
   });
@@ -68,6 +87,7 @@ describe('Planner route composition', () => {
 
     expect(screen.getByTestId('planner-route-probe').props.children).toBe('with-user-data');
     expect(mockCreateGoalRepository).toHaveBeenCalledWith(userId);
+    expect(mockCreatePersistenceRepository).toHaveBeenCalledTimes(1);
     expect(mockCreateSettingsRepository).toHaveBeenCalledWith(userId);
     expect(mockCreateTaskRepository).toHaveBeenCalledWith(userId);
   });

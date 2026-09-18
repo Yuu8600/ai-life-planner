@@ -44,9 +44,16 @@ begin
   fixture_start_at := (fixture_plan_date + time '18:00') at time zone fixture_timezone;
   fixture_end_at := (fixture_plan_date + time '18:30') at time zone fixture_timezone;
 
-  insert into public.daily_plans (user_id, plan_date, summary)
-  values (fixture_user_id, fixture_plan_date, 'Today画面の開発確認用プラン')
-  on conflict (user_id, plan_date) do nothing;
+  insert into public.daily_plans (user_id, plan_date, timezone, summary)
+  values (
+    fixture_user_id,
+    fixture_plan_date,
+    fixture_timezone,
+    'Today画面の開発確認用プラン'
+  )
+  on conflict (user_id, plan_date) do update set
+    timezone = excluded.timezone,
+    summary = excluded.summary;
 
   select daily_plan.id
   into strict fixture_plan_id

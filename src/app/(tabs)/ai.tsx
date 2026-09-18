@@ -7,6 +7,7 @@ import { PlannerPreviewScreen } from '@/features/planner/PlannerPreviewScreen';
 import { RuleBasedPlannerProvider } from '@/features/planner';
 import { createExpoCalendarRepository } from '@/services/calendar/ExpoCalendarRepository';
 import { createSupabaseGoalRepository } from '@/services/supabase/repositories/SupabaseGoalRepository';
+import { createSupabasePlannerPersistenceRepository } from '@/services/supabase/repositories/SupabasePlannerPersistenceRepository';
 import { createSupabaseSettingsRepository } from '@/services/supabase/repositories/SupabaseSettingsRepository';
 import { createSupabaseTaskRepository } from '@/services/supabase/repositories/SupabaseTaskRepository';
 
@@ -21,6 +22,10 @@ export default function AiRoute() {
     [userId],
   );
   const provider = useMemo(() => new RuleBasedPlannerProvider(), []);
+  const persistenceRepository = useMemo(
+    () => (userId ? createSupabasePlannerPersistenceRepository() : null),
+    [userId],
+  );
   const settingsRepository = useMemo(
     () => (userId ? createSupabaseSettingsRepository(userId) : null),
     [userId],
@@ -53,6 +58,7 @@ export default function AiRoute() {
       calendarRepository={calendarRepository}
       goalRepository={goalRepository}
       onOpenSettings={() => void Linking.openSettings()}
+      persistenceRepository={persistenceRepository}
       provider={provider}
       refreshToken={refreshToken}
       settingsRepository={settingsRepository}

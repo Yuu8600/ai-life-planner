@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import type { CalendarRepository } from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
@@ -13,6 +13,7 @@ import { PlannerStatePanel } from './components/PlannerStatePanel';
 import type { PlannerPreviewGoalRepository, PlannerPreviewTaskRepository } from './plannerPreview';
 import { formatPlannerDateLabel, toPlannerPreviewViewModel } from './plannerPreviewPresentation';
 import type { PlannerProvider } from './providers/PlannerProvider';
+import type { PlannerPersistenceRepository } from './repositories/PlannerPersistenceRepository';
 import { usePlannerPreview } from './usePlannerPreview';
 
 type PlannerPreviewScreenProps = {
@@ -20,6 +21,7 @@ type PlannerPreviewScreenProps = {
   goalRepository: PlannerPreviewGoalRepository | null;
   now?: () => Date;
   onOpenSettings?: () => void;
+  persistenceRepository: PlannerPersistenceRepository | null;
   provider: PlannerProvider;
   refreshToken?: number;
   settingsRepository: SettingsRepository | null;
@@ -31,20 +33,23 @@ export function PlannerPreviewScreen({
   goalRepository,
   now,
   onOpenSettings,
+  persistenceRepository,
   provider,
   refreshToken = 0,
   settingsRepository,
   taskRepository,
 }: PlannerPreviewScreenProps) {
-  const { calendar, canGenerate, discard, generate, state } = usePlannerPreview({
-    calendarRepository,
-    goalRepository,
-    now,
-    provider,
-    refreshToken,
-    settingsRepository,
-    taskRepository,
-  });
+  const { approve, calendar, canApprove, canGenerate, discard, generate, saveState, state } =
+    usePlannerPreview({
+      calendarRepository,
+      goalRepository,
+      now,
+      persistenceRepository,
+      provider,
+      refreshToken,
+      settingsRepository,
+      taskRepository,
+    });
   const dateLabel = useMemo(
     () =>
       calendar.selectedDate && calendar.timeZone
@@ -56,6 +61,16 @@ export function PlannerPreviewScreen({
     () => (state.status === 'success' ? toPlannerPreviewViewModel(state) : null),
     [state],
   );
+  const confirmApproval = () => {
+    Alert.alert(
+      'この計画を採用しますか？',
+      '今日の既存の計画がある場合は、このプレビューの内容で置き換えます。',
+      [
+        { style: 'cancel', text: 'キャンセル' },
+        { onPress: approve, text: '採用する' },
+      ],
+    );
+  };
 
   return (
     <AppScreen testID="planner-preview-screen">
@@ -157,15 +172,50 @@ export function PlannerPreviewScreen({
         </>
       ) : state.status === 'success' && preview ? (
         <>
-          <PlannerPreview preview={preview} />
+          <PlannerPreview isSaved={saveState.status === 'success'} preview={preview} />
+          {saveState.status === 'success' ? (
+            <View style={styles.saveSuccess} testID="planner-save-success">
+              <Text style={styles.saveSuccessTitle}>今日の計画を保存しました</Text>
+              <Text style={styles.saveSuccessText}>
+                {saveState.plan.actionCount}件のActionを保存しました。
+              </Text>
+            </View>
+          ) : saveState.status === 'error' ? (
+            <View style={styles.saveError} testID="planner-save-error">
+              <Text style={styles.saveErrorTitle}>計画を保存できませんでした</Text>
+              <Text style={styles.saveErrorText}>{saveState.message}</Text>
+            </View>
+          ) : null}
           <View style={styles.actions}>
+            {saveState.status !== 'success' ? (
+              <ActionButton
+                accessibilityLabel={
+                  saveState.status === 'error' ? '計画の保存を再試行する' : 'この計画を採用する'
+                }
+                disabled={!canApprove}
+                label={
+                  saveState.status === 'saving'
+                    ? '保存中…'
+                    : saveState.status === 'error'
+                      ? '保存を再試行'
+                      : 'この計画を採用'
+                }
+                onPress={confirmApproval}
+              />
+            ) : null}
             <ActionButton
               accessibilityLabel="最新データで今日の計画を再生成する"
               disabled={!canGenerate}
               label="再生成"
               onPress={() => void generate()}
+              variant="secondary"
             />
-            <ActionButton label="プレビューを閉じる" onPress={discard} variant="ghost" />
+            <ActionButton
+              disabled={saveState.status === 'saving'}
+              label="プレビューを閉じる"
+              onPress={discard}
+              variant="ghost"
+            />
           </View>
         </>
       ) : (
@@ -230,5 +280,38 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontSize: 12,
     lineHeight: 18,
+  },
+  saveSuccess: {
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.accentSoft,
+  },
+  saveSuccessTitle: {
+    color: colors.accent,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  saveSuccessText: {
+    color: colors.textMuted,
+    fontSize: 13,
+  },
+  saveError: {
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.warningSoft,
+  },
+  saveErrorTitle: {
+    color: colors.warning,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  saveErrorText: {
+    color: colors.warning,
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

@@ -4,6 +4,7 @@ import { useDeviceCalendar, type CalendarRepository } from '@/features/calendar'
 import type { SettingsRepository } from '@/features/settings';
 
 import type { PlannerValidationIssue } from './contracts';
+import { approvePlannerProposal } from './plannerPersistence';
 import {
   generatePlannerPreview,
   PlannerPreviewCalendarPermissionError,
@@ -13,6 +14,10 @@ import {
   type PlannerPreviewTaskRepository,
 } from './plannerPreview';
 import type { PlannerProvider } from './providers/PlannerProvider';
+import type {
+  PlannerPersistenceRepository,
+  SavedDailyPlan,
+} from './repositories/PlannerPersistenceRepository';
 
 export type PlannerPreviewErrorKind = 'data' | 'permission' | 'provider' | 'validation';
 
@@ -27,10 +32,17 @@ export type PlannerPreviewState =
       status: 'error';
     };
 
+export type PlannerSaveState =
+  | { status: 'idle' }
+  | { status: 'saving' }
+  | { plan: SavedDailyPlan; status: 'success' }
+  | { message: string; status: 'error' };
+
 type UsePlannerPreviewInput = {
   calendarRepository: CalendarRepository | null;
   goalRepository: PlannerPreviewGoalRepository | null;
   now?: () => Date;
+  persistenceRepository: PlannerPersistenceRepository | null;
   provider: PlannerProvider;
   refreshToken?: number;
   settingsRepository: SettingsRepository | null;
@@ -43,6 +55,7 @@ export function usePlannerPreview({
   calendarRepository,
   goalRepository,
   now = getCurrentDate,
+  persistenceRepository,
   provider,
   refreshToken = 0,
   settingsRepository,
@@ -50,15 +63,23 @@ export function usePlannerPreview({
 }: UsePlannerPreviewInput) {
   const calendar = useDeviceCalendar(calendarRepository, settingsRepository, refreshToken, now);
   const [state, setState] = useState<PlannerPreviewState>({ status: 'idle' });
+  const [saveState, setSaveState] = useState<PlannerSaveState>({ status: 'idle' });
   const generationLock = useRef(false);
   const generationVersion = useRef(0);
+  const saveLock = useRef(false);
+  const saveVersion = useRef(0);
 
   useEffect(() => {
     let isActive = true;
     generationVersion.current += 1;
+    saveVersion.current += 1;
     generationLock.current = false;
+    saveLock.current = false;
     void Promise.resolve().then(() => {
-      if (isActive) setState({ status: 'idle' });
+      if (isActive) {
+        setState({ status: 'idle' });
+        setSaveState({ status: 'idle' });
+      }
     });
 
     return () => {
@@ -67,14 +88,33 @@ export function usePlannerPreview({
   }, [
     calendarRepository,
     goalRepository,
+    persistenceRepository,
     provider,
-    refreshToken,
     settingsRepository,
     taskRepository,
   ]);
 
+  useEffect(() => {
+    if (saveLock.current) return;
+
+    let isActive = true;
+    generationVersion.current += 1;
+    saveVersion.current += 1;
+    generationLock.current = false;
+    void Promise.resolve().then(() => {
+      if (isActive) {
+        setState({ status: 'idle' });
+        setSaveState({ status: 'idle' });
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [refreshToken]);
+
   const generate = useCallback(async () => {
-    if (generationLock.current) return;
+    if (generationLock.current || saveLock.current) return;
 
     if (!calendarRepository || !goalRepository || !settingsRepository || !taskRepository) {
       setState({
@@ -89,6 +129,8 @@ export function usePlannerPreview({
     generationLock.current = true;
     const activeVersion = generationVersion.current + 1;
     generationVersion.current = activeVersion;
+    saveVersion.current += 1;
+    setSaveState({ status: 'idle' });
     setState({ status: 'loading' });
 
     try {
@@ -151,10 +193,47 @@ export function usePlannerPreview({
   }, [calendarRepository, goalRepository, now, provider, settingsRepository, taskRepository]);
 
   const discard = useCallback(() => {
+    if (saveLock.current) return;
+
     generationVersion.current += 1;
+    saveVersion.current += 1;
     generationLock.current = false;
     setState({ status: 'idle' });
+    setSaveState({ status: 'idle' });
   }, []);
+  const approve = useCallback(async () => {
+    if (saveLock.current || state.status !== 'success') return;
+
+    if (!persistenceRepository) {
+      setSaveState({
+        message: '計画を保存するにはログインが必要です。',
+        status: 'error',
+      });
+      return;
+    }
+
+    saveLock.current = true;
+    const activeVersion = saveVersion.current + 1;
+    saveVersion.current = activeVersion;
+    setSaveState({ status: 'saving' });
+
+    try {
+      const plan = await approvePlannerProposal(persistenceRepository, state);
+
+      if (saveVersion.current === activeVersion) {
+        setSaveState({ plan, status: 'success' });
+      }
+    } catch {
+      if (saveVersion.current === activeVersion) {
+        setSaveState({
+          message: '計画を保存できませんでした。プレビューを保持したまま再試行できます。',
+          status: 'error',
+        });
+      }
+    } finally {
+      if (saveVersion.current === activeVersion) saveLock.current = false;
+    }
+  }, [persistenceRepository, state]);
   const hasRepositories = Boolean(
     calendarRepository && goalRepository && settingsRepository && taskRepository,
   );
@@ -164,13 +243,19 @@ export function usePlannerPreview({
     !calendar.isLoadingEvents &&
     calendar.calendarCount !== null &&
     !calendar.loadError &&
-    state.status !== 'loading';
+    state.status !== 'loading' &&
+    saveState.status !== 'saving';
+  const canApprove =
+    persistenceRepository !== null && state.status === 'success' && saveState.status !== 'saving';
 
   return {
+    approve,
     calendar,
+    canApprove,
     canGenerate,
     discard,
     generate,
+    saveState,
     state,
   };
 }

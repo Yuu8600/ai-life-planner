@@ -20,6 +20,7 @@ export type Database = {
           id: string
           plan_date: string
           summary: string | null
+          timezone: string
           updated_at: string
           user_id: string
         }
@@ -28,6 +29,7 @@ export type Database = {
           id?: string
           plan_date: string
           summary?: string | null
+          timezone: string
           updated_at?: string
           user_id: string
         }
@@ -36,6 +38,7 @@ export type Database = {
           id?: string
           plan_date?: string
           summary?: string | null
+          timezone?: string
           updated_at?: string
           user_id?: string
         }
@@ -258,7 +261,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      replace_daily_plan: {
+        Args: {
+          p_actions: Json
+          p_plan_date: string
+          p_summary: string
+          p_timezone: string
+        }
+        Returns: {
+          daily_plan_id: string
+          saved_action_count: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

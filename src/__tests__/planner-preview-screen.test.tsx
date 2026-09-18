@@ -1,8 +1,13 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import type { CalendarPermission, CalendarRepository } from '@/features/calendar';
 import { PlannerPreviewScreen } from '@/features/planner/PlannerPreviewScreen';
-import { RuleBasedPlannerProvider, type PlannerProvider } from '@/features/planner';
+import {
+  RuleBasedPlannerProvider,
+  type PlannerPersistenceRepository,
+  type PlannerProvider,
+} from '@/features/planner';
 import type {
   PlannerPreviewGoalRepository,
   PlannerPreviewTaskRepository,
@@ -18,6 +23,7 @@ const settings = {
   planningStart: '08:00',
   timezone: 'Asia/Tokyo',
 };
+const dailyPlanId = '33333333-3333-4333-8333-333333333333';
 
 function createCalendarRepository(
   overrides: Partial<CalendarRepository> = {},
@@ -70,10 +76,21 @@ function createTaskRepository(
   return { list: jest.fn(async () => tasks) };
 }
 
+function createPersistenceRepository(
+  savePlan: PlannerPersistenceRepository['savePlan'] = jest.fn(async (input) => ({
+    actionCount: input.actions.length,
+    id: dailyPlanId,
+    planDate: input.planDate,
+  })),
+): jest.Mocked<PlannerPersistenceRepository> {
+  return { savePlan: jest.fn(savePlan) };
+}
+
 async function renderScreen(
   provider: PlannerProvider = new RuleBasedPlannerProvider(),
   calendarRepository = createCalendarRepository(),
   taskRepository = createTaskRepository(),
+  persistenceRepository = createPersistenceRepository(),
 ) {
   return render(
     <PlannerPreviewScreen
@@ -81,12 +98,23 @@ async function renderScreen(
       goalRepository={createGoalRepository()}
       now={now}
       onOpenSettings={jest.fn()}
+      persistenceRepository={persistenceRepository}
       provider={provider}
       settingsRepository={createSettingsRepository()}
       taskRepository={taskRepository}
     />,
   );
 }
+
+function confirmLatestAlert(alert: jest.SpyInstance): Promise<void> | undefined {
+  const buttons = alert.mock.calls.at(-1)?.[2];
+  const confirm = buttons?.find((button: { text?: string }) => button.text === '採用する');
+  return confirm?.onPress?.() as unknown as Promise<void> | undefined;
+}
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 describe('PlannerPreviewScreen', () => {
   it('generates and displays a validated temporary Preview from repository data', async () => {
@@ -107,7 +135,7 @@ describe('PlannerPreviewScreen', () => {
     expect(screen.getByText('長時間Task')).toBeTruthy();
     expect(screen.getByText(/推定所要時間を連続して確保/)).toBeTruthy();
     expect(screen.getByText('この計画はまだ保存されていません。')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /保存|適用/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'この計画を採用する' })).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'プレビューを閉じる' }));
     expect(screen.getByTestId('planner-idle-state')).toBeTruthy();
@@ -198,5 +226,144 @@ describe('PlannerPreviewScreen', () => {
     expect(await screen.findByTestId('planner-preview')).toBeTruthy();
     expect(screen.getByTestId('planner-warnings')).toBeTruthy();
     expect(screen.getByText(/does not match estimatedMinutes/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'この計画を採用する' })).toBeTruthy();
+  });
+
+  it('does not show Approval for idle or invalid Preview states', async () => {
+    const provider: PlannerProvider = {
+      generate: jest.fn(async () => 'invalid proposal'),
+      id: 'invalid-provider',
+    };
+    const screen = await renderScreen(provider);
+
+    expect(screen.queryByRole('button', { name: 'この計画を採用する' })).toBeNull();
+    await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
+    expect(await screen.findByTestId('planner-validation-error')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'この計画を採用する' })).toBeNull();
+  });
+
+  it('confirms, disables competing actions while saving, and shows save success', async () => {
+    let resolveSave:
+      ((value: Awaited<ReturnType<PlannerPersistenceRepository['savePlan']>>) => void) | undefined;
+    const persistenceRepository = createPersistenceRepository(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const screen = await renderScreen(
+      new RuleBasedPlannerProvider(),
+      createCalendarRepository(),
+      createTaskRepository(),
+      persistenceRepository,
+    );
+
+    await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
+    await screen.findByTestId('planner-preview');
+    await fireEvent.press(screen.getByRole('button', { name: 'この計画を採用する' }));
+
+    expect(alert).toHaveBeenCalledWith(
+      'この計画を採用しますか？',
+      expect.stringContaining('既存の計画'),
+      expect.any(Array),
+    );
+    let saveRequest: Promise<void> | undefined;
+    await act(async () => {
+      saveRequest = confirmLatestAlert(alert);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(persistenceRepository.savePlan).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: 'この計画を採用する' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '最新データで今日の計画を再生成する' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'プレビューを閉じる' })).toBeDisabled();
+    expect(resolveSave).toBeDefined();
+
+    await act(async () => {
+      resolveSave!({ actionCount: 1, id: dailyPlanId, planDate: '2026-09-17' });
+      await saveRequest;
+    });
+
+    expect(await screen.findByTestId('planner-save-success')).toBeTruthy();
+    expect(screen.getByText('今日の計画を保存しました')).toBeTruthy();
+    expect(screen.getByText('この計画は保存済みです。')).toBeTruthy();
+  });
+
+  it('keeps the Preview after save failure and retries the same validated Proposal', async () => {
+    const persistenceRepository = createPersistenceRepository(
+      jest
+        .fn<
+          ReturnType<PlannerPersistenceRepository['savePlan']>,
+          Parameters<PlannerPersistenceRepository['savePlan']>
+        >()
+        .mockRejectedValueOnce(new Error('network'))
+        .mockResolvedValueOnce({ actionCount: 1, id: dailyPlanId, planDate: '2026-09-17' }),
+    );
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const screen = await renderScreen(
+      new RuleBasedPlannerProvider(),
+      createCalendarRepository(),
+      createTaskRepository(),
+      persistenceRepository,
+    );
+
+    await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'この計画を採用する' }));
+    await act(async () => {
+      await confirmLatestAlert(alert);
+    });
+
+    expect(await screen.findByTestId('planner-save-error')).toBeTruthy();
+    expect(screen.getByTestId('planner-preview')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: '計画の保存を再試行する' }));
+    await act(async () => {
+      await confirmLatestAlert(alert);
+    });
+
+    expect(await screen.findByTestId('planner-save-success')).toBeTruthy();
+    expect(persistenceRepository.savePlan).toHaveBeenCalledTimes(2);
+    expect(persistenceRepository.savePlan.mock.calls[1][0]).toEqual(
+      persistenceRepository.savePlan.mock.calls[0][0],
+    );
+  });
+
+  it('does not save after confirmation cancel and ignores duplicate confirmations', async () => {
+    let resolveSave:
+      ((value: Awaited<ReturnType<PlannerPersistenceRepository['savePlan']>>) => void) | undefined;
+    const persistenceRepository = createPersistenceRepository(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const screen = await renderScreen(
+      new RuleBasedPlannerProvider(),
+      createCalendarRepository(),
+      createTaskRepository(),
+      persistenceRepository,
+    );
+
+    await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'この計画を採用する' }));
+    expect(persistenceRepository.savePlan).not.toHaveBeenCalled();
+
+    let firstSaveRequest: Promise<void> | undefined;
+    await act(async () => {
+      firstSaveRequest = confirmLatestAlert(alert);
+      await confirmLatestAlert(alert);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(persistenceRepository.savePlan).toHaveBeenCalledTimes(1));
+    expect(resolveSave).toBeDefined();
+
+    await act(async () => {
+      resolveSave!({ actionCount: 1, id: dailyPlanId, planDate: '2026-09-17' });
+      await firstSaveRequest;
+    });
+    expect(await screen.findByTestId('planner-save-success')).toBeTruthy();
   });
 });

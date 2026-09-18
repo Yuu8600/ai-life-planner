@@ -7,10 +7,21 @@ export {
 } from './freeTimeCalculator';
 export { buildPlannerInput, PlannerInputBuildError } from './buildPlannerInput';
 export { generatePlannerProposal } from './generatePlannerProposal';
+export {
+  approvePlannerProposal,
+  PlannerPersistenceMappingError,
+  toSavePlannerProposalInput,
+} from './plannerPersistence';
 export { RuleBasedPlannerProvider } from './providers/RuleBasedPlannerProvider';
 export { selectPlannerTasks } from './selectPlannerTasks';
 export { validatePlannerProposal } from './plannerValidator';
 export type { PlannerProvider } from './providers/PlannerProvider';
+export type {
+  PlannerPersistenceRepository,
+  SavePlannerActionInput,
+  SavePlannerProposalInput,
+  SavedDailyPlan,
+} from './repositories/PlannerPersistenceRepository';
 export type {
   PlannerAction,
   PlannerCalendarEvent,
@@ -36,3 +47,4 @@ export type {
   PlannerTaskSource,
   SelectPlannerTasksInput,
 } from './selectPlannerTasks';
+export type { PlannerPreviewData } from './plannerPreview';

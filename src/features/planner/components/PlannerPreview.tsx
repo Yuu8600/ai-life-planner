@@ -6,16 +6,19 @@ import { colors, radius, spacing } from '@/shared/theme';
 import type { PlannerPreviewViewModel } from '../plannerPreviewPresentation';
 
 type PlannerPreviewProps = {
+  isSaved?: boolean;
   preview: PlannerPreviewViewModel;
 };
 
-export function PlannerPreview({ preview }: PlannerPreviewProps) {
+export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps) {
   return (
     <View style={styles.container} testID="planner-preview">
       <View style={styles.summaryCard}>
         <Text style={styles.eyebrow}>プレビュー</Text>
         <Text style={styles.summary}>{preview.summary}</Text>
-        <Text style={styles.temporary}>この計画はまだ保存されていません。</Text>
+        <Text style={styles.temporary}>
+          {isSaved ? 'この計画は保存済みです。' : 'この計画はまだ保存されていません。'}
+        </Text>
       </View>
 
       <SectionHeader detail={`${preview.actions.length}件`} title="予定に配置したTask" />
