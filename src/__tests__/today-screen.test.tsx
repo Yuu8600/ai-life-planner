@@ -20,50 +20,67 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 const emptyToday: TodayProjection = {
-  actions: [],
+  deadlineTasks: [],
   greeting: 'おはようございます',
   localDate: '2026-09-11',
-  summary: null,
-  timezone: 'Asia/Tokyo',
+  plan: null,
+  profileTimezone: 'Asia/Tokyo',
 };
 
 const populatedToday: TodayProjection = {
-  actions: [
+  deadlineTasks: [
     {
-      endAt: '2026-09-10T23:50:00.000Z',
+      deadlineAt: '2026-09-11T14:59:59.999Z',
       goalTitle: 'TOEIC 730',
-      id: 'action-words',
-      startAt: '2026-09-10T23:30:00.000Z',
-      status: 'completed',
-      taskId: 'task-words',
-      taskTitle: '英単語を20分学習',
-      title: '金フレ',
-    },
-    {
-      endAt: '2026-09-11T08:30:00.000Z',
-      goalTitle: null,
-      id: 'action-listening',
-      startAt: '2026-09-11T08:00:00.000Z',
-      status: 'scheduled',
-      taskId: 'task-listening',
-      taskTitle: 'Listening',
-      title: 'TOEIC Listening',
-    },
-    {
-      endAt: '2026-09-11T10:30:00.000Z',
-      goalTitle: null,
-      id: 'action-skipped',
-      startAt: '2026-09-11T10:00:00.000Z',
-      status: 'skipped',
-      taskId: null,
-      taskTitle: null,
-      title: '振り返り',
+      id: 'task-words',
+      status: 'pending',
+      title: '英単語を20分学習',
     },
   ],
   greeting: 'おはようございます',
   localDate: '2026-09-11',
-  summary: '朝と夕方に英語学習を進めます。',
-  timezone: 'Asia/Tokyo',
+  plan: {
+    actions: [
+      {
+        endAt: '2026-09-10T23:50:00.000Z',
+        goalTitle: 'TOEIC 730',
+        id: 'action-words',
+        reason: '朝の集中しやすい時間だからです。',
+        startAt: '2026-09-10T23:30:00.000Z',
+        status: 'completed',
+        taskId: 'task-words',
+        taskTitle: '英単語を20分学習',
+        title: '金フレ',
+      },
+      {
+        endAt: '2026-09-11T08:30:00.000Z',
+        goalTitle: null,
+        id: 'action-listening',
+        reason: null,
+        startAt: '2026-09-11T08:00:00.000Z',
+        status: 'scheduled',
+        taskId: 'task-listening',
+        taskTitle: 'Listening',
+        title: 'TOEIC Listening',
+      },
+      {
+        endAt: '2026-09-11T10:30:00.000Z',
+        goalTitle: null,
+        id: 'action-skipped',
+        reason: '振り返りの時間です。',
+        startAt: '2026-09-11T10:00:00.000Z',
+        status: 'skipped',
+        taskId: null,
+        taskTitle: null,
+        title: '振り返り',
+      },
+    ],
+    date: '2026-09-11',
+    id: 'plan-today',
+    summary: '朝と夕方に英語学習を進めます。',
+    timezone: 'Asia/Tokyo',
+  },
+  profileTimezone: 'America/New_York',
 };
 
 function createRepository(
@@ -76,7 +93,7 @@ function createRepository(
 }
 
 describe('TodayScreen', () => {
-  it('shows a loading state until today data is fetched', async () => {
+  it('shows a loading state until Today data is fetched', async () => {
     const deferred = createDeferred<TodayProjection>();
     const repository = createRepository({ getToday: jest.fn(() => deferred.promise) });
     const screen = await render(
@@ -94,16 +111,42 @@ describe('TodayScreen', () => {
     expect(await screen.findByText('金フレ')).toBeTruthy();
   });
 
-  it('shows repository date and greeting with an empty state when there are no actions', async () => {
+  it('distinguishes no saved Plan from an error or a zero-action Plan', async () => {
     const repository = createRepository({ getToday: jest.fn(async () => emptyToday) });
     const screen = await render(
       <TodayScreen onPressAi={jest.fn()} onPressSettings={jest.fn()} repository={repository} />,
     );
 
-    expect(await screen.findByTestId('today-empty-state')).toBeTruthy();
+    expect(await screen.findByTestId('today-plan-empty-state')).toBeTruthy();
+    expect(screen.getByText('今日の計画はまだありません')).toBeTruthy();
+    expect(screen.getByText('AIタブで今日の計画を作成できます。')).toBeTruthy();
+    expect(screen.getByTestId('today-deadline-tasks-empty')).toBeTruthy();
     expect(screen.getByText('2026年9月11日 金曜日')).toBeTruthy();
     expect(screen.getByText('おはようございます')).toBeTruthy();
-    expect(screen.queryByText('大学')).toBeNull();
+  });
+
+  it('shows a saved Plan summary and a separate zero-action state', async () => {
+    const today: TodayProjection = {
+      ...emptyToday,
+      plan: {
+        actions: [],
+        date: '2026-09-11',
+        id: 'plan-empty',
+        summary: '今日は固定予定を優先します。',
+        timezone: 'Asia/Tokyo',
+      },
+    };
+    const screen = await render(
+      <TodayScreen
+        onPressAi={jest.fn()}
+        onPressSettings={jest.fn()}
+        repository={createRepository({ getToday: jest.fn(async () => today) })}
+      />,
+    );
+
+    expect(await screen.findByText('今日は固定予定を優先します。')).toBeTruthy();
+    expect(screen.getByTestId('today-plan-actions-empty')).toBeTruthy();
+    expect(screen.queryByTestId('today-plan-empty-state')).toBeNull();
   });
 
   it('shows a safe Japanese error and retries a failed fetch', async () => {
@@ -127,7 +170,7 @@ describe('TodayScreen', () => {
     expect(getToday).toHaveBeenCalledTimes(2);
   });
 
-  it('renders actions, timezone-adjusted times, statuses, task and optional Goal labels', async () => {
+  it('renders summary, plan-timezone times, reasons, all statuses, and deadline Tasks separately', async () => {
     const onPressAi = jest.fn();
     const onPressSettings = jest.fn();
     const screen = await render(
@@ -138,14 +181,20 @@ describe('TodayScreen', () => {
       />,
     );
 
-    expect(await screen.findByText('金フレ')).toBeTruthy();
+    expect(await screen.findByText('朝と夕方に英語学習を進めます。')).toBeTruthy();
+    expect(screen.getByText('金フレ')).toBeTruthy();
     expect(screen.getByText('08:30')).toBeTruthy();
+    expect(screen.getByText('08:50')).toBeTruthy();
+    expect(screen.getByText('朝の集中しやすい時間だからです。')).toBeTruthy();
     expect(screen.getByText('Task: 英単語を20分学習')).toBeTruthy();
-    expect(screen.getByText('Goal: TOEIC 730')).toBeTruthy();
+    expect(screen.getAllByText('Goal: TOEIC 730')).toHaveLength(2);
     expect(screen.getAllByText('予定アクション')).toHaveLength(3);
-    expect(screen.queryByText('Calendar Event')).toBeNull();
     expect(screen.getByText('予定')).toBeTruthy();
+    expect(screen.getAllByText('完了').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('スキップ')).toBeTruthy();
+    expect(screen.getByText('今日が期限のTask')).toBeTruthy();
+    expect(screen.getByTestId('today-deadline-tasks')).toBeTruthy();
+    expect(screen.getByText('未予定')).toBeTruthy();
     expect(screen.getByLabelText('今日の完了数 1件、全3件')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'AIに今日の計画を相談する' }));
@@ -154,16 +203,19 @@ describe('TodayScreen', () => {
     expect(onPressSettings).toHaveBeenCalledTimes(1);
   });
 
-  it('reloads profile timezone and Today data when the screen is focused again', async () => {
-    const changedTimezoneToday = {
-      ...emptyToday,
-      localDate: '2026-09-10',
-      timezone: 'America/New_York',
+  it('refetches and displays the latest saved Plan when focus refresh changes', async () => {
+    const replacementToday: TodayProjection = {
+      ...populatedToday,
+      plan: {
+        ...populatedToday.plan!,
+        actions: [populatedToday.plan!.actions[1]],
+        summary: '再保存した最新プランです。',
+      },
     };
     const getToday = jest
       .fn<ReturnType<TodayRepository['getToday']>, Parameters<TodayRepository['getToday']>>()
-      .mockResolvedValueOnce(emptyToday)
-      .mockResolvedValueOnce(changedTimezoneToday);
+      .mockResolvedValueOnce(populatedToday)
+      .mockResolvedValueOnce(replacementToday);
     const repository = createRepository({ getToday });
     const screen = await render(
       <TodayScreen
@@ -174,7 +226,7 @@ describe('TodayScreen', () => {
       />,
     );
 
-    expect(await screen.findByText('2026年9月11日 金曜日')).toBeTruthy();
+    expect(await screen.findByText('朝と夕方に英語学習を進めます。')).toBeTruthy();
 
     await act(async () => {
       screen.rerender(
@@ -190,6 +242,7 @@ describe('TodayScreen', () => {
     });
 
     await waitFor(() => expect(getToday).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText('2026年9月10日 木曜日')).toBeTruthy();
+    expect(await screen.findByText('再保存した最新プランです。')).toBeTruthy();
+    expect(screen.queryByText('金フレ')).toBeNull();
   });
 });

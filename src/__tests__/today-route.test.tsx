@@ -1,17 +1,27 @@
 import { Text } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 
 import TodayRoute from '@/app/(tabs)/today';
 
 const mockPush = jest.fn();
 const mockUseAuth = jest.fn();
 const mockCreateRepository = jest.fn((_userId: string) => ({ repository: true }));
-const mockTodayScreen = jest.fn(({ repository }: { repository: unknown }) => (
-  <Text testID="today-route-probe">{repository ? 'with-repository' : 'without-repository'}</Text>
-));
+let mockFocusCallback: (() => void) | undefined;
+const mockTodayScreen = jest.fn(
+  ({ refreshToken, repository }: { refreshToken: number; repository: unknown }) => (
+    <>
+      <Text testID="today-route-probe">
+        {repository ? 'with-repository' : 'without-repository'}
+      </Text>
+      <Text testID="today-refresh-token">{refreshToken}</Text>
+    </>
+  ),
+);
 
 jest.mock('expo-router', () => ({
-  useFocusEffect: jest.fn(),
+  useFocusEffect: (callback: () => void) => {
+    mockFocusCallback = callback;
+  },
   useRouter: () => ({ push: mockPush }),
 }));
 
@@ -20,7 +30,7 @@ jest.mock('@/features/auth', () => ({
 }));
 
 jest.mock('@/features/today/TodayScreen', () => ({
-  TodayScreen: (props: { repository: unknown }) => mockTodayScreen(props),
+  TodayScreen: (props: { refreshToken: number; repository: unknown }) => mockTodayScreen(props),
 }));
 
 jest.mock('@/services/supabase/repositories/SupabaseTodayRepository', () => ({
@@ -29,6 +39,7 @@ jest.mock('@/services/supabase/repositories/SupabaseTodayRepository', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFocusCallback = undefined;
 });
 
 describe('Today route composition', () => {
@@ -50,5 +61,26 @@ describe('Today route composition', () => {
 
     expect(screen.getByTestId('today-route-probe').props.children).toBe('with-repository');
     expect(mockCreateRepository).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
+  });
+
+  it('increments the refresh token when Today regains focus', async () => {
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: '11111111-1111-4111-8111-111111111111' } },
+    });
+    const screen = await render(<TodayRoute />);
+
+    expect(screen.getByTestId('today-refresh-token').props.children).toBe(0);
+    await act(async () => {
+      mockFocusCallback?.();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      mockFocusCallback?.();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('today-refresh-token').props.children).toBe(1);
+    });
   });
 });

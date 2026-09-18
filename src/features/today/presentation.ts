@@ -1,13 +1,21 @@
 import type {
   PlannedActionStatus,
+  TodayDailyPlan,
+  TodayDeadlineTask,
   TodayPlannedAction,
-  TodayProjection,
 } from './repositories/TodayRepository';
-import type { TimelineItem } from './types';
+import type { DeadlineTaskItem, TimelineItem } from './types';
 
 const STATUS_LABELS: Record<PlannedActionStatus, string> = {
   completed: '完了',
   scheduled: '予定',
+  skipped: 'スキップ',
+};
+
+const TASK_STATUS_LABELS: Record<TodayDeadlineTask['status'], string> = {
+  completed: '完了',
+  pending: '未予定',
+  scheduled: '予定済み',
   skipped: 'スキップ',
 };
 
@@ -32,6 +40,7 @@ function toTimelineItem(action: TodayPlannedAction, timezone: string): TimelineI
     end: formatTime(action.endAt, timezone),
     goalTitle: action.goalTitle,
     id: action.id,
+    reason: action.reason,
     start: formatTime(action.startAt, timezone),
     status: action.status,
     statusLabel: STATUS_LABELS[action.status],
@@ -40,8 +49,18 @@ function toTimelineItem(action: TodayPlannedAction, timezone: string): TimelineI
   };
 }
 
-export function toTimelineItems(today: TodayProjection): TimelineItem[] {
-  return today.actions.map((action) => toTimelineItem(action, today.timezone));
+export function toTimelineItems(plan: TodayDailyPlan): TimelineItem[] {
+  return plan.actions.map((action) => toTimelineItem(action, plan.timezone));
+}
+
+export function toDeadlineTaskItems(tasks: readonly TodayDeadlineTask[]): DeadlineTaskItem[] {
+  return tasks.map((task) => ({
+    goalTitle: task.goalTitle,
+    id: task.id,
+    status: task.status,
+    statusLabel: TASK_STATUS_LABELS[task.status],
+    title: task.title,
+  }));
 }
 
 export function formatTodayDateLabel(localDate: string): string {

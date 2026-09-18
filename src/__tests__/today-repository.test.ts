@@ -10,7 +10,9 @@ jest.mock('@/services/supabase/client', () => ({
 const userId = '11111111-1111-4111-8111-111111111111';
 const otherUserId = '99999999-9999-4999-8999-999999999999';
 const dailyPlanId = '22222222-2222-4222-8222-222222222222';
-const actionId = '33333333-3333-4333-8333-333333333333';
+const firstActionId = '33333333-3333-4333-8333-333333333333';
+const secondActionId = '33333333-3333-4333-8333-444444444444';
+const thirdActionId = '33333333-3333-4333-8333-555555555555';
 const taskId = '44444444-4444-4444-8444-444444444444';
 const goalId = '55555555-5555-4555-8555-555555555555';
 const now = () => new Date('2026-09-13T15:30:00.000Z');
@@ -28,11 +30,12 @@ type TestBuilder = {
 };
 
 type Responses = {
+  actionTasks?: QueryResponse;
   actions?: QueryResponse;
   dailyPlan?: QueryResponse;
+  deadlineTasks?: QueryResponse;
   goals?: QueryResponse;
   profile?: QueryResponse;
-  tasks?: QueryResponse;
 };
 
 function createChainBuilder(): TestBuilder {
@@ -42,6 +45,8 @@ function createChainBuilder(): TestBuilder {
   builder.lt = jest.fn(() => builder);
   builder.order = jest.fn(() => builder);
   builder.select = jest.fn(() => builder);
+  builder.in = jest.fn(() => builder);
+  builder.maybeSingle = jest.fn(() => builder);
   return builder;
 }
 
@@ -57,30 +62,40 @@ function createRepository(responses: Responses = {}) {
   const actions = createChainBuilder();
   actions.order = jest.fn(async () => responses.actions ?? { data: [], error: null });
 
-  const tasks = createChainBuilder();
-  tasks.in = jest.fn(async () => responses.tasks ?? { data: [], error: null });
+  const deadlineTasks = createChainBuilder();
+  deadlineTasks.order = jest.fn(async () => responses.deadlineTasks ?? { data: [], error: null });
+
+  const actionTasks = createChainBuilder();
+  actionTasks.in = jest.fn(async () => responses.actionTasks ?? { data: [], error: null });
 
   const goals = createChainBuilder();
   goals.in = jest.fn(async () => responses.goals ?? { data: [], error: null });
 
+  let taskQueryCount = 0;
   const builders: Record<string, TestBuilder> = {
     daily_plans: dailyPlan,
     goals,
     planned_actions: actions,
     profiles: profile,
-    tasks,
   };
-  const from = jest.fn((table: string) => builders[table]);
+  const from = jest.fn((table: string) => {
+    if (table === 'tasks') {
+      taskQueryCount += 1;
+      return taskQueryCount === 1 ? deadlineTasks : actionTasks;
+    }
+    return builders[table];
+  });
   const client = { from } as unknown as SupabaseClient<Database>;
 
   return {
+    actionTasks,
     actions,
     dailyPlan,
+    deadlineTasks,
     from,
     goals,
     profile,
     repository: new SupabaseTodayRepository(client, userId, now),
-    tasks,
   };
 }
 
@@ -88,13 +103,15 @@ const planRow = {
   id: dailyPlanId,
   plan_date: '2026-09-14',
   summary: '英語学習を進めます。',
+  timezone: 'Asia/Tokyo',
   user_id: userId,
 };
 
 const actionRow = {
   daily_plan_id: dailyPlanId,
   end_at: '2026-09-13T23:30:00.000Z',
-  id: actionId,
+  id: firstActionId,
+  reason: '朝の空き時間を使うためです。',
   start_at: '2026-09-13T23:00:00.000Z',
   status: 'scheduled',
   task_id: taskId,
@@ -103,124 +120,180 @@ const actionRow = {
 };
 
 describe('SupabaseTodayRepository', () => {
-  it('returns an empty local-day projection when no Daily Plan exists', async () => {
-    const { actions, dailyPlan, from, repository } = createRepository();
-
-    await expect(repository.getToday()).resolves.toEqual({
-      actions: [],
-      greeting: 'こんばんは',
-      localDate: '2026-09-14',
-      summary: null,
-      timezone: 'Asia/Tokyo',
-    });
-    expect(from).toHaveBeenCalledWith('profiles');
-    expect(from).toHaveBeenCalledWith('daily_plans');
-    expect(dailyPlan.eq).toHaveBeenCalledWith('user_id', userId);
-    expect(dailyPlan.eq).toHaveBeenCalledWith('plan_date', '2026-09-14');
-    expect(actions.order).not.toHaveBeenCalled();
-  });
-
-  it('loads only the signed-in user local-day actions and maps Task and Goal details', async () => {
-    const { actions, dailyPlan, goals, repository, tasks } = createRepository({
-      actions: { data: [actionRow], error: null },
-      dailyPlan: { data: planRow, error: null },
-      goals: { data: [{ id: goalId, title: ' TOEIC 730 ', user_id: userId }], error: null },
-      tasks: {
-        data: [{ goal_id: goalId, id: taskId, title: ' Listening練習 ', user_id: userId }],
+  it('returns a distinct no-Plan projection and still loads Today deadline Tasks', async () => {
+    const { actions, dailyPlan, deadlineTasks, repository } = createRepository({
+      deadlineTasks: {
+        data: [
+          {
+            deadline: '2026-09-14T14:59:59.999Z',
+            goal_id: null,
+            id: taskId,
+            status: 'pending',
+            title: ' 今日が期限 ',
+            user_id: userId,
+          },
+        ],
         error: null,
       },
     });
 
     await expect(repository.getToday()).resolves.toEqual({
-      actions: [
+      deadlineTasks: [
         {
-          endAt: '2026-09-13T23:30:00.000Z',
-          goalTitle: 'TOEIC 730',
-          id: actionId,
-          startAt: '2026-09-13T23:00:00.000Z',
-          status: 'scheduled',
-          taskId,
-          taskTitle: 'Listening練習',
-          title: 'TOEIC Listening',
+          deadlineAt: '2026-09-14T14:59:59.999Z',
+          goalTitle: null,
+          id: taskId,
+          status: 'pending',
+          title: '今日が期限',
         },
       ],
       greeting: 'こんばんは',
       localDate: '2026-09-14',
-      summary: '英語学習を進めます。',
-      timezone: 'Asia/Tokyo',
+      plan: null,
+      profileTimezone: 'Asia/Tokyo',
     });
-    expect(dailyPlan.eq).toHaveBeenCalledWith('user_id', userId);
-    expect(actions.eq).toHaveBeenCalledWith('user_id', userId);
-    expect(actions.eq).toHaveBeenCalledWith('daily_plan_id', dailyPlanId);
-    expect(actions.gte).toHaveBeenCalledWith('start_at', '2026-09-13T15:00:00.000Z');
-    expect(actions.lt).toHaveBeenCalledWith('start_at', '2026-09-14T15:00:00.000Z');
-    expect(actions.order).toHaveBeenCalledWith('start_at', { ascending: true });
-    expect(tasks.eq).toHaveBeenCalledWith('user_id', userId);
-    expect(tasks.in).toHaveBeenCalledWith('id', [taskId]);
-    expect(goals.eq).toHaveBeenCalledWith('user_id', userId);
-    expect(goals.in).toHaveBeenCalledWith('id', [goalId]);
+    expect(dailyPlan.eq).toHaveBeenCalledWith('plan_date', '2026-09-14');
+    expect(deadlineTasks.gte).toHaveBeenCalledWith('deadline', '2026-09-13T15:00:00.000Z');
+    expect(deadlineTasks.lt).toHaveBeenCalledWith('deadline', '2026-09-14T15:00:00.000Z');
+    expect(actions.order).not.toHaveBeenCalled();
   });
 
-  it('keeps the action title readable after its Task is deleted and task_id becomes null', async () => {
-    const { from, repository } = createRepository({
+  it('loads summary, reason, all statuses, Task metadata, and deterministically sorted Actions', async () => {
+    const { actionTasks, actions, goals, repository } = createRepository({
       actions: {
-        data: [{ ...actionRow, task_id: null, title: '削除済みTaskの予定' }],
+        data: [
+          {
+            ...actionRow,
+            end_at: '2026-09-14T01:30:00.000Z',
+            id: secondActionId,
+            start_at: '2026-09-14T01:00:00.000Z',
+          },
+          { ...actionRow, id: firstActionId, status: 'completed' },
+          {
+            ...actionRow,
+            end_at: '2026-09-14T01:30:00.000Z',
+            id: thirdActionId,
+            reason: null,
+            start_at: '2026-09-14T01:00:00.000Z',
+            status: 'skipped',
+            task_id: null,
+            title: '自由Action',
+          },
+        ],
+        error: null,
+      },
+      actionTasks: {
+        data: [{ goal_id: goalId, id: taskId, title: ' Listening練習 ', user_id: userId }],
         error: null,
       },
       dailyPlan: { data: planRow, error: null },
+      goals: { data: [{ id: goalId, title: ' TOEIC 730 ', user_id: userId }], error: null },
+    });
+
+    const result = await repository.getToday();
+
+    expect(result.plan).toEqual({
+      actions: [
+        expect.objectContaining({
+          id: firstActionId,
+          reason: '朝の空き時間を使うためです。',
+          status: 'completed',
+          taskTitle: 'Listening練習',
+        }),
+        expect.objectContaining({ id: secondActionId, status: 'scheduled' }),
+        expect.objectContaining({
+          goalTitle: null,
+          id: thirdActionId,
+          reason: null,
+          status: 'skipped',
+          taskId: null,
+        }),
+      ],
+      date: '2026-09-14',
+      id: dailyPlanId,
+      summary: '英語学習を進めます。',
+      timezone: 'Asia/Tokyo',
+    });
+    expect(actions.order).toHaveBeenCalledWith('start_at', { ascending: true });
+    expect(actionTasks.in).toHaveBeenCalledWith('id', [taskId]);
+    expect(goals.in).toHaveBeenCalledWith('id', [goalId]);
+  });
+
+  it('uses profile timezone to select plan_date and saved Plan timezone for action bounds', async () => {
+    const { actions, dailyPlan, repository } = createRepository({
+      actions: {
+        data: [
+          {
+            ...actionRow,
+            end_at: '2026-09-14T13:30:00.000Z',
+            start_at: '2026-09-14T13:00:00.000Z',
+            task_id: null,
+          },
+        ],
+        error: null,
+      },
+      dailyPlan: {
+        data: { ...planRow, timezone: 'America/New_York' },
+        error: null,
+      },
+    });
+
+    const result = await repository.getToday();
+
+    expect(dailyPlan.eq).toHaveBeenCalledWith('plan_date', '2026-09-14');
+    expect(actions.gte).toHaveBeenCalledWith('start_at', '2026-09-14T04:00:00.000Z');
+    expect(actions.lt).toHaveBeenCalledWith('start_at', '2026-09-15T04:00:00.000Z');
+    expect(result.profileTimezone).toBe('Asia/Tokyo');
+    expect(result.plan?.timezone).toBe('America/New_York');
+  });
+
+  it('returns a saved Plan with zero Actions without treating it as no Plan', async () => {
+    const { repository } = createRepository({
+      dailyPlan: { data: { ...planRow, summary: null }, error: null },
     });
 
     await expect(repository.getToday()).resolves.toEqual(
       expect.objectContaining({
-        actions: [
-          expect.objectContaining({
-            goalTitle: null,
-            taskId: null,
-            taskTitle: null,
-            title: '削除済みTaskの予定',
-          }),
-        ],
+        plan: expect.objectContaining({ actions: [], id: dailyPlanId, summary: null }),
       }),
     );
-    expect(from).not.toHaveBeenCalledWith('tasks');
-    expect(from).not.toHaveBeenCalledWith('goals');
   });
 
-  it.each([
-    ['yesterday', '2026-09-13T14:59:59.999Z'],
-    ['tomorrow boundary', '2026-09-14T15:00:00.000Z'],
-  ])('rejects an out-of-range %s row returned by a malformed backend', async (_label, startAt) => {
-    const { repository } = createRepository({
-      actions: { data: [{ ...actionRow, start_at: startAt }], error: null },
+  it('rejects malformed or cross-user Action data', async () => {
+    const outOfRange = createRepository({
+      actions: { data: [{ ...actionRow, start_at: '2026-09-13T14:59:59.999Z' }], error: null },
       dailyPlan: { data: planRow, error: null },
     });
+    await expect(outOfRange.repository.getToday()).rejects.toThrow(
+      'Unexpected planned action data',
+    );
 
-    await expect(repository.getToday()).rejects.toThrow('Unexpected planned action data');
-  });
-
-  it('rejects another user action even if a malformed backend returns it', async () => {
-    const { repository } = createRepository({
+    const otherUser = createRepository({
       actions: { data: [{ ...actionRow, user_id: otherUserId }], error: null },
       dailyPlan: { data: planRow, error: null },
     });
-
-    await expect(repository.getToday()).rejects.toThrow('Unexpected planned action data');
+    await expect(otherUser.repository.getToday()).rejects.toThrow('Unexpected planned action data');
   });
 
-  it('fails safely when the profile timezone is invalid without falling back', async () => {
-    const { dailyPlan, repository } = createRepository({
+  it('fails safely for an invalid profile or Plan timezone without falling back', async () => {
+    const invalidProfile = createRepository({
       profile: { data: { timezone: 'Mars/Olympus' }, error: null },
     });
+    await expect(invalidProfile.repository.getToday()).rejects.toMatchObject({
+      code: 'INVALID_TIME_ZONE',
+    });
 
-    await expect(repository.getToday()).rejects.toMatchObject({ code: 'INVALID_TIME_ZONE' });
-    expect(dailyPlan.maybeSingle).not.toHaveBeenCalled();
+    const invalidPlan = createRepository({
+      dailyPlan: { data: { ...planRow, timezone: 'Mars/Olympus' }, error: null },
+    });
+    await expect(invalidPlan.repository.getToday()).rejects.toMatchObject({
+      code: 'INVALID_TIME_ZONE',
+    });
   });
 
-  it('propagates Supabase failures to the Today error boundary', async () => {
+  it('propagates a database failure instead of returning an empty state', async () => {
     const error = { code: '42501', message: 'row-level security' };
-    const { repository } = createRepository({
-      dailyPlan: { data: null, error },
-    });
+    const { repository } = createRepository({ dailyPlan: { data: null, error } });
 
     await expect(repository.getToday()).rejects.toBe(error);
   });

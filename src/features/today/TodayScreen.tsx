@@ -6,12 +6,13 @@ import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { colors, radius, spacing } from '@/shared/theme';
 
-import { formatTodayDateLabel, toTimelineItems } from './presentation';
+import { formatTodayDateLabel, toDeadlineTaskItems, toTimelineItems } from './presentation';
 import type { TodayRepository } from './repositories/TodayRepository';
 import { useToday } from './useToday';
 import { PlanSummary } from './components/PlanSummary';
 import { Timeline } from './components/Timeline';
 import { TodayStatePanel } from './components/TodayStatePanel';
+import { DeadlineTaskList } from './components/DeadlineTaskList';
 
 type TodayScreenProps = {
   onPressAi: () => void;
@@ -27,8 +28,11 @@ export function TodayScreen({
   repository,
 }: TodayScreenProps) {
   const { isLoading, loadError, retry, today } = useToday(repository, refreshToken);
-  const timelineItems = today ? toTimelineItems(today) : [];
-  const completedActions = today?.actions.filter((action) => action.status === 'completed').length;
+  const timelineItems = today?.plan ? toTimelineItems(today.plan) : [];
+  const deadlineTaskItems = today ? toDeadlineTaskItems(today.deadlineTasks) : [];
+  const completedActions = today?.plan?.actions.filter(
+    (action) => action.status === 'completed',
+  ).length;
 
   return (
     <AppScreen testID="today-screen">
@@ -64,25 +68,39 @@ export function TodayScreen({
           testID="today-error-state"
           title={repository ? '今日の予定を読み込めませんでした' : 'ログインが必要です'}
         />
-      ) : today && today.actions.length === 0 ? (
-        <>
-          <SectionHeader detail="実行予定のAction" title="今日のタイムライン" />
-          <TodayStatePanel
-            message="今日実行する予定はまだありません。"
-            testID="today-empty-state"
-            title="今日の予定はありません"
-          />
-        </>
       ) : today ? (
         <>
-          <PlanSummary
-            completedActions={completedActions ?? 0}
-            summary={today.summary ?? '今日の実行予定を確認しましょう。'}
-            totalActions={today.actions.length}
-          />
+          {today.plan ? (
+            <>
+              <PlanSummary
+                completedActions={completedActions ?? 0}
+                summary={today.plan.summary ?? '今日の実行予定を確認しましょう。'}
+                totalActions={today.plan.actions.length}
+              />
+              <SectionHeader detail={`${today.plan.actions.length}件`} title="今日の計画" />
+              {today.plan.actions.length > 0 ? (
+                <Timeline items={timelineItems} />
+              ) : (
+                <TodayStatePanel
+                  message="計画は保存されていますが、予定されたActionはありません。"
+                  testID="today-plan-actions-empty"
+                  title="予定されたアクションはありません"
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <SectionHeader detail="保存済みPlan" title="今日の計画" />
+              <TodayStatePanel
+                message="AIタブで今日の計画を作成できます。"
+                testID="today-plan-empty-state"
+                title="今日の計画はまだありません"
+              />
+            </>
+          )}
 
-          <SectionHeader detail="実行予定のAction" title="今日のタイムライン" />
-          <Timeline items={timelineItems} />
+          <SectionHeader detail={`${deadlineTaskItems.length}件`} title="今日が期限のTask" />
+          <DeadlineTaskList items={deadlineTaskItems} />
         </>
       ) : null}
 

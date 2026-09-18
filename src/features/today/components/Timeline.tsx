@@ -21,6 +21,7 @@ export function Timeline({ items }: TimelineProps) {
               '予定アクション',
               item.taskTitle ? 'タスク ' + item.taskTitle : null,
               item.goalTitle ? 'Goal ' + item.goalTitle : null,
+              item.reason ? '理由 ' + item.reason : null,
               item.statusLabel,
             ]
               .filter(Boolean)
@@ -40,6 +41,7 @@ export function Timeline({ items }: TimelineProps) {
               <Text style={styles.title}>{item.title}</Text>
               {item.taskTitle ? <Text style={styles.relation}>Task: {item.taskTitle}</Text> : null}
               {item.goalTitle ? <Text style={styles.relation}>Goal: {item.goalTitle}</Text> : null}
+              {item.reason ? <Text style={styles.reason}>{item.reason}</Text> : null}
               <View style={styles.meta}>
                 <Text style={styles.source}>予定アクション</Text>
                 <Badge
@@ -123,6 +125,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     color: colors.textMuted,
     fontSize: 13,
+  },
+  reason: {
+    marginTop: spacing.sm,
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
   },
   meta: {
     flexDirection: 'row',
