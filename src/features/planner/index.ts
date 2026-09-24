@@ -13,9 +13,15 @@ export {
   toSavePlannerProposalInput,
 } from './plannerPersistence';
 export { RuleBasedPlannerProvider } from './providers/RuleBasedPlannerProvider';
+export {
+  DEFAULT_PLANNER_PROVIDER_ID,
+  PlannerProviderUnavailableError,
+  selectPlannerProvider,
+} from './plannerProviderSelection';
 export { selectPlannerTasks } from './selectPlannerTasks';
 export { validatePlannerProposal } from './plannerValidator';
 export type { PlannerProvider } from './providers/PlannerProvider';
+export type { PlannerProviderId } from './plannerProviderSelection';
 export type {
   PlannerPersistenceRepository,
   SavePlannerActionInput,

@@ -5,10 +5,9 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 3C (Free Time Calculation)** まで実装済みです。Goals / Tasks CRUD、
-Todayの`planned_actions`表示、Settingsのプロフィール計画設定に加え、Calendarタブで端末の予定を
-読み取り専用表示し、計画可能時間と予定から空き時間を計算できます。AI画面のOpenAI通信は
-まだ実装していません。
+現在は **Milestone 4F-1** まで実装済みです。Goals / Tasks / Calendarから空き時間を計算し、
+API不要のRuleBased PlannerでPreview・保存・Today表示まで利用できます。任意のOpenAI連携に
+向けたEdge Function境界は追加済みですが、OpenAI APIへの通信はまだ実装していません。
 
 ## 技術構成
 
@@ -23,7 +22,7 @@ Todayの`planned_actions`表示、Settingsのプロフィール計画設定に�
 - Prettier
 - Jest / React Native Testing Library
 
-OpenAI APIは、対応するMilestoneまで追加しません。
+OpenAI API keyなしでもCore AppとRuleBased Plannerを利用できます。
 
 ## セットアップ
 
@@ -119,11 +118,26 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 利用するには、有効なSupabase設定とログインが必要です。
 
 `EXPO_PUBLIC_` で始まる値はアプリへ埋め込まれるため秘密情報には使えません。
-`OPENAI_API_KEY` は将来もモバイルアプリではなく、信頼できるサーバーまたはSupabase Edge
-Functionだけで管理します。
+`OPENAI_API_KEY` はモバイルアプリではなく、Supabase Edge Function Secretとしてのみ管理します。
 
 Supabaseの`service_role` keyはRLSを迂回できる秘密値です。モバイルアプリ、`.env`の
 `EXPO_PUBLIC_`変数、リポジトリには絶対に配置しません。
+
+## Optional OpenAI Planner（4F-1の準備範囲）
+
+AIタブでは引き続き`rule-based`を既定Providerとして使用します。任意Providerの内部IDは
+`openai`で、モバイル側の`EdgeFunctionPlannerProvider`は認証済みSupabase sessionを使って
+`planner-generate` Edge Functionを呼びます。応答は必ず共通PlannerValidatorで検証します。
+Provider選択の保存や選択UIはまだありません。OpenAI側の失敗時にRuleBasedへ自動で
+切り替えることもありません。
+
+`planner-generate`はローカル実装のみで、linked Supabaseには未deployです。GETは認証済み
+ユーザーへ`{available, reason?}`のみ返します。POSTのrequestは既存`PlannerInput` JSON、
+成功時のresponseはPlannerProposal候補のJSONで、clientは`unknown`として扱います。失敗時は
+HTTP statusと`{error: {code}}`を返します。`OPENAI_API_KEY`が
+未設定なら設定エラー、設定済みでも4F-1では未実装エラーを返します。どちらもOpenAI APIへ
+リクエストしません。キーの値はリポジトリやExpoの`.env`へ置かず、4F-2でサーバー側transportを
+実装・検証するときにSupabase Edge Function Secretへ設定します。
 
 ## Email + Password認証
 
@@ -283,7 +297,7 @@ schema変更後は型再生成とtypecheckを必ずセットで実行します�
 
 ## 現在のスコープ
 
-Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3A / 3B / 3Cで用意したもの:
+Milestone 0から4F-1までに用意したもの:
 
 - Expo + React Native + TypeScriptの初期構成
 - Expo Routerと5つのBottom Tab
@@ -320,13 +334,16 @@ Milestone 0 / 0.5 / 1 / 2A / 2B-1 / 2B-2 / 2B-3 / 2B-4 / 3A / 3B / 3Cで用意�
 - Expo Go非対応のCalendar APIを確認するdevelopment build導線
 - profile timezoneのplanning window、blocking予定、終日予定からの空き時間算出
 - busy intervalのclamp / merge、最小空き時間フィルタ、Calendarタブでの結果表示
+- Provider-neutral Planner Contract、RuleBased Planner、共通Validator、Preview
+- 承認したDaily Planのatomic保存と、保存済みPlanのToday表示
+- Optional OpenAI Providerの選択モデル、Edge通信adapter、認証付きFunction skeleton
 - 開発ガイド
 
 未実装のもの:
 
 - 確認メールからアプリへ戻るDeep Link、Password reset、OAuth
 - Calendar Eventと空き時間のTodayへの統合
-- OpenAI API、Planner schema、計画生成・再計画
+- OpenAI APIの本実装とProvider選択UI、再計画
 
 ## 依存バージョンについて
 

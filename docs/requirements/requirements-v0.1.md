@@ -1,7 +1,7 @@
 # AI Life Planner — 要件定義書 v0.1
 
 作成日: 2026-09-11  
-最終更新日: 2026-09-18\
+最終更新日: 2026-09-24\
 状態: Draft / MVP Definition  
 仮称: AI Life Planner
 
@@ -342,6 +342,11 @@ MVPではGoogle Calendar APIを直接使用せず、
 - OpenAI API keyはSupabase Secretとして管理
 - API keyをモバイルアプリへ直接埋め込まない
 - OpenAI未設定時もCore AppとPlannerを利用可能
+- RuleBased Plannerを既定とし、OpenAI Providerの選択は明示的に行う
+- OpenAI Providerが利用不能な場合は理由を表示し、RuleBasedへ無言で切り替えない
+- Edge Functionは認証済みユーザーのみ受け付け、PlannerInputを検証してからサーバー側で生成する
+- Edge Functionの出力も他Providerと同じ共通PlannerValidatorで検証する
+- availability応答にAPI keyや他のsecretを含めない
 
 ## Repository
 - GitHub

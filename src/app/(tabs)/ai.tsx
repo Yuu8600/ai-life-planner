@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '@/features/auth';
 import { PlannerPreviewScreen } from '@/features/planner/PlannerPreviewScreen';
-import { RuleBasedPlannerProvider } from '@/features/planner';
+import { RuleBasedPlannerProvider, selectPlannerProvider } from '@/features/planner';
 import { createExpoCalendarRepository } from '@/services/calendar/ExpoCalendarRepository';
 import { createSupabaseGoalRepository } from '@/services/supabase/repositories/SupabaseGoalRepository';
 import { createSupabasePlannerPersistenceRepository } from '@/services/supabase/repositories/SupabasePlannerPersistenceRepository';
@@ -21,7 +21,10 @@ export default function AiRoute() {
     () => (userId ? createSupabaseGoalRepository(userId) : null),
     [userId],
   );
-  const provider = useMemo(() => new RuleBasedPlannerProvider(), []);
+  const provider = useMemo(
+    () => selectPlannerProvider({ ruleBased: new RuleBasedPlannerProvider() }),
+    [],
+  );
   const persistenceRepository = useMemo(
     () => (userId ? createSupabasePlannerPersistenceRepository() : null),
     [userId],
