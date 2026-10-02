@@ -3,6 +3,7 @@ import type { SettingsRepository } from '@/features/settings';
 import { getLocalDate, getUtcDayBounds, resolveTimeZone } from '@/features/today';
 
 import { buildPlannerInput } from './buildPlannerInput';
+import { clipPlannerFreeSlots } from './clipPlannerFreeSlots';
 import type { PlannerInput, PlannerProposal, PlannerValidationIssue } from './contracts';
 import { calculateFreeTime } from './freeTimeCalculator';
 import { generatePlannerProposal } from './generatePlannerProposal';
@@ -74,7 +75,8 @@ export async function generatePlannerPreview({
     calendarRepository.getPermission(),
   ]);
   const timezone = resolveTimeZone(settings.timezone);
-  const date = getLocalDate(now(), timezone);
+  const currentInstant = now();
+  const date = getLocalDate(currentInstant, timezone);
 
   if (permission.status !== 'granted') {
     throw new PlannerPreviewCalendarPermissionError(permission.status);
@@ -93,10 +95,20 @@ export async function generatePlannerPreview({
     selectedDate: date,
     timezone,
   });
+  const plannerFreeTimeResult = {
+    ...freeTimeResult,
+    freeSlots: clipPlannerFreeSlots({
+      date,
+      freeSlots: freeTimeResult.freeSlots,
+      minimumFreeMinutes: settings.minimumFreeMinutes,
+      now: currentInstant,
+      timezone,
+    }),
+  };
   const input = buildPlannerInput({
     calendarEvents: calendarResult.events,
     date,
-    freeTimeResult,
+    freeTimeResult: plannerFreeTimeResult,
     goals,
     tasks,
     timezone,

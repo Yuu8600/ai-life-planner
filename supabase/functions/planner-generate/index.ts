@@ -1,4 +1,4 @@
-import { generateWithOpenAI, OpenAITransportNotImplementedError } from './openAiTransport.ts';
+import { generateWithOpenAI, OpenAITransportError } from './openAiTransport.ts';
 import { isPlannerInputRequest } from './request.ts';
 
 declare const Deno: { env: { get(name: string): string | undefined } };
@@ -7,6 +7,7 @@ type HandlerDependencies = {
   fetcher?: typeof fetch;
   getEnv?: (name: string) => string | undefined;
   generate?: typeof generateWithOpenAI;
+  openAiFetcher?: typeof fetch;
 };
 
 function json(body: unknown, status = 200): Response {
@@ -75,6 +76,7 @@ export function createPlannerGenerateHandler(dependencies: HandlerDependencies =
   const getEnv = dependencies.getEnv ?? ((name: string) => Deno.env.get(name));
   const fetcher = dependencies.fetcher ?? fetch;
   const generate = dependencies.generate ?? generateWithOpenAI;
+  const openAiFetcher = dependencies.openAiFetcher ?? fetch;
 
   return async (request: Request): Promise<Response> => {
     if (request.method !== 'GET' && request.method !== 'POST') {
@@ -86,11 +88,10 @@ export function createPlannerGenerateHandler(dependencies: HandlerDependencies =
     if (auth === 'unavailable') return failure('AUTH_UNAVAILABLE', 503);
 
     const apiKey = getEnv('OPENAI_API_KEY')?.trim();
+    const model = getEnv('OPENAI_MODEL')?.trim();
     if (request.method === 'GET') {
       return json(
-        apiKey
-          ? { available: false, reason: 'not_implemented' }
-          : { available: false, reason: 'configuration' },
+        apiKey && model ? { available: true } : { available: false, reason: 'configuration' },
       );
     }
 
@@ -103,16 +104,34 @@ export function createPlannerGenerateHandler(dependencies: HandlerDependencies =
       return failure('INVALID_REQUEST', 400);
     }
     if (!isPlannerInputRequest(input)) return failure('INVALID_REQUEST', 400);
-    if (!apiKey) return failure('CONFIGURATION_UNAVAILABLE', 503);
+    if (!apiKey || !model) return failure('CONFIGURATION_UNAVAILABLE', 503);
 
     try {
-      // The transport deliberately makes no paid API call in Milestone 4F-1.
-      const candidate = await generate(input, apiKey);
+      const candidate = await generate(input, apiKey, model, openAiFetcher);
       return json(candidate);
     } catch (error) {
-      if (error instanceof OpenAITransportNotImplementedError) {
-        return failure('NOT_IMPLEMENTED', 501);
+      if (error instanceof OpenAITransportError) {
+        console.error('planner-generate OpenAI failure', {
+          category: error.kind,
+          status: error.status ?? null,
+          requestId: error.requestId ?? null,
+        });
+        switch (error.kind) {
+          case 'rate_limit':
+            return failure('RATE_LIMIT', 429);
+          case 'timeout':
+            return failure('UPSTREAM_TIMEOUT', 504);
+          case 'network':
+            return failure('UPSTREAM_NETWORK', 502);
+          case 'invalid_openai_response':
+            return failure('INVALID_OPENAI_RESPONSE', 502);
+          case 'authentication':
+            return failure('UPSTREAM_AUTHENTICATION', 502);
+          default:
+            return failure('UPSTREAM_FAILED', 502);
+        }
       }
+      console.error('planner-generate server failure', { category: 'server' });
       return failure('PROVIDER_FAILED', 502);
     }
   };

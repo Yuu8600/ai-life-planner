@@ -24,7 +24,7 @@ export type PlannerPreviewErrorKind = 'data' | 'permission' | 'provider' | 'vali
 export type PlannerPreviewState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | ({ status: 'success' } & PlannerPreviewData)
+  | ({ providerId: string; status: 'success' } & PlannerPreviewData)
   | {
       issues: PlannerValidationIssue[];
       kind: PlannerPreviewErrorKind;
@@ -158,6 +158,7 @@ export function usePlannerPreview({
       setState({
         input: result.input,
         proposal: result.proposal,
+        providerId: provider.id,
         status: 'success',
         timezone: result.timezone,
         warnings: result.warnings,
@@ -246,7 +247,10 @@ export function usePlannerPreview({
     state.status !== 'loading' &&
     saveState.status !== 'saving';
   const canApprove =
-    persistenceRepository !== null && state.status === 'success' && saveState.status !== 'saving';
+    persistenceRepository !== null &&
+    state.status === 'success' &&
+    state.providerId === provider.id &&
+    saveState.status !== 'saving';
 
   return {
     approve,

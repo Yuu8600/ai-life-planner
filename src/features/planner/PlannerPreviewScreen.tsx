@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { CalendarRepository } from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
@@ -13,6 +13,7 @@ import { PlannerStatePanel } from './components/PlannerStatePanel';
 import type { PlannerPreviewGoalRepository, PlannerPreviewTaskRepository } from './plannerPreview';
 import { formatPlannerDateLabel, toPlannerPreviewViewModel } from './plannerPreviewPresentation';
 import type { PlannerProvider } from './providers/PlannerProvider';
+import type { PlannerProviderId } from './plannerProviderSelection';
 import type { PlannerPersistenceRepository } from './repositories/PlannerPersistenceRepository';
 import { usePlannerPreview } from './usePlannerPreview';
 
@@ -21,6 +22,8 @@ type PlannerPreviewScreenProps = {
   goalRepository: PlannerPreviewGoalRepository | null;
   now?: () => Date;
   onOpenSettings?: () => void;
+  onSelectProvider?: (id: PlannerProviderId) => void;
+  openAiAvailability?: 'available' | 'checking' | 'unavailable';
   persistenceRepository: PlannerPersistenceRepository | null;
   provider: PlannerProvider;
   refreshToken?: number;
@@ -33,6 +36,8 @@ export function PlannerPreviewScreen({
   goalRepository,
   now,
   onOpenSettings,
+  onSelectProvider,
+  openAiAvailability = 'unavailable',
   persistenceRepository,
   provider,
   refreshToken = 0,
@@ -58,8 +63,11 @@ export function PlannerPreviewScreen({
     [calendar.selectedDate, calendar.timeZone],
   );
   const preview = useMemo(
-    () => (state.status === 'success' ? toPlannerPreviewViewModel(state) : null),
-    [state],
+    () =>
+      state.status === 'success' && state.providerId === provider.id
+        ? toPlannerPreviewViewModel(state)
+        : null,
+    [provider.id, state],
   );
   const confirmApproval = () => {
     Alert.alert(
@@ -79,6 +87,54 @@ export function PlannerPreviewScreen({
         subtitle="Goals・Tasks・端末カレンダーから、今日の実行案を作成します。"
         title="Planner Preview"
       />
+
+      {onSelectProvider ? (
+        <View style={styles.providerOptions} testID="planner-provider-options">
+          <Text style={styles.providerHeading}>生成方法</Text>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{
+              selected: provider.id === 'rule-based',
+              disabled: saveState.status === 'saving',
+            }}
+            disabled={saveState.status === 'saving'}
+            onPress={() => onSelectProvider('rule-based')}
+            style={[
+              styles.providerOption,
+              provider.id === 'rule-based' && styles.selectedProviderOption,
+            ]}
+            testID="planner-provider-rule-based"
+          >
+            <Text style={styles.providerTitle}>
+              {provider.id === 'rule-based' ? '◉' : '○'} ルールベース
+            </Text>
+            <Text style={styles.providerDescription}>API不要・既定</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{
+              selected: provider.id === 'openai',
+              disabled: openAiAvailability !== 'available' || saveState.status === 'saving',
+            }}
+            disabled={openAiAvailability !== 'available' || saveState.status === 'saving'}
+            onPress={() => onSelectProvider('openai')}
+            style={[
+              styles.providerOption,
+              provider.id === 'openai' && styles.selectedProviderOption,
+            ]}
+            testID="planner-provider-openai"
+          >
+            <Text style={styles.providerTitle}>{provider.id === 'openai' ? '◉' : '○'} OpenAI</Text>
+            <Text style={styles.providerDescription}>
+              {openAiAvailability === 'available'
+                ? 'AIを使って柔軟に計画'
+                : openAiAvailability === 'checking'
+                  ? '利用状況を確認中…'
+                  : '現在利用できません'}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {calendar.accessState === 'checking' ? (
         <PlannerStatePanel
@@ -172,6 +228,9 @@ export function PlannerPreviewScreen({
         </>
       ) : state.status === 'success' && preview ? (
         <>
+          <Text style={styles.providerLabel} testID="planner-preview-provider-label">
+            生成方法: {state.providerId === 'openai' ? 'OpenAI' : 'RuleBased'}
+          </Text>
           <PlannerPreview isSaved={saveState.status === 'success'} preview={preview} />
           {saveState.status === 'success' ? (
             <View style={styles.saveSuccess} testID="planner-save-success">
@@ -238,6 +297,39 @@ export function PlannerPreviewScreen({
 }
 
 const styles = StyleSheet.create({
+  providerOptions: {
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  providerHeading: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  providerOption: {
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+  },
+  selectedProviderOption: {
+    borderColor: colors.accent,
+  },
+  providerTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  providerDescription: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  providerLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: spacing.md,
+  },
   introCard: {
     gap: spacing.md,
     marginTop: spacing.xl,

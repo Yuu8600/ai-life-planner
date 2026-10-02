@@ -4,8 +4,14 @@ import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '@/features/auth';
 import { PlannerPreviewScreen } from '@/features/planner/PlannerPreviewScreen';
-import { RuleBasedPlannerProvider, selectPlannerProvider } from '@/features/planner';
+import {
+  DEFAULT_PLANNER_PROVIDER_ID,
+  RuleBasedPlannerProvider,
+  selectPlannerProvider,
+  type PlannerProviderId,
+} from '@/features/planner';
 import { createExpoCalendarRepository } from '@/services/calendar/ExpoCalendarRepository';
+import { createEdgeFunctionPlannerProvider } from '@/services/supabase/providers/EdgeFunctionPlannerProvider';
 import { createSupabaseGoalRepository } from '@/services/supabase/repositories/SupabaseGoalRepository';
 import { createSupabasePlannerPersistenceRepository } from '@/services/supabase/repositories/SupabasePlannerPersistenceRepository';
 import { createSupabaseSettingsRepository } from '@/services/supabase/repositories/SupabaseSettingsRepository';
@@ -15,15 +21,22 @@ export default function AiRoute() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const [refreshToken, setRefreshToken] = useState(0);
+  const [providerId, setProviderId] = useState<PlannerProviderId>(DEFAULT_PLANNER_PROVIDER_ID);
+  const [openAiAvailability, setOpenAiAvailability] = useState<
+    'available' | 'checking' | 'unavailable'
+  >('checking');
   const hasFocused = useRef(false);
   const calendarRepository = useMemo(() => createExpoCalendarRepository(), []);
   const goalRepository = useMemo(
     () => (userId ? createSupabaseGoalRepository(userId) : null),
     [userId],
   );
+  const ruleBasedProvider = useMemo(() => new RuleBasedPlannerProvider(), []);
+  const openAiProvider = useMemo(() => createEdgeFunctionPlannerProvider(), []);
   const provider = useMemo(
-    () => selectPlannerProvider({ ruleBased: new RuleBasedPlannerProvider() }),
-    [],
+    () =>
+      selectPlannerProvider({ openai: openAiProvider, ruleBased: ruleBasedProvider }, providerId),
+    [openAiProvider, providerId, ruleBasedProvider],
   );
   const persistenceRepository = useMemo(
     () => (userId ? createSupabasePlannerPersistenceRepository() : null),
@@ -56,11 +69,32 @@ export default function AiRoute() {
     return () => subscription.remove();
   }, []);
 
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) setOpenAiAvailability('checking');
+    });
+    void openAiProvider
+      .checkAvailability()
+      .then((result) => {
+        if (active) setOpenAiAvailability(result.available ? 'available' : 'unavailable');
+      })
+      .catch(() => {
+        if (active) setOpenAiAvailability('unavailable');
+      });
+    return () => {
+      active = false;
+    };
+  }, [openAiProvider, refreshToken, userId]);
+
   return (
     <PlannerPreviewScreen
       calendarRepository={calendarRepository}
       goalRepository={goalRepository}
       onOpenSettings={() => void Linking.openSettings()}
+      onSelectProvider={setProviderId}
+      openAiAvailability={userId ? openAiAvailability : 'unavailable'}
       persistenceRepository={persistenceRepository}
       provider={provider}
       refreshToken={refreshToken}

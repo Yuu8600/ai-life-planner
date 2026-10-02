@@ -91,6 +91,10 @@ async function renderScreen(
   calendarRepository = createCalendarRepository(),
   taskRepository = createTaskRepository(),
   persistenceRepository = createPersistenceRepository(),
+  selection?: {
+    onSelectProvider: (id: 'openai' | 'rule-based') => void;
+    openAiAvailability: 'available' | 'checking' | 'unavailable';
+  },
 ) {
   return render(
     <PlannerPreviewScreen
@@ -98,6 +102,8 @@ async function renderScreen(
       goalRepository={createGoalRepository()}
       now={now}
       onOpenSettings={jest.fn()}
+      onSelectProvider={selection?.onSelectProvider}
+      openAiAvailability={selection?.openAiAvailability}
       persistenceRepository={persistenceRepository}
       provider={provider}
       settingsRepository={createSettingsRepository()}
@@ -117,6 +123,109 @@ afterEach(() => {
 });
 
 describe('PlannerPreviewScreen', () => {
+  it('shows unavailable OpenAI but only permits selection when available', async () => {
+    const onSelectProvider = jest.fn();
+    const screen = await renderScreen(
+      new RuleBasedPlannerProvider(),
+      createCalendarRepository(),
+      createTaskRepository(),
+      createPersistenceRepository(),
+      { onSelectProvider, openAiAvailability: 'unavailable' },
+    );
+    expect(screen.getByText('現在利用できません')).toBeTruthy();
+    expect(screen.getByTestId('planner-provider-openai')).toBeDisabled();
+    fireEvent.press(screen.getByTestId('planner-provider-openai'));
+    expect(onSelectProvider).not.toHaveBeenCalled();
+
+    await screen.rerender(
+      <PlannerPreviewScreen
+        calendarRepository={createCalendarRepository()}
+        goalRepository={createGoalRepository()}
+        now={now}
+        onSelectProvider={onSelectProvider}
+        openAiAvailability="available"
+        persistenceRepository={createPersistenceRepository()}
+        provider={new RuleBasedPlannerProvider()}
+        settingsRepository={createSettingsRepository()}
+        taskRepository={createTaskRepository()}
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId('planner-provider-openai')).not.toBeDisabled());
+    await fireEvent.press(screen.getByTestId('planner-provider-openai'));
+    expect(onSelectProvider).toHaveBeenCalledWith('openai');
+  });
+
+  it('discards an old Preview when the selected provider changes', async () => {
+    const calendarRepository = createCalendarRepository();
+    const goalRepository = createGoalRepository();
+    const taskRepository = createTaskRepository();
+    const settingsRepository = createSettingsRepository();
+    const persistenceRepository = createPersistenceRepository();
+    const ruleBased = new RuleBasedPlannerProvider();
+    const openAi: PlannerProvider = {
+      id: 'openai',
+      generate: jest.fn(async () => {
+        throw new Error('upstream');
+      }),
+    };
+    const shared = {
+      calendarRepository,
+      goalRepository,
+      now,
+      persistenceRepository,
+      settingsRepository,
+      taskRepository,
+    };
+    const screen = await render(<PlannerPreviewScreen {...shared} provider={ruleBased} />);
+    await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
+    expect(await screen.findByTestId('planner-preview')).toBeTruthy();
+    expect(screen.getByText('生成方法: RuleBased')).toBeTruthy();
+
+    await screen.rerender(<PlannerPreviewScreen {...shared} provider={openAi} />);
+    await waitFor(() => expect(screen.queryByTestId('planner-preview')).toBeNull());
+    await fireEvent.press(screen.getByRole('button', { name: '今日の計画を作成する' }));
+    expect(await screen.findByTestId('planner-provider-error')).toBeTruthy();
+    expect(openAi.generate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('planner-preview')).toBeNull();
+  });
+
+  it('uses the same approval and persistence flow for a validated OpenAI proposal', async () => {
+    const provider: PlannerProvider = {
+      id: 'openai',
+      generate: jest.fn(async () => ({
+        actions: [
+          {
+            endAt: '2026-09-16T23:30:00.000Z',
+            reason: '朝の学習に適しています。',
+            startAt: '2026-09-16T23:00:00.000Z',
+            taskId: shortTaskId,
+            title: '朝の復習',
+          },
+        ],
+        date: '2026-09-17',
+        summary: '1件を配置しました。',
+        unscheduled: [{ taskId: oversizedTaskId, reason: '連続した空き時間が足りません。' }],
+      })),
+    };
+    const persistenceRepository = createPersistenceRepository();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const screen = await renderScreen(
+      provider,
+      createCalendarRepository(),
+      createTaskRepository(),
+      persistenceRepository,
+    );
+
+    await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
+    expect(await screen.findByText('生成方法: OpenAI')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'この計画を採用する' }));
+    await act(async () => {
+      await confirmLatestAlert(alert);
+    });
+    expect(await screen.findByTestId('planner-save-success')).toBeTruthy();
+    expect(persistenceRepository.savePlan).toHaveBeenCalledTimes(1);
+  });
+
   it('generates and displays a validated temporary Preview from repository data', async () => {
     const taskRepository = createTaskRepository();
     const screen = await renderScreen(

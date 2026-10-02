@@ -1,5 +1,9 @@
 import type { CalendarEvent, CalendarRepository } from '@/features/calendar';
-import { RuleBasedPlannerProvider, type PlannerProvider } from '@/features/planner';
+import {
+  RuleBasedPlannerProvider,
+  type PlannerInput,
+  type PlannerProvider,
+} from '@/features/planner';
 import {
   generatePlannerPreview,
   PlannerPreviewProviderError,
@@ -106,6 +110,75 @@ function dependencies(
 }
 
 describe('Planner Preview orchestration', () => {
+  it('passes the same clipped availability to RuleBased and an OpenAI-shaped Provider', async () => {
+    const duringPlanning = () => new Date('2026-09-17T00:14:23.000Z');
+    const ruleBased = await generatePlannerPreview({
+      ...dependencies(),
+      now: duringPlanning,
+    });
+    const openAiStub: PlannerProvider = {
+      id: 'openai',
+      generate: jest.fn(async (input: PlannerInput) =>
+        new RuleBasedPlannerProvider().generate(input),
+      ),
+    };
+    const openAi = await generatePlannerPreview({
+      ...dependencies(openAiStub),
+      now: duringPlanning,
+    });
+
+    expect(ruleBased.ok).toBe(true);
+    expect(openAi.ok).toBe(true);
+    if (!ruleBased.ok || !openAi.ok) throw new Error('Expected validated previews.');
+
+    const expectedFreeSlots = [
+      {
+        startAt: '2026-09-17T00:15:00.000Z',
+        endAt: '2026-09-17T01:00:00.000Z',
+        durationMinutes: 45,
+      },
+    ];
+    expect(ruleBased.input.freeSlots).toEqual(expectedFreeSlots);
+    expect(openAi.input.freeSlots).toEqual(expectedFreeSlots);
+    expect(openAiStub.generate).toHaveBeenCalledWith(openAi.input);
+    expect(ruleBased.input.planningWindow).toEqual({
+      startAt: '2026-09-16T23:00:00.000Z',
+      endAt: '2026-09-17T01:00:00.000Z',
+    });
+    expect(ruleBased.proposal.actions[0].startAt).toBe('2026-09-17T00:15:00.000Z');
+    expect(openAi.proposal.actions[0].startAt).toBe('2026-09-17T00:15:00.000Z');
+  });
+
+  it('rejects an external Provider action placed in a past part of the planning window', async () => {
+    const pastProvider: PlannerProvider = {
+      id: 'openai',
+      generate: jest.fn(async () => ({
+        actions: [
+          {
+            endAt: '2026-09-16T23:30:00.000Z',
+            reason: '過去の時間を使っています。',
+            startAt: '2026-09-16T23:00:00.000Z',
+            taskId: shortTaskId,
+            title: shortTask.title,
+          },
+        ],
+        date: '2026-09-17',
+        summary: '1件を配置しました。',
+        unscheduled: [{ reason: '時間が足りません。', taskId: oversizedTaskId }],
+      })),
+    };
+    const result = await generatePlannerPreview({
+      ...dependencies(pastProvider),
+      now: () => new Date('2026-09-17T00:14:23.000Z'),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('Expected an invalid past action.');
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ code: 'ACTION_OUTSIDE_FREE_SLOT' }),
+    );
+  });
+
   it('runs the real Planner pipeline for the profile-local Today date', async () => {
     const calendarRepository = createCalendarRepository();
     const result = await generatePlannerPreview(

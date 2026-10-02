@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 import { createPlannerGenerateHandler } from '../../supabase/functions/planner-generate';
+import { OpenAITransportError } from '../../supabase/functions/planner-generate/openAiTransport';
 
 const requestInput = {
   calendarEvents: [],
@@ -20,9 +21,10 @@ function createHandler(apiKey?: string) {
   const getEnv = (name: string) =>
     ({
       OPENAI_API_KEY: apiKey,
+      OPENAI_MODEL: apiKey ? 'test-model' : undefined,
       SUPABASE_ANON_KEY: 'public-test-key',
       SUPABASE_URL: 'https://example.supabase.co',
-    })[name as 'OPENAI_API_KEY' | 'SUPABASE_ANON_KEY' | 'SUPABASE_URL'];
+    })[name as 'OPENAI_API_KEY' | 'OPENAI_MODEL' | 'SUPABASE_ANON_KEY' | 'SUPABASE_URL'];
   return { fetcher, handler: createPlannerGenerateHandler({ fetcher, getEnv }) };
 }
 
@@ -143,24 +145,79 @@ describe('planner-generate Edge Function boundary', () => {
       getEnv: (name) =>
         ({
           OPENAI_API_KEY: 'server-test-key',
+          OPENAI_MODEL: 'test-model',
           SUPABASE_ANON_KEY: 'public-test-key',
           SUPABASE_URL: 'https://example.supabase.co',
-        })[name as 'OPENAI_API_KEY' | 'SUPABASE_ANON_KEY' | 'SUPABASE_URL'],
+        })[name as 'OPENAI_API_KEY' | 'OPENAI_MODEL' | 'SUPABASE_ANON_KEY' | 'SUPABASE_URL'],
     });
     const response = await handler(request('POST', requestInput));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(candidate);
-    expect(generate).toHaveBeenCalledWith(requestInput, 'server-test-key');
+    expect(generate).toHaveBeenCalledWith(
+      requestInput,
+      'server-test-key',
+      'test-model',
+      expect.any(Function),
+    );
   });
 
-  it('returns not implemented even with a server key, without invoking OpenAI', async () => {
+  it('reports availability from configuration without contacting OpenAI', async () => {
     const { handler } = createHandler('server-test-key');
     const availability = await handler(request('GET'));
-    const response = await handler(request('POST', requestInput));
 
-    expect(await availability.json()).toEqual({ available: false, reason: 'not_implemented' });
-    expect(response.status).toBe(501);
-    expect(await response.json()).toEqual({ error: { code: 'NOT_IMPLEMENTED' } });
+    expect(await availability.json()).toEqual({ available: true });
+  });
+
+  it('requires both key and model without invoking the transport', async () => {
+    const generate = jest.fn();
+    const handler = createPlannerGenerateHandler({
+      fetcher: jest.fn(async () => Response.json({ id: 'user-id' })),
+      generate,
+      getEnv: (name) =>
+        ({
+          OPENAI_API_KEY: 'server-test-key',
+          SUPABASE_ANON_KEY: 'public-test-key',
+          SUPABASE_URL: 'https://example.supabase.co',
+        })[name as 'OPENAI_API_KEY' | 'SUPABASE_ANON_KEY' | 'SUPABASE_URL'],
+    });
+    expect(await (await handler(request('GET'))).json()).toEqual({
+      available: false,
+      reason: 'configuration',
+    });
+    expect((await handler(request('POST', requestInput))).status).toBe(503);
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['rate_limit', 429, 'RATE_LIMIT'],
+    ['timeout', 504, 'UPSTREAM_TIMEOUT'],
+    ['invalid_openai_response', 502, 'INVALID_OPENAI_RESPONSE'],
+    ['authentication', 502, 'UPSTREAM_AUTHENTICATION'],
+    ['network', 502, 'UPSTREAM_NETWORK'],
+  ] as const)('maps %s to safe HTTP errors', async (kind, status, code) => {
+    const logger = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const handler = createPlannerGenerateHandler({
+      fetcher: jest.fn(async () => Response.json({ id: 'user-id' })),
+      generate: jest.fn(async () => {
+        throw new OpenAITransportError(kind, 429, 'request-test');
+      }),
+      getEnv: (name) =>
+        ({
+          OPENAI_API_KEY: 'server-test-key',
+          OPENAI_MODEL: 'test-model',
+          SUPABASE_ANON_KEY: 'public-test-key',
+          SUPABASE_URL: 'https://example.supabase.co',
+        })[name as 'OPENAI_API_KEY' | 'OPENAI_MODEL' | 'SUPABASE_ANON_KEY' | 'SUPABASE_URL'],
+    });
+    const response = await handler(request('POST', requestInput));
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual({ error: { code } });
+    expect(logger).toHaveBeenCalledWith('planner-generate OpenAI failure', {
+      category: kind,
+      requestId: 'request-test',
+      status: 429,
+    });
+    logger.mockRestore();
   });
 });

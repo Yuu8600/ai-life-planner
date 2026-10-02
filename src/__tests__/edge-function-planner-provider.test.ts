@@ -116,6 +116,48 @@ describe('EdgeFunctionPlannerProvider', () => {
   });
 
   it.each([
+    [
+      'outside free slot',
+      {
+        ...validCandidate,
+        actions: [
+          {
+            ...validCandidate.actions[0],
+            startAt: '2026-09-24T02:00:00.000Z',
+            endAt: '2026-09-24T02:30:00.000Z',
+          },
+        ],
+      },
+      'ACTION_OUTSIDE_PLANNING_WINDOW',
+    ],
+    [
+      'unknown task',
+      {
+        ...validCandidate,
+        actions: [{ ...validCandidate.actions[0], taskId: '99999999-9999-4999-8999-999999999999' }],
+      },
+      'UNKNOWN_TASK',
+    ],
+    [
+      'overlap',
+      {
+        ...validCandidate,
+        actions: [validCandidate.actions[0], { ...validCandidate.actions[0], taskId: null }],
+      },
+      'OVERLAPPING_ACTIONS',
+    ],
+  ])(
+    'rejects schema-shaped OpenAI %s through the Core Validator',
+    async (_label, candidate, code) => {
+      const { provider } = createAdapter({ data: candidate, error: null });
+      const result = await generatePlannerProposal(provider, input);
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error('Expected Core validation failure.');
+      expect(result.errors).toContainEqual(expect.objectContaining({ code }));
+    },
+  );
+
+  it.each([
     [new FunctionsFetchError(new Error('offline')), 'network'],
     [new FunctionsHttpError({ status: 401 }), 'authentication'],
     [new FunctionsHttpError({ status: 503 }), 'configuration'],

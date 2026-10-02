@@ -344,9 +344,11 @@ MVPではGoogle Calendar APIを直接使用せず、
 - OpenAI未設定時もCore AppとPlannerを利用可能
 - RuleBased Plannerを既定とし、OpenAI Providerの選択は明示的に行う
 - OpenAI Providerが利用不能な場合は理由を表示し、RuleBasedへ無言で切り替えない
+- OpenAI Providerの選択は画面session内で保持し、Provider切替時には未保存Previewを破棄する
 - Edge Functionは認証済みユーザーのみ受け付け、PlannerInputを検証してからサーバー側で生成する
 - Edge Functionの出力も他Providerと同じ共通PlannerValidatorで検証する
 - availability応答にAPI keyや他のsecretを含めない
+- OpenAIのモデルはサーバー側設定で選び、利用時のAPI従量料金はChatGPT Plus等とは別に発生する
 
 ## Repository
 - GitHub

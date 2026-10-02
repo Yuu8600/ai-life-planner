@@ -5,9 +5,9 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 4F-1** まで実装済みです。Goals / Tasks / Calendarから空き時間を計算し、
-API不要のRuleBased PlannerでPreview・保存・Today表示まで利用できます。任意のOpenAI連携に
-向けたEdge Function境界は追加済みですが、OpenAI APIへの通信はまだ実装していません。
+現在は **Milestone 4F-2のローカル実装** まで進んでいます。Goals / Tasks / Calendarから
+空き時間を計算し、API不要のRuleBased PlannerでPreview・保存・Today表示まで利用できます。
+任意のOpenAI Providerはローカル実装済みですが、Edge Functionはまだremoteへdeployしていません。
 
 ## 技術構成
 
@@ -118,26 +118,34 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 利用するには、有効なSupabase設定とログインが必要です。
 
 `EXPO_PUBLIC_` で始まる値はアプリへ埋め込まれるため秘密情報には使えません。
-`OPENAI_API_KEY` はモバイルアプリではなく、Supabase Edge Function Secretとしてのみ管理します。
+`OPENAI_API_KEY`と`OPENAI_MODEL`はモバイルアプリではなく、Supabase Edge Function Secretとしてのみ管理します。
 
 Supabaseの`service_role` keyはRLSを迂回できる秘密値です。モバイルアプリ、`.env`の
 `EXPO_PUBLIC_`変数、リポジトリには絶対に配置しません。
 
-## Optional OpenAI Planner（4F-1の準備範囲）
+## Optional OpenAI Planner（4F-2ローカル実装）
 
-AIタブでは引き続き`rule-based`を既定Providerとして使用します。任意Providerの内部IDは
-`openai`で、モバイル側の`EdgeFunctionPlannerProvider`は認証済みSupabase sessionを使って
-`planner-generate` Edge Functionを呼びます。応答は必ず共通PlannerValidatorで検証します。
-Provider選択の保存や選択UIはまだありません。OpenAI側の失敗時にRuleBasedへ自動で
-切り替えることもありません。
+AIタブでは`rule-based`を既定Providerとして使用します。OpenAIは明示選択した場合のみ利用します。
+選択は画面session中だけ保持し、アプリ起動時は常にRuleBasedに戻ります。OpenAI未設定なら
+選択肢を利用不可として表示します。Providerを切り替えると古いPreviewを破棄します。
+OpenAI側の失敗時にRuleBasedへ自動で切り替えません。どちらのProviderも共通の
+PlannerValidator、Preview、承認・保存処理を通ります。
 
 `planner-generate`はローカル実装のみで、linked Supabaseには未deployです。GETは認証済み
-ユーザーへ`{available, reason?}`のみ返します。POSTのrequestは既存`PlannerInput` JSON、
-成功時のresponseはPlannerProposal候補のJSONで、clientは`unknown`として扱います。失敗時は
-HTTP statusと`{error: {code}}`を返します。`OPENAI_API_KEY`が
-未設定なら設定エラー、設定済みでも4F-1では未実装エラーを返します。どちらもOpenAI APIへ
-リクエストしません。キーの値はリポジトリやExpoの`.env`へ置かず、4F-2でサーバー側transportを
-実装・検証するときにSupabase Edge Function Secretへ設定します。
+ユーザーへ設定の有無に基づく`{available, reason?}`を返し、OpenAI APIは呼びません。POSTは
+既存`PlannerInput`だけを受け、Edge FunctionからResponses APIのstrict JSON Schema形式で
+生成します。mobileは返却値を`unknown`として扱い、共通Validatorで検証します。
+`OPENAI_API_KEY`と`OPENAI_MODEL`が共に必要です。対応するモデルを選び、Edge Function側の
+Secretとして設定してください。reasoning effortは低、timeoutは20秒、自動retryはありません。
+API key、Supabase JWT、ユーザーの入力本文をログへ出しません。OpenAI利用時のみAPI使用量に
+応じた料金が発生し、ChatGPT Plusなどの料金とは別です。OpenAI設定がなくてもCoreを試せます。
+
+ローカル検証まではSecret設定・remote deploy・実APIリクエストを行いません。承認後に
+Supabase DashboardのEdge Function Secretsで`OPENAI_API_KEY`と`OPENAI_MODEL`を設定します。
+モデルにはResponses APIのStructured Outputsと`low` reasoningに対応するものを選びます
+（コスト重視の候補例は`gpt-6-luna`。利用可能モデルと料金は設定時に公式資料で確認してください）。
+その後`npx supabase functions deploy planner-generate`でdeployし、availabilityを確認してから
+少額の実API検証を行う手順です。実際のkeyをCLI引数やGit管理ファイルに書かないでください。
 
 ## Email + Password認証
 
@@ -297,7 +305,7 @@ schema変更後は型再生成とtypecheckを必ずセットで実行します�
 
 ## 現在のスコープ
 
-Milestone 0から4F-1までに用意したもの:
+Milestone 0から4F-2のローカル実装までに用意したもの:
 
 - Expo + React Native + TypeScriptの初期構成
 - Expo Routerと5つのBottom Tab
@@ -336,14 +344,14 @@ Milestone 0から4F-1までに用意したもの:
 - busy intervalのclamp / merge、最小空き時間フィルタ、Calendarタブでの結果表示
 - Provider-neutral Planner Contract、RuleBased Planner、共通Validator、Preview
 - 承認したDaily Planのatomic保存と、保存済みPlanのToday表示
-- Optional OpenAI Providerの選択モデル、Edge通信adapter、認証付きFunction skeleton
+- Optional OpenAI Providerの選択UI、Edge通信adapter、認証付きFunctionとResponses API transport
 - 開発ガイド
 
 未実装のもの:
 
 - 確認メールからアプリへ戻るDeep Link、Password reset、OAuth
 - Calendar Eventと空き時間のTodayへの統合
-- OpenAI APIの本実装とProvider選択UI、再計画
+- OpenAI用Edge Functionのremote deploy・実API検証、再計画
 
 ## 依存バージョンについて
 
