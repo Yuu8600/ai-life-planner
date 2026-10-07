@@ -9,7 +9,9 @@ export { buildPlannerInput, PlannerInputBuildError } from './buildPlannerInput';
 export { generatePlannerProposal } from './generatePlannerProposal';
 export {
   approvePlannerProposal,
+  PlannerApprovalCheckError,
   PlannerPersistenceMappingError,
+  PlannerPreviewStaleError,
   toSavePlannerProposalInput,
 } from './plannerPersistence';
 export { RuleBasedPlannerProvider } from './providers/RuleBasedPlannerProvider';
@@ -54,3 +56,4 @@ export type {
   SelectPlannerTasksInput,
 } from './selectPlannerTasks';
 export type { PlannerPreviewData } from './plannerPreview';
+export type { PlannerInputDependencies } from './loadPlannerInput';

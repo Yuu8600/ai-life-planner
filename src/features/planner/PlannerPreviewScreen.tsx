@@ -57,11 +57,14 @@ export function PlannerPreviewScreen({
     });
   const dateLabel = useMemo(
     () =>
-      calendar.selectedDate && calendar.timeZone
-        ? formatPlannerDateLabel(calendar.selectedDate, calendar.timeZone)
-        : undefined,
-    [calendar.selectedDate, calendar.timeZone],
+      state.status === 'success'
+        ? formatPlannerDateLabel(state.input.date, state.timezone)
+        : calendar.selectedDate && calendar.timeZone
+          ? formatPlannerDateLabel(calendar.selectedDate, calendar.timeZone)
+          : undefined,
+    [calendar.selectedDate, calendar.timeZone, state],
   );
+  const showCalendarStatus = state.status !== 'success';
   const preview = useMemo(
     () =>
       state.status === 'success' && state.providerId === provider.id
@@ -136,14 +139,14 @@ export function PlannerPreviewScreen({
         </View>
       ) : null}
 
-      {calendar.accessState === 'checking' ? (
+      {showCalendarStatus && calendar.accessState === 'checking' ? (
         <PlannerStatePanel
           isLoading
           message="プロフィール設定とカレンダー権限を確認しています。"
           testID="planner-checking-state"
           title="確認中"
         />
-      ) : calendar.accessState === 'undetermined' ? (
+      ) : showCalendarStatus && calendar.accessState === 'undetermined' ? (
         <PlannerStatePanel
           actionLabel={calendar.isRequestingPermission ? '確認中…' : 'アクセスを許可する'}
           disabled={calendar.isRequestingPermission}
@@ -152,7 +155,7 @@ export function PlannerPreviewScreen({
           testID="planner-permission-prompt"
           title="カレンダーへのアクセス"
         />
-      ) : calendar.accessState === 'denied' ? (
+      ) : showCalendarStatus && calendar.accessState === 'denied' ? (
         <PlannerStatePanel
           actionLabel={calendar.canAskAgain ? 'もう一度許可する' : 'OS設定を開く'}
           disabled={calendar.isRequestingPermission}
@@ -167,7 +170,7 @@ export function PlannerPreviewScreen({
           testID="planner-permission-denied"
           title="計画を作成できません"
         />
-      ) : calendar.accessState === 'unavailable' ? (
+      ) : showCalendarStatus && calendar.accessState === 'unavailable' ? (
         <PlannerStatePanel
           message={
             calendar.loadError ??
@@ -176,7 +179,7 @@ export function PlannerPreviewScreen({
           testID="planner-calendar-unavailable"
           title="端末カレンダーを利用できません"
         />
-      ) : calendar.accessState === 'error' ? (
+      ) : showCalendarStatus && calendar.accessState === 'error' ? (
         <PlannerStatePanel
           actionLabel={calendarRepository && settingsRepository ? '再読み込み' : undefined}
           message={calendar.loadError ?? 'Plannerを利用するにはログインが必要です。'}
@@ -184,14 +187,15 @@ export function PlannerPreviewScreen({
           testID="planner-calendar-error"
           title={calendarRepository && settingsRepository ? '読み込みエラー' : 'ログインが必要です'}
         />
-      ) : calendar.isLoadingEvents || (calendar.calendarCount === null && !calendar.loadError) ? (
+      ) : showCalendarStatus &&
+        (calendar.isLoadingEvents || (calendar.calendarCount === null && !calendar.loadError)) ? (
         <PlannerStatePanel
           isLoading
           message="今日の端末カレンダー予定を読み込んでいます。"
           testID="planner-calendar-loading"
           title="予定を確認中"
         />
-      ) : calendar.loadError ? (
+      ) : showCalendarStatus && calendar.loadError ? (
         <PlannerStatePanel
           actionLabel="再読み込み"
           message={calendar.loadError}
@@ -239,24 +243,46 @@ export function PlannerPreviewScreen({
                 {saveState.plan.actionCount}件のActionを保存しました。
               </Text>
             </View>
+          ) : saveState.status === 'stale' ? (
+            <View style={styles.saveError} testID="planner-preview-stale">
+              <Text style={styles.saveErrorTitle}>計画の再生成が必要です</Text>
+              <Text style={styles.saveErrorText}>{saveState.message}</Text>
+            </View>
           ) : saveState.status === 'error' ? (
-            <View style={styles.saveError} testID="planner-save-error">
-              <Text style={styles.saveErrorTitle}>計画を保存できませんでした</Text>
+            <View
+              style={styles.saveError}
+              testID={
+                saveState.kind === 'verification'
+                  ? 'planner-approval-check-error'
+                  : 'planner-save-error'
+              }
+            >
+              <Text style={styles.saveErrorTitle}>
+                {saveState.kind === 'verification'
+                  ? '最新の状況を確認できませんでした'
+                  : '計画を保存できませんでした'}
+              </Text>
               <Text style={styles.saveErrorText}>{saveState.message}</Text>
             </View>
           ) : null}
           <View style={styles.actions}>
-            {saveState.status !== 'success' ? (
+            {saveState.status !== 'success' && saveState.status !== 'stale' ? (
               <ActionButton
                 accessibilityLabel={
-                  saveState.status === 'error' ? '計画の保存を再試行する' : 'この計画を採用する'
+                  saveState.status === 'error'
+                    ? saveState.kind === 'verification'
+                      ? '計画の承認を再試行する'
+                      : '計画の保存を再試行する'
+                    : 'この計画を採用する'
                 }
                 disabled={!canApprove}
                 label={
                   saveState.status === 'saving'
-                    ? '保存中…'
+                    ? '確認・保存中…'
                     : saveState.status === 'error'
-                      ? '保存を再試行'
+                      ? saveState.kind === 'verification'
+                        ? '承認を再試行'
+                        : '保存を再試行'
                       : 'この計画を採用'
                 }
                 onPress={confirmApproval}

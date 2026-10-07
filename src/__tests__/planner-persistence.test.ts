@@ -3,6 +3,7 @@ import {
   PlannerPersistenceMappingError,
   toSavePlannerProposalInput,
   type PlannerInput,
+  type PlannerInputDependencies,
   type PlannerPersistenceRepository,
   type PlannerPreviewData,
   type PlannerProposal,
@@ -114,7 +115,26 @@ describe('Planner persistence mapping', () => {
       })),
     };
 
-    await expect(approvePlannerProposal(repository, preview())).resolves.toEqual(
+    const dependencies: PlannerInputDependencies = {
+      calendarRepository: {
+        getPermission: async () => ({ canAskAgain: true, status: 'granted' }),
+        listEvents: async () => ({ calendarCount: 1, discardedEventCount: 0, events: [] }),
+        requestPermission: async () => ({ canAskAgain: true, status: 'granted' }),
+      },
+      goalRepository: { list: async () => [] },
+      now: () => new Date('2026-09-18T00:00:00.000Z'),
+      settingsRepository: {
+        getProfilePlanningSettings: async () => ({
+          minimumFreeMinutes: 20,
+          planningStart: '09:00',
+          planningEnd: '10:00',
+          timezone: 'Asia/Tokyo',
+        }),
+        updateProfilePlanningSettings: async (settings) => settings,
+      },
+      taskRepository: { list: async () => [...input.tasks] },
+    };
+    await expect(approvePlannerProposal(repository, preview(), dependencies)).resolves.toEqual(
       expect.objectContaining({ actionCount: 2, planDate: '2026-09-18' }),
     );
     expect(repository.savePlan).toHaveBeenCalledWith(toSavePlannerProposalInput(preview()));
