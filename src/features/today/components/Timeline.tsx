@@ -1,18 +1,31 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/shared/components/Badge';
+import { ActionButton } from '@/shared/components/ActionButton';
 import { colors, spacing } from '@/shared/theme';
 
 import type { TimelineItem } from '../types';
+import type { ActionExecutionStatus } from '../repositories/PlannedActionExecutionRepository';
+import type { ActionMutationState } from '../usePlannedActionExecution';
 
 type TimelineProps = {
   items: TimelineItem[];
+  executionDisabled?: boolean;
+  mutations?: Record<string, ActionMutationState>;
+  onExecute?: (id: string, status: ActionExecutionStatus) => void;
 };
 
-export function Timeline({ items }: TimelineProps) {
+export function Timeline({
+  items,
+  executionDisabled = false,
+  mutations = {},
+  onExecute,
+}: TimelineProps) {
   return (
     <View style={styles.list}>
       {items.map((item, index) => {
+        const mutation = mutations[item.id];
+        const updating = mutation?.status === 'updating';
         return (
           <View
             accessibilityLabel={[
@@ -55,6 +68,29 @@ export function Timeline({ items }: TimelineProps) {
                   }
                 />
               </View>
+              {item.status === 'scheduled' && onExecute ? (
+                <View style={styles.operations}>
+                  <ActionButton
+                    accessibilityLabel={`${item.title}を完了する`}
+                    disabled={executionDisabled || updating}
+                    label={updating ? '更新中…' : '完了'}
+                    onPress={() => onExecute(item.id, 'completed')}
+                    variant="secondary"
+                  />
+                  <ActionButton
+                    accessibilityLabel={`${item.title}をスキップする`}
+                    disabled={executionDisabled || updating}
+                    label="スキップ"
+                    onPress={() => onExecute(item.id, 'skipped')}
+                    variant="ghost"
+                  />
+                </View>
+              ) : null}
+              {mutation?.status === 'error' && item.status === 'scheduled' ? (
+                <Text accessibilityRole="alert" style={styles.error}>
+                  {mutation.message}
+                </Text>
+              ) : null}
             </View>
           </View>
         );
@@ -143,4 +179,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
   },
+  operations: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  error: { color: colors.warning, fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
 });

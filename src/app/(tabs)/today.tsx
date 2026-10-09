@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/features/auth';
 import { TodayScreen } from '@/features/today/TodayScreen';
 import { createSupabaseTodayRepository } from '@/services/supabase/repositories/SupabaseTodayRepository';
+import { createSupabasePlannedActionExecutionRepository } from '@/services/supabase/repositories/SupabasePlannedActionExecutionRepository';
 
 export default function TodayRoute() {
   const router = useRouter();
@@ -13,6 +14,10 @@ export default function TodayRoute() {
   const hasFocused = useRef(false);
   const repository = useMemo(
     () => (userId ? createSupabaseTodayRepository(userId) : null),
+    [userId],
+  );
+  const executionRepository = useMemo(
+    () => (userId ? createSupabasePlannedActionExecutionRepository() : null),
     [userId],
   );
 
@@ -32,6 +37,7 @@ export default function TodayRoute() {
       onPressSettings={() => router.push('/settings')}
       refreshToken={refreshToken}
       repository={repository}
+      executionRepository={executionRepository}
     />
   );
 }

@@ -1,5 +1,6 @@
 import type { FreeTimeSlot, PlannerGoalSource, PlannerTaskSource } from '@/features/planner';
 import { selectPlannerTasks } from '@/features/planner';
+import { executePlannedAction } from '@/features/today';
 
 const date = '2026-09-17' as const;
 const timezone = 'Asia/Tokyo';
@@ -53,6 +54,25 @@ function select(
 }
 
 describe('Planner Task candidate selection', () => {
+  it.each(['completed', 'skipped'] as const)(
+    'keeps existing candidate semantics after Action %s',
+    async (targetStatus) => {
+      let source = task('11111111-1111-4111-8111-111111111111');
+      // Simulate the atomic DB result; actual atomicity is verified by the 5A SQL transaction test.
+      const transition = jest.fn(async () => {
+        if (targetStatus === 'completed') source = { ...source, status: 'completed' };
+      });
+      await executePlannedAction(
+        { transition },
+        { id: 'action', status: 'scheduled' },
+        targetStatus,
+      );
+      expect(source.status).toBe(targetStatus === 'completed' ? 'completed' : 'pending');
+      expect(select([source]).map((item) => item.id)).toEqual(
+        targetStatus === 'completed' ? [] : [source.id],
+      );
+    },
+  );
   it('excludes completed, skipped, and already scheduled Tasks', () => {
     const selected = select([
       task('11111111-1111-4111-8111-111111111111'),

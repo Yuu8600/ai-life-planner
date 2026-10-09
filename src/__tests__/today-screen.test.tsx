@@ -1,10 +1,12 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import { TodayScreen } from '@/features/today/TodayScreen';
 import type {
   TodayProjection,
   TodayRepository,
 } from '@/features/today/repositories/TodayRepository';
+import type { ActionExecutionStatus, PlannedActionExecutionRepository } from '@/features/today';
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -244,5 +246,306 @@ describe('TodayScreen', () => {
     await waitFor(() => expect(getToday).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('再保存した最新プランです。')).toBeTruthy();
     expect(screen.queryByText('金フレ')).toBeNull();
+  });
+});
+
+describe('Today Action execution', () => {
+  const initial: TodayProjection = {
+    ...populatedToday,
+    plan: {
+      ...populatedToday.plan!,
+      actions: populatedToday.plan!.actions.map((action, index) =>
+        index === 0 ? { ...action, status: 'scheduled' as const } : action,
+      ),
+    },
+  };
+  function afterExecution(id: string, targetStatus: ActionExecutionStatus): TodayProjection {
+    const action = initial.plan!.actions.find((item) => item.id === id)!;
+    return {
+      ...initial,
+      deadlineTasks: initial.deadlineTasks.map((task) =>
+        targetStatus === 'completed' && task.id === action.taskId
+          ? { ...task, status: 'completed' }
+          : task,
+      ),
+      plan: {
+        ...initial.plan!,
+        actions: initial.plan!.actions.map((item) =>
+          item.id === id ? { ...item, status: targetStatus } : item,
+        ),
+      },
+    };
+  }
+  const renderExecution = (
+    repository: TodayRepository,
+    executionRepository: PlannedActionExecutionRepository,
+  ) =>
+    render(
+      <TodayScreen
+        onPressAi={jest.fn()}
+        onPressSettings={jest.fn()}
+        repository={repository}
+        executionRepository={executionRepository}
+      />,
+    );
+
+  it('shows operations only for scheduled Actions, never completed/skipped', async () => {
+    const screen = await renderExecution(createRepository(), {
+      transition: jest.fn(async () => {}),
+    });
+    expect(await screen.findByRole('button', { name: 'TOEIC Listeningを完了する' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'TOEIC Listeningをスキップする' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '金フレを完了する' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '金フレをスキップする' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '振り返りを完了する' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '振り返りをスキップする' })).toBeNull();
+  });
+
+  it('completes with one tap and uses a fresh DB projection for Action and deadline Task status', async () => {
+    const getToday = jest
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(afterExecution('action-words', 'completed'));
+    const transition = jest.fn(async () => {});
+    const screen = await renderExecution({ getToday }, { transition });
+    await screen.findByRole('button', { name: '金フレを完了する' });
+    await fireEvent.press(screen.getByRole('button', { name: '金フレを完了する' }));
+    await waitFor(() => expect(getToday).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: '金フレを完了する' })).toBeNull(),
+    );
+    expect(transition).toHaveBeenCalledWith({
+      actionId: 'action-words',
+      targetStatus: 'completed',
+    });
+    expect(screen.queryByText('未予定')).toBeNull();
+    expect(screen.getAllByText('完了').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('confirms Skip, allows cancellation, then refreshes without completing the deadline Task', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    try {
+      const getToday = jest
+        .fn()
+        .mockResolvedValueOnce(initial)
+        .mockResolvedValueOnce(afterExecution('action-words', 'skipped'));
+      const transition = jest.fn(async () => {});
+      const screen = await renderExecution({ getToday }, { transition });
+      await screen.findByRole('button', { name: '金フレをスキップする' });
+      await fireEvent.press(screen.getByRole('button', { name: '金フレをスキップする' }));
+      expect(alert).toHaveBeenCalledWith(
+        'この予定をスキップしますか？',
+        expect.any(String),
+        expect.any(Array),
+      );
+      expect(transition).not.toHaveBeenCalled();
+      await act(async () => {
+        alert.mock.calls
+          .at(-1)?.[2]
+          ?.find((button) => button.text === 'キャンセル')
+          ?.onPress?.();
+      });
+      expect(transition).not.toHaveBeenCalled();
+      await fireEvent.press(screen.getByRole('button', { name: '金フレをスキップする' }));
+      await act(async () => {
+        alert.mock.calls
+          .at(-1)?.[2]
+          ?.find((button) => button.text === 'スキップ')
+          ?.onPress?.();
+      });
+      await waitFor(() => expect(getToday).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: '金フレをスキップする' })).toBeNull(),
+      );
+      expect(transition).toHaveBeenCalledWith({
+        actionId: 'action-words',
+        targetStatus: 'skipped',
+      });
+      expect(screen.getByText('未予定')).toBeTruthy();
+    } finally {
+      alert.mockRestore();
+    }
+  });
+
+  it('locks both buttons on one Action through the RPC and refresh, without locking another Action', async () => {
+    const mutation = createDeferred<void>();
+    const reload = createDeferred<TodayProjection>();
+    const getToday = jest
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockImplementationOnce(() => reload.promise);
+    const transition = jest.fn(() => mutation.promise);
+    const screen = await renderExecution({ getToday }, { transition });
+    await screen.findByRole('button', { name: '金フレを完了する' });
+    await fireEvent.press(screen.getByRole('button', { name: '金フレを完了する' }));
+    expect(
+      screen.getByRole('button', { name: '金フレを完了する' }).props.accessibilityState.disabled,
+    ).toBe(true);
+    expect(
+      screen.getByRole('button', { name: '金フレをスキップする' }).props.accessibilityState
+        .disabled,
+    ).toBe(true);
+    expect(
+      screen.getByRole('button', { name: 'TOEIC Listeningを完了する' }).props.accessibilityState
+        .disabled,
+    ).toBe(false);
+    await fireEvent.press(screen.getByRole('button', { name: '金フレを完了する' }));
+    expect(transition).toHaveBeenCalledTimes(1);
+    expect(getToday).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      mutation.resolve();
+      await mutation.promise;
+    });
+    expect(getToday).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole('button', { name: '金フレを完了する' }).props.accessibilityState.disabled,
+    ).toBe(true);
+    // No optimistic completion while the read is pending.
+    await act(async () => {
+      reload.resolve(afterExecution('action-words', 'completed'));
+      await reload.promise;
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: '金フレを完了する' })).toBeNull(),
+    );
+  });
+
+  it.each(['completed', 'skipped'] as const)(
+    'keeps the original Action on %s failure and allows retry',
+    async (targetStatus) => {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      try {
+        const getToday = jest
+          .fn()
+          .mockResolvedValueOnce(initial)
+          .mockResolvedValueOnce(afterExecution('action-words', targetStatus));
+        const transition = jest
+          .fn()
+          .mockRejectedValueOnce(new Error('private write error'))
+          .mockResolvedValueOnce(undefined);
+        const screen = await renderExecution({ getToday }, { transition });
+        const label = targetStatus === 'completed' ? '金フレを完了する' : '金フレをスキップする';
+        await screen.findByRole('button', { name: label });
+        const press = async () => {
+          await fireEvent.press(screen.getByRole('button', { name: label }));
+          if (targetStatus === 'skipped')
+            await act(async () => {
+              alert.mock.calls
+                .at(-1)?.[2]
+                ?.find((button) => button.text === 'スキップ')
+                ?.onPress?.();
+            });
+        };
+        await press();
+        expect(
+          await screen.findByText(
+            targetStatus === 'completed'
+              ? '完了処理に失敗しました。もう一度お試しください。'
+              : 'スキップ処理に失敗しました。もう一度お試しください。',
+          ),
+        ).toBeTruthy();
+        expect(screen.queryByText(/private write error/)).toBeNull();
+        expect(screen.getByRole('button', { name: label }).props.accessibilityState.disabled).toBe(
+          false,
+        );
+        expect(screen.getByText('金フレ')).toBeTruthy();
+        expect(getToday).toHaveBeenCalledTimes(1);
+        await press();
+        await waitFor(() => expect(screen.queryByRole('button', { name: label })).toBeNull());
+        expect(transition).toHaveBeenCalledTimes(2);
+        expect(getToday).toHaveBeenCalledTimes(2);
+      } finally {
+        alert.mockRestore();
+      }
+    },
+  );
+
+  it('keeps the old projection if post-write refresh fails and retries the read without another mutation', async () => {
+    const getToday = jest
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockRejectedValueOnce(new Error('read failed'))
+      .mockResolvedValueOnce(afterExecution('action-words', 'completed'));
+    const transition = jest.fn(async () => {});
+    const screen = await renderExecution({ getToday }, { transition });
+    await screen.findByRole('button', { name: '金フレを完了する' });
+    await fireEvent.press(screen.getByRole('button', { name: '金フレを完了する' }));
+    expect(await screen.findByTestId('today-refresh-error')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: '金フレを完了する' }).props.accessibilityState.disabled,
+    ).toBe(true);
+    await fireEvent.press(screen.getByRole('button', { name: '再読み込み' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: '金フレを完了する' })).toBeNull(),
+    );
+    expect(getToday).toHaveBeenCalledTimes(3);
+    expect(transition).toHaveBeenCalledTimes(1);
+  });
+
+  it('supports independent writes and ignores an older refresh that finishes after the newest read', async () => {
+    const firstWrite = createDeferred<void>();
+    const secondWrite = createDeferred<void>();
+    const olderRead = createDeferred<TodayProjection>();
+    const newerRead = createDeferred<TodayProjection>();
+    const getToday = jest
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockImplementationOnce(() => olderRead.promise)
+      .mockImplementationOnce(() => newerRead.promise);
+    const transition = jest.fn(({ actionId }: { actionId: string }) =>
+      actionId === 'action-words' ? firstWrite.promise : secondWrite.promise,
+    );
+    const screen = await renderExecution({ getToday }, { transition });
+    await screen.findByRole('button', { name: '金フレを完了する' });
+    await fireEvent.press(screen.getByRole('button', { name: '金フレを完了する' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEIC Listeningを完了する' }));
+    expect(transition).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      firstWrite.resolve();
+      await firstWrite.promise;
+    });
+    await act(async () => {
+      secondWrite.resolve();
+      await secondWrite.promise;
+    });
+    expect(getToday).toHaveBeenCalledTimes(3);
+    const latest = {
+      ...afterExecution('action-words', 'completed'),
+      plan: {
+        ...initial.plan!,
+        actions: initial.plan!.actions.map((action) =>
+          action.status === 'scheduled' ? { ...action, status: 'completed' as const } : action,
+        ),
+      },
+    };
+    await act(async () => {
+      newerRead.resolve(latest);
+      await newerRead.promise;
+    });
+    await act(async () => {
+      olderRead.resolve(afterExecution('action-words', 'completed'));
+      await olderRead.promise;
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'TOEIC Listeningを完了する' })).toBeNull(),
+    );
+    expect(screen.queryByRole('button', { name: '金フレを完了する' })).toBeNull();
+  });
+
+  it('does not refresh a retired screen after its pending write completes', async () => {
+    const write = createDeferred<void>();
+    const getToday = jest.fn(async () => initial);
+    const screen = await renderExecution(
+      { getToday },
+      { transition: jest.fn(() => write.promise) },
+    );
+    await screen.findByRole('button', { name: '金フレを完了する' });
+    await fireEvent.press(screen.getByRole('button', { name: '金フレを完了する' }));
+    await screen.unmount();
+    await act(async () => {
+      write.resolve();
+      await write.promise;
+    });
+    expect(getToday).toHaveBeenCalledTimes(1);
   });
 });

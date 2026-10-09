@@ -6,6 +6,7 @@ import TodayRoute from '@/app/(tabs)/today';
 const mockPush = jest.fn();
 const mockUseAuth = jest.fn();
 const mockCreateRepository = jest.fn((_userId: string) => ({ repository: true }));
+const mockCreateExecutionRepository = jest.fn(() => ({ executionRepository: true }));
 let mockFocusCallback: (() => void) | undefined;
 const mockTodayScreen = jest.fn(
   ({ refreshToken, repository }: { refreshToken: number; repository: unknown }) => (
@@ -36,6 +37,9 @@ jest.mock('@/features/today/TodayScreen', () => ({
 jest.mock('@/services/supabase/repositories/SupabaseTodayRepository', () => ({
   createSupabaseTodayRepository: (userId: string) => mockCreateRepository(userId),
 }));
+jest.mock('@/services/supabase/repositories/SupabasePlannedActionExecutionRepository', () => ({
+  createSupabasePlannedActionExecutionRepository: () => mockCreateExecutionRepository(),
+}));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -50,6 +54,10 @@ describe('Today route composition', () => {
 
     expect(screen.getByTestId('today-route-probe').props.children).toBe('without-repository');
     expect(mockCreateRepository).not.toHaveBeenCalled();
+    expect(mockCreateExecutionRepository).not.toHaveBeenCalled();
+    expect(mockTodayScreen.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ executionRepository: null }),
+    );
   });
 
   it('creates the repository with the existing Auth session user id', async () => {
@@ -61,6 +69,10 @@ describe('Today route composition', () => {
 
     expect(screen.getByTestId('today-route-probe').props.children).toBe('with-repository');
     expect(mockCreateRepository).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
+    expect(mockCreateExecutionRepository).toHaveBeenCalledTimes(1);
+    expect(mockTodayScreen.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ executionRepository: { executionRepository: true } }),
+    );
   });
 
   it('increments the refresh token when Today regains focus', async () => {

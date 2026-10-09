@@ -273,6 +273,13 @@ export type Database = {
           saved_action_count: number
         }[]
       }
+      update_planned_action_status: {
+        Args: { p_action_id: string; p_target_status: string }
+        Returns: {
+          action_id: string
+          action_status: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

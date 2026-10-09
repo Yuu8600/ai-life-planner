@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -8,7 +8,9 @@ import { colors, radius, spacing } from '@/shared/theme';
 
 import { formatTodayDateLabel, toDeadlineTaskItems, toTimelineItems } from './presentation';
 import type { TodayRepository } from './repositories/TodayRepository';
+import type { PlannedActionExecutionRepository } from './repositories/PlannedActionExecutionRepository';
 import { useToday } from './useToday';
+import { usePlannedActionExecution } from './usePlannedActionExecution';
 import { PlanSummary } from './components/PlanSummary';
 import { Timeline } from './components/Timeline';
 import { TodayStatePanel } from './components/TodayStatePanel';
@@ -19,6 +21,7 @@ type TodayScreenProps = {
   onPressSettings: () => void;
   refreshToken?: number;
   repository: TodayRepository | null;
+  executionRepository?: PlannedActionExecutionRepository | null;
 };
 
 export function TodayScreen({
@@ -26,8 +29,10 @@ export function TodayScreen({
   onPressSettings,
   refreshToken = 0,
   repository,
+  executionRepository = null,
 }: TodayScreenProps) {
-  const { isLoading, loadError, retry, today } = useToday(repository, refreshToken);
+  const { isLoading, loadError, refresh, retry, today } = useToday(repository, refreshToken);
+  const { execute, mutations } = usePlannedActionExecution(executionRepository, refresh);
   const timelineItems = today?.plan ? toTimelineItems(today.plan) : [];
   const deadlineTaskItems = today ? toDeadlineTaskItems(today.deadlineTasks) : [];
   const completedActions = today?.plan?.actions.filter(
@@ -53,14 +58,14 @@ export function TodayScreen({
         title={today?.greeting ?? '今日の予定'}
       />
 
-      {isLoading ? (
+      {isLoading && !today ? (
         <TodayStatePanel
           isLoading
           message="Supabaseから今日の予定を取得しています。"
           testID="today-loading-state"
           title="読み込み中"
         />
-      ) : loadError ? (
+      ) : loadError && !today ? (
         <TodayStatePanel
           actionLabel={repository ? '再読み込み' : undefined}
           message={loadError}
@@ -70,6 +75,15 @@ export function TodayScreen({
         />
       ) : today ? (
         <>
+          {loadError ? (
+            <TodayStatePanel
+              actionLabel="再読み込み"
+              message={loadError}
+              onPressAction={retry}
+              testID="today-refresh-error"
+              title="最新の予定を読み込めませんでした"
+            />
+          ) : null}
           {today.plan ? (
             <>
               <PlanSummary
@@ -79,7 +93,34 @@ export function TodayScreen({
               />
               <SectionHeader detail={`${today.plan.actions.length}件`} title="今日の計画" />
               {today.plan.actions.length > 0 ? (
-                <Timeline items={timelineItems} />
+                <Timeline
+                  items={timelineItems}
+                  mutations={mutations}
+                  executionDisabled={isLoading || Boolean(loadError)}
+                  onExecute={
+                    executionRepository
+                      ? (id, targetStatus) => {
+                          const action = today.plan?.actions.find((item) => item.id === id);
+                          if (!action || action.status !== 'scheduled') return;
+                          if (targetStatus === 'completed') {
+                            void execute(action, targetStatus);
+                          } else {
+                            Alert.alert(
+                              'この予定をスキップしますか？',
+                              '関連するTaskは未完了のまま残ります。',
+                              [
+                                { text: 'キャンセル', style: 'cancel' },
+                                {
+                                  text: 'スキップ',
+                                  onPress: () => void execute(action, targetStatus),
+                                },
+                              ],
+                            );
+                          }
+                        }
+                      : undefined
+                  }
+                />
               ) : (
                 <TodayStatePanel
                   message="計画は保存されていますが、予定されたActionはありません。"
