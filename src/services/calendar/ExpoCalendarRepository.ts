@@ -8,6 +8,7 @@ import type {
   CalendarRepository,
 } from '@/features/calendar/repositories/CalendarRepository';
 import type { CalendarInterval } from '@/features/calendar/types';
+import { getUtcDayBounds } from '@/features/today';
 
 export type CalendarNativeApi = {
   getEventCalendars: () => Promise<readonly unknown[]>;
@@ -98,6 +99,8 @@ export class ExpoCalendarRepository implements CalendarRepository {
   constructor(
     private readonly api: CalendarNativeApi = nativeApi,
     private readonly platform: string = Platform.OS,
+    private readonly getDeviceTimeZone: () => string = () =>
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
   ) {}
 
   async getPermission(): Promise<CalendarPermission> {
@@ -123,6 +126,18 @@ export class ExpoCalendarRepository implements CalendarRepository {
   async listEvents(interval: CalendarInterval, localDate: string) {
     this.assertSupportedPlatform();
     const { endDate, startDate } = parseInterval(interval);
+    // EventKit returns all-day boundaries as device-local midnight instants.
+    // Android encodes all-day dates at UTC midnight. Neither uses the profile timezone.
+    const allDayTimeZone = this.platform === 'ios' ? this.getDeviceTimeZone() : 'UTC';
+    const deviceDay = getUtcDayBounds(localDate, allDayTimeZone);
+    const queryStart =
+      this.platform === 'ios'
+        ? new Date(Math.min(startDate.getTime(), Date.parse(deviceDay.startAt)))
+        : startDate;
+    const queryEnd =
+      this.platform === 'ios'
+        ? new Date(Math.max(endDate.getTime(), Date.parse(deviceDay.endAt)))
+        : endDate;
 
     try {
       const readableCalendars = (await this.api.getEventCalendars())
@@ -138,14 +153,15 @@ export class ExpoCalendarRepository implements CalendarRepository {
       );
       const platformEvents = await this.api.listEvents(
         readableCalendars.map(({ id }) => id),
-        startDate,
-        endDate,
+        queryStart,
+        queryEnd,
       );
       const normalized = normalizeCalendarEvents(
         platformEvents,
         calendarTitles,
         interval,
         localDate,
+        this.platform === 'ios' ? allDayTimeZone : undefined,
       );
 
       return {

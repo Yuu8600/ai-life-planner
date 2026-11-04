@@ -1,3 +1,5 @@
+import { addLocalDays, getLocalDate, getUtcDayBounds } from '@/features/today';
+
 import type {
   CalendarAvailability,
   CalendarEvent,
@@ -33,9 +35,9 @@ function toIsoInstant(value: unknown): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-function toUtcDateOnly(value: unknown): string | null {
+function toCalendarDate(value: unknown, timeZone: string): string | null {
   const instant = toIsoInstant(value);
-  return instant ? instant.slice(0, 10) : null;
+  return instant ? getLocalDate(new Date(instant), timeZone) : null;
 }
 
 function normalizeAvailability(value: unknown): CalendarAvailability {
@@ -114,6 +116,7 @@ export function intersectsCalendarDay(
 export function normalizeCalendarEvent(
   value: unknown,
   calendarTitles: ReadonlyMap<string, string>,
+  allDayTimeZone?: string,
 ): CalendarEvent | null {
   const event = asRecord(value);
   if (!event) return null;
@@ -123,8 +126,19 @@ export function normalizeCalendarEvent(
   const startAt = toIsoInstant(event.startDate);
   const endAt = toIsoInstant(event.endDate);
   const allDay = event.allDay === true;
-  const allDayStartDate = allDay ? toUtcDateOnly(event.startDate) : null;
-  const allDayEndDate = allDay ? toUtcDateOnly(event.endDate) : null;
+  const dateTimeZone = allDayTimeZone ?? 'UTC';
+  const allDayStartDate = allDay ? toCalendarDate(event.startDate, dateTimeZone) : null;
+  let allDayEndDate = allDay ? toCalendarDate(event.endDate, dateTimeZone) : null;
+  // EventKit can end all-day events at 23:59:59. Convert that inclusive final day
+  // to our exclusive date boundary; keep already-exclusive midnight unchanged.
+  if (
+    allDayTimeZone &&
+    allDayEndDate &&
+    endAt &&
+    Date.parse(endAt) > Date.parse(getUtcDayBounds(allDayEndDate, dateTimeZone).startAt)
+  ) {
+    allDayEndDate = addLocalDays(allDayEndDate, 1);
+  }
 
   if (
     !id ||
@@ -160,12 +174,13 @@ export function normalizeCalendarEvents(
   calendarTitles: ReadonlyMap<string, string>,
   interval: CalendarInterval,
   localDate: string,
+  allDayTimeZone?: string,
 ): NormalizedEvents {
   const events: CalendarEvent[] = [];
   let discardedEventCount = 0;
 
   for (const value of values) {
-    const event = normalizeCalendarEvent(value, calendarTitles);
+    const event = normalizeCalendarEvent(value, calendarTitles, allDayTimeZone);
     if (!event) {
       discardedEventCount += 1;
       continue;

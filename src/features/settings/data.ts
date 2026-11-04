@@ -17,10 +17,10 @@ export const SETTING_SECTIONS: SettingSection[] = [
     title: '計画との連携',
     items: [
       {
-        detail: '端末カレンダーとの接続は今後設定できます',
+        detail: '権限と端末の予定はCalendarタブで確認できます',
         id: 'calendar',
         label: 'Calendar設定',
-        value: '未接続',
+        value: 'Calendarタブ',
       },
       {
         detail: '提案の方針や自動調整は今後設定できます',
