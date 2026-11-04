@@ -8,7 +8,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.uyu.ailifeplanner"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,6 +26,14 @@
       "expo-router",
       "expo-status-bar",
       "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ],
       [
         "expo-calendar",
         {
