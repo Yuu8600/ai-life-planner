@@ -8,6 +8,8 @@ import {
   type PlannerInput,
   type PlannerPersistenceRepository,
   type PlannerProvider,
+  PlannerReplanConflictError,
+  type PlannerReplanRepository,
 } from '@/features/planner';
 import type {
   PlannerPreviewGoalRepository,
@@ -122,6 +124,108 @@ function confirmLatestAlert(alert: jest.SpyInstance): Promise<void> | undefined 
 
 afterEach(() => {
   jest.restoreAllMocks();
+});
+
+describe('Replanning Preview', () => {
+  function setup(tasks = createTaskRepository()) {
+    const provider: PlannerProvider = {
+      id: 'rule-based',
+      generate: jest.fn(async (input) => new RuleBasedPlannerProvider().generate(input)),
+    };
+    const persistence = createPersistenceRepository();
+    const replan: jest.Mocked<PlannerReplanRepository> = {
+      getSnapshot: jest.fn<
+        ReturnType<PlannerReplanRepository['getSnapshot']>,
+        Parameters<PlannerReplanRepository['getSnapshot']>
+      >(async () => ({
+        id: dailyPlanId,
+        planDate: '2026-09-17',
+        summary: 'Old Plan',
+        timezone: 'Asia/Tokyo',
+        updatedAt: '2026-09-16T15:00:00.123456Z',
+        actions: [],
+      })),
+      replaceIfCurrent: jest.fn<
+        ReturnType<PlannerReplanRepository['replaceIfCurrent']>,
+        Parameters<PlannerReplanRepository['replaceIfCurrent']>
+      >(async (input) => ({
+        id: dailyPlanId,
+        planDate: input.planDate,
+        actionCount: input.actions.length,
+      })),
+    };
+    const onSaved = jest.fn();
+    const onCancel = jest.fn();
+    const props = {
+      calendarRepository: createCalendarRepository(),
+      goalRepository: createGoalRepository(),
+      now,
+      persistenceRepository: persistence,
+      provider,
+      settingsRepository: createSettingsRepository(),
+      taskRepository: tasks,
+      replanRepository: replan,
+      mode: 'replan' as const,
+      onReplanSaved: onSaved,
+      onCancelReplan: onCancel,
+    };
+    return { props, provider, persistence, replan, onSaved, onCancel };
+  }
+  it('waits for explicit Generate, preserves the old Plan through generation/regeneration/Cancel', async () => {
+    const test = setup();
+    const screen = await render(<PlannerPreviewScreen {...test.props} />);
+    expect(await screen.findByText('今日の計画を再計画')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('残り時間の計画を作成')).not.toBeDisabled());
+    expect(test.provider.generate).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('残り時間の計画を作成'));
+    expect(await screen.findByTestId('planner-preview')).toBeTruthy();
+    expect(test.replan.replaceIfCurrent).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('再生成'));
+    expect(await screen.findByTestId('planner-preview')).toBeTruthy();
+    await fireEvent.press(screen.getByText('再計画をキャンセル'));
+    expect(test.onCancel).toHaveBeenCalledTimes(1);
+    expect(test.replan.replaceIfCurrent).not.toHaveBeenCalled();
+    expect(test.persistence.savePlan).not.toHaveBeenCalled();
+    expect(test.provider.generate).toHaveBeenCalledTimes(2);
+  });
+  it('keeps a DB-stale Preview, never auto-calls the Provider, and allows explicit regeneration and guarded saving', async () => {
+    const test = setup();
+    test.replan.replaceIfCurrent.mockRejectedValueOnce(new PlannerReplanConflictError());
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const screen = await render(<PlannerPreviewScreen {...test.props} />);
+    await waitFor(() => expect(screen.getByText('残り時間の計画を作成')).not.toBeDisabled());
+    await fireEvent.press(screen.getByText('残り時間の計画を作成'));
+    await fireEvent.press(await screen.findByText('この計画を採用'));
+    expect(alert.mock.calls.at(-1)?.[1]).toContain('途中の予定も組み直されます');
+    await act(async () => {
+      await confirmLatestAlert(alert);
+    });
+    expect(await screen.findByTestId('planner-preview-stale')).toBeTruthy();
+    expect(screen.getByTestId('planner-preview')).toBeTruthy();
+    expect(test.provider.generate).toHaveBeenCalledTimes(1);
+    expect(test.onSaved).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('再生成'));
+    await fireEvent.press(await screen.findByText('この計画を採用'));
+    await act(async () => {
+      await confirmLatestAlert(alert);
+    });
+    expect(await screen.findByTestId('planner-save-success')).toBeTruthy();
+    expect(test.onSaved).toHaveBeenCalledTimes(1);
+    expect(test.replan.getSnapshot).toHaveBeenCalledTimes(2);
+    expect(test.provider.generate).toHaveBeenCalledTimes(2);
+    expect(test.persistence.savePlan).not.toHaveBeenCalled();
+  });
+  it('warns that a zero-Action Proposal removes old scheduled Actions, and confirmation Cancel never saves', async () => {
+    const test = setup(createTaskRepository([]));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const screen = await render(<PlannerPreviewScreen {...test.props} />);
+    await waitFor(() => expect(screen.getByText('残り時間の計画を作成')).not.toBeDisabled());
+    await fireEvent.press(screen.getByText('残り時間の計画を作成'));
+    await fireEvent.press(await screen.findByText('この計画を採用'));
+    expect(alert.mock.calls.at(-1)?.[1]).toContain('旧計画の予定もすべて削除されます');
+    expect(test.replan.replaceIfCurrent).not.toHaveBeenCalled();
+    expect(screen.getByTestId('planner-preview')).toBeTruthy();
+  });
 });
 
 describe('PlannerPreviewScreen', () => {

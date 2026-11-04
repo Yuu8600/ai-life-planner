@@ -16,8 +16,13 @@ import type { PlannerProvider } from './providers/PlannerProvider';
 import type { PlannerProviderId } from './plannerProviderSelection';
 import type { PlannerPersistenceRepository } from './repositories/PlannerPersistenceRepository';
 import { usePlannerPreview } from './usePlannerPreview';
+import type { PlannerReplanRepository } from './repositories/PlannerReplanRepository';
 
 type PlannerPreviewScreenProps = {
+  mode?: 'generate' | 'replan';
+  replanRepository?: PlannerReplanRepository | null;
+  onReplanSaved?: () => void;
+  onCancelReplan?: () => void;
   calendarRepository: CalendarRepository | null;
   goalRepository: PlannerPreviewGoalRepository | null;
   now?: () => Date;
@@ -32,6 +37,10 @@ type PlannerPreviewScreenProps = {
 };
 
 export function PlannerPreviewScreen({
+  mode = 'generate',
+  replanRepository = null,
+  onReplanSaved,
+  onCancelReplan,
   calendarRepository,
   goalRepository,
   now,
@@ -46,6 +55,9 @@ export function PlannerPreviewScreen({
 }: PlannerPreviewScreenProps) {
   const { approve, calendar, canApprove, canGenerate, discard, generate, saveState, state } =
     usePlannerPreview({
+      mode,
+      replanRepository,
+      onSaved: mode === 'replan' ? onReplanSaved : undefined,
       calendarRepository,
       goalRepository,
       now,
@@ -75,7 +87,9 @@ export function PlannerPreviewScreen({
   const confirmApproval = () => {
     Alert.alert(
       'この計画を採用しますか？',
-      '今日の既存の計画がある場合は、このプレビューの内容で置き換えます。',
+      mode === 'replan'
+        ? `今日の計画をこの内容に置き換えます。途中の予定も組み直されます。完了・スキップの履歴は残ります。${state.status === 'success' && state.proposal.actions.length === 0 ? '\n新しい予定は0件です。旧計画の予定もすべて削除されます。' : ''}`
+        : '今日の既存の計画がある場合は、このプレビューの内容で置き換えます。',
       [
         { style: 'cancel', text: 'キャンセル' },
         { onPress: approve, text: '採用する' },
@@ -87,8 +101,12 @@ export function PlannerPreviewScreen({
     <AppScreen testID="planner-preview-screen">
       <ScreenHeader
         eyebrow={dateLabel}
-        subtitle="Goals・Tasks・端末カレンダーから、今日の実行案を作成します。"
-        title="Planner Preview"
+        subtitle={
+          mode === 'replan'
+            ? '現在時刻以降の予定を、最新のTaskとカレンダーから組み直します。'
+            : 'Goals・Tasks・端末カレンダーから、今日の実行案を作成します。'
+        }
+        title={mode === 'replan' ? '今日の計画を再計画' : 'Planner Preview'}
       />
 
       {onSelectProvider ? (
@@ -297,27 +315,47 @@ export function PlannerPreviewScreen({
             />
             <ActionButton
               disabled={saveState.status === 'saving'}
-              label="プレビューを閉じる"
-              onPress={discard}
+              label={mode === 'replan' ? '再計画をキャンセル' : 'プレビューを閉じる'}
+              onPress={() => {
+                discard();
+                if (mode === 'replan') onCancelReplan?.();
+              }}
               variant="ghost"
             />
           </View>
         </>
       ) : (
         <View style={styles.introCard} testID="planner-idle-state">
-          <Text style={styles.introTitle}>今日使える時間から計画を作ります</Text>
+          <Text style={styles.introTitle}>
+            {mode === 'replan'
+              ? '今日の残り時間で計画を組み直します'
+              : '今日使える時間から計画を作ります'}
+          </Text>
           <Text style={styles.introText}>
             現在のGoals・Tasks・Settingsと、端末カレンダーの固定予定を確認して、保存前のプレビューを表示します。
           </Text>
           <ActionButton
-            accessibilityLabel="今日の計画を作成する"
+            accessibilityLabel={
+              mode === 'replan' ? '今日の残り時間を再計画する' : '今日の計画を作成する'
+            }
             disabled={!canGenerate}
-            label="今日の計画を作成"
+            label={mode === 'replan' ? '残り時間の計画を作成' : '今日の計画を作成'}
             onPress={() => void generate()}
             style={styles.createButton}
           />
         </View>
       )}
+      {mode === 'replan' && state.status !== 'success' ? (
+        <ActionButton
+          label="再計画をキャンセル"
+          disabled={saveState.status === 'saving'}
+          onPress={() => {
+            discard();
+            onCancelReplan?.();
+          }}
+          variant="ghost"
+        />
+      ) : null}
     </AppScreen>
   );
 }

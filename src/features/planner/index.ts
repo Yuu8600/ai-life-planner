@@ -57,3 +57,8 @@ export type {
 } from './selectPlannerTasks';
 export type { PlannerPreviewData } from './plannerPreview';
 export type { PlannerInputDependencies } from './loadPlannerInput';
+export { PlannerReplanConflictError } from './repositories/PlannerReplanRepository';
+export type {
+  PlannerPlanSnapshot,
+  PlannerReplanRepository,
+} from './repositories/PlannerReplanRepository';

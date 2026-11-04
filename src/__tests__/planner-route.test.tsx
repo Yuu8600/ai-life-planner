@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
+import { useState } from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import AiRoute from '@/app/(tabs)/ai';
@@ -6,6 +7,10 @@ import type { EdgeProviderAvailability } from '@/services/supabase/providers/Edg
 
 const userId = '11111111-1111-4111-8111-111111111111';
 const mockUseAuth = jest.fn();
+let mockParams: { mode?: string; entry?: string } = {};
+let mockInstanceSequence = 0;
+const mockNavigate = jest.fn();
+const mockSetParams = jest.fn();
 const mockCreateCalendarRepository = jest.fn(() => ({ type: 'calendar' }));
 const mockCreateGoalRepository = jest.fn((_userId: string) => ({ type: 'goals' }));
 const mockCreatePersistenceRepository = jest.fn(() => ({ type: 'persistence' }));
@@ -47,6 +52,8 @@ const mockPlannerScreen = jest.fn(
 
 jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
+  useLocalSearchParams: () => mockParams,
+  useRouter: () => ({ navigate: mockNavigate, setParams: mockSetParams }),
 }));
 
 jest.mock('@/features/auth', () => ({
@@ -91,12 +98,45 @@ jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => (
 jest.mock('@/services/supabase/repositories/SupabaseTaskRepository', () => ({
   createSupabaseTaskRepository: (id: string) => mockCreateTaskRepository(id),
 }));
+jest.mock('@/services/supabase/repositories/SupabasePlannerReplanRepository', () => ({
+  createSupabasePlannerReplanRepository: () => ({ type: 'replan' }),
+}));
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
 });
 
 describe('Planner route composition', () => {
+  it('remounts a retained Preview on EVERY Replan entry and returns to Today on save/cancel', async () => {
+    function PreviewProbe() {
+      const [instance] = useState(() => ++mockInstanceSequence);
+      return <Text testID="preview-instance">{instance}</Text>;
+    }
+    const original = mockPlannerScreen.getMockImplementation()!;
+    mockPlannerScreen.mockImplementation(() => <PreviewProbe />);
+    mockUseAuth.mockReturnValue({ session: { user: { id: userId } } });
+    const screen = await render(<AiRoute />);
+    const initial = screen.getByTestId('preview-instance').props.children;
+    mockParams = { mode: 'replan', entry: 'one' };
+    await screen.rerender(<AiRoute />);
+    const first = screen.getByTestId('preview-instance').props.children;
+    expect(first).not.toBe(initial);
+    mockParams = { mode: 'replan', entry: 'two' };
+    await screen.rerender(<AiRoute />);
+    expect(screen.getByTestId('preview-instance').props.children).not.toBe(first);
+    const props = mockPlannerScreen.mock.calls.at(-1)?.[0] as unknown as {
+      mode: string;
+      onReplanSaved: () => void;
+      onCancelReplan: () => void;
+    };
+    expect(props.mode).toBe('replan');
+    props.onReplanSaved();
+    props.onCancelReplan();
+    expect(mockNavigate).toHaveBeenCalledWith('/today');
+    expect(mockSetParams).toHaveBeenCalledWith({ mode: undefined, entry: undefined });
+    mockPlannerScreen.mockImplementation(original);
+  });
   it('does not create user-scoped repositories without an authenticated session', async () => {
     mockUseAuth.mockReturnValue({ session: null });
     const screen = await render(<AiRoute />);

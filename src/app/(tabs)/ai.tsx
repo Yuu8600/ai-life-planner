@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useAuth } from '@/features/auth';
 import { PlannerPreviewScreen } from '@/features/planner/PlannerPreviewScreen';
@@ -16,10 +16,22 @@ import { createSupabaseGoalRepository } from '@/services/supabase/repositories/S
 import { createSupabasePlannerPersistenceRepository } from '@/services/supabase/repositories/SupabasePlannerPersistenceRepository';
 import { createSupabaseSettingsRepository } from '@/services/supabase/repositories/SupabaseSettingsRepository';
 import { createSupabaseTaskRepository } from '@/services/supabase/repositories/SupabaseTaskRepository';
+import { createSupabasePlannerReplanRepository } from '@/services/supabase/repositories/SupabasePlannerReplanRepository';
 
 export default function AiRoute() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string; entry?: string }>();
+  const mode = params.mode === 'replan' ? 'replan' : 'generate';
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
+  const replanRepository = useMemo(
+    () => (userId ? createSupabasePlannerReplanRepository() : null),
+    [userId],
+  );
+  const returnToToday = useCallback(() => {
+    router.setParams({ mode: undefined, entry: undefined });
+    router.navigate('/today');
+  }, [router]);
   const [refreshToken, setRefreshToken] = useState(0);
   const [providerId, setProviderId] = useState<PlannerProviderId>(DEFAULT_PLANNER_PROVIDER_ID);
   const [openAiAvailability, setOpenAiAvailability] = useState<
@@ -90,6 +102,11 @@ export default function AiRoute() {
 
   return (
     <PlannerPreviewScreen
+      key={`${userId}-${mode}-${typeof params.entry === 'string' ? params.entry : ''}`}
+      mode={mode}
+      replanRepository={replanRepository}
+      onReplanSaved={returnToToday}
+      onCancelReplan={returnToToday}
       calendarRepository={calendarRepository}
       goalRepository={goalRepository}
       onOpenSettings={() => void Linking.openSettings()}

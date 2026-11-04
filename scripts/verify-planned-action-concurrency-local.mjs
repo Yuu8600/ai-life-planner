@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 // Explicit, localhost-only, fresh disposable Postgres. Never use a linked DB.
 const toolsDirectory = process.argv[2];
 const port = Number(process.argv[3]);
+const verifyReplanning = process.argv[4] === '--replanning';
 if (!toolsDirectory || !Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error(
     'Usage: node scripts/verify-planned-action-concurrency-local.mjs <tools-directory> <disposable-local-port>',
@@ -90,6 +91,7 @@ try {
     'remote/milestone_5a_verification.sql',
     'remote/milestone_5b_permission_fix_verification.sql',
     'remote/milestone_5b_verification.sql',
+    ...(verifyReplanning ? ['remote/milestone_5c_verification.sql'] : []),
   ]) {
     await admin.query(await readFile(resolve(root, 'supabase/tests', file), 'utf8'));
     console.log(`Real Postgres SQL passed: ${file}`);
@@ -256,6 +258,123 @@ try {
   );
   await check(9, null, 'completed', 1, 'planned_action_completed');
   console.log('All 8 independent-connection concurrency cases passed at READ COMMITTED.');
+  if (verifyReplanning) {
+    const snapshot = async () => {
+      await auth(admin);
+      try {
+        return (
+          await admin.query('select public.get_daily_plan_snapshot($1::date) as token', [day])
+        ).rows[0].token;
+      } finally {
+        await admin.query('commit');
+      }
+    };
+    const guarded = (client, expected, n) =>
+      client.query(
+        `select * from public.replace_daily_plan_if_current($1::date,'Asia/Tokyo','Guarded concurrent Plan',
+        jsonb_build_array(jsonb_build_object('task_id',$2::text,'title','Concurrent Proposal',
+        'start_at',clock_timestamp()+interval '1 hour','end_at',clock_timestamp()+interval '90 minutes','reason','Fixture')),$3::jsonb)`,
+        [day, taskId(n), JSON.stringify(expected)],
+      );
+    await fixture(10);
+    let expected = await snapshot();
+    await race(
+      'Complete first + guarded Replan → stale, completed Task/Log retained',
+      () => exec(first, actionId(10), 'completed'),
+      () => guarded(second, expected, 10),
+      'commit',
+      'P5C01',
+    );
+    await check(10, 'completed', 'completed', 1, 'planned_action_completed');
+    await fixture(11);
+    expected = await snapshot();
+    await race(
+      'Skip first + guarded Replan → stale, pending Task/Skip Log retained',
+      () => exec(first, actionId(11), 'skipped'),
+      () => guarded(second, expected, 11),
+      'commit',
+      'P5C01',
+    );
+    await check(11, 'skipped', 'pending', 1, 'planned_action_skipped');
+    await fixture(12);
+    expected = await snapshot();
+    await race(
+      'Normal replace first + guarded Replan → stale snapshot',
+      () => replace(first),
+      () => guarded(second, expected, 12),
+      'commit',
+      'P5C01',
+    );
+    await check(12, null, 'pending', 0, null);
+    await fixture(13);
+    expected = await snapshot();
+    await race(
+      'Guarded Replan first + Complete → old Action nonexistent, no forged Log',
+      () => guarded(first, expected, 13),
+      () => exec(second, actionId(13), 'completed'),
+      'commit',
+      'P0002',
+    );
+    await check(13, null, 'pending', 0, null);
+    await fixture(14);
+    expected = await snapshot();
+    await race(
+      'Direct Task completion first + guarded Replan → stale after Task lock wait',
+      () => first.query("update public.tasks set status='completed' where id=$1", [taskId(14)]),
+      () => guarded(second, expected, 14),
+      'commit',
+      'P5C01',
+    );
+    await check(14, 'scheduled', 'completed', 0, null);
+    await fixture(15);
+    expected = await snapshot();
+    await race(
+      'Guarded Replan first + later Task edit → edit waits, then is a new change',
+      () => guarded(first, expected, 15),
+      () => second.query("update public.tasks set status='completed' where id=$1", [taskId(15)]),
+      'commit',
+    );
+    await check(15, null, 'completed', 0, null);
+    assert.equal(
+      (
+        await admin.query(
+          'select count(*)::int as n from public.planned_actions where task_id=$1 and status=$2',
+          [taskId(15), 'scheduled'],
+        )
+      ).rows[0].n,
+      1,
+    );
+    await fixture(16);
+    expected = await snapshot();
+    await race(
+      'Guarded Replan + guarded Replan → second stale, first Plan retained',
+      () => guarded(first, expected, 16),
+      () => guarded(second, expected, 16),
+      'commit',
+      'P5C01',
+    );
+    await check(16, null, 'pending', 0, null);
+    await fixture(17);
+    expected = await snapshot();
+    await race(
+      'Skip rolled back + guarded Replan → unchanged snapshot succeeds',
+      () => exec(first, actionId(17), 'skipped'),
+      () => guarded(second, expected, 17),
+      'rollback',
+    );
+    await check(17, null, 'pending', 0, null);
+    await fixture(18);
+    expected = await snapshot();
+    await race(
+      'Guarded Replan first + Skip → old Action nonexistent',
+      () => guarded(first, expected, 18),
+      () => exec(second, actionId(18), 'skipped'),
+      'commit',
+      'P0002',
+    );
+    await check(18, null, 'pending', 0, null);
+    console.log('All 9 guarded Replanning races passed with independently blocked connections.');
+  }
 } finally {
   try {
     for (const client of [first, second, admin].filter((client) => connected.has(client))) {

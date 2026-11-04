@@ -10,15 +10,22 @@ const generateTypes = options.has('--generate-types');
 const verifyActivity = options.has('--milestone=5b');
 const verifyPermissionFix = options.has('--permission-fix');
 const checkTypes = options.has('--check-types');
+const verifyReplanning = options.has('--milestone=5c');
 if (
   !toolsDirectory ||
   [...options].some(
     (option) =>
-      !['--generate-types', '--milestone=5b', '--permission-fix', '--check-types'].includes(option),
+      ![
+        '--generate-types',
+        '--milestone=5b',
+        '--milestone=5c',
+        '--permission-fix',
+        '--check-types',
+      ].includes(option),
   )
 ) {
   console.error(
-    'Usage: node scripts/verify-planned-action-execution-local.mjs <tools-directory> [--generate-types|--check-types] [--milestone=5b] [--permission-fix]',
+    'Usage: node scripts/verify-planned-action-execution-local.mjs <tools-directory> [--generate-types|--check-types] [--milestone=5b] [--milestone=5c] [--permission-fix]',
   );
   process.exit(1);
 }
@@ -111,6 +118,17 @@ try {
     console.log('5B SQL verification passed; fixtures and Activity Logs rolled back.');
   }
 
+  if (verifyReplanning) {
+    await db.exec(
+      await readFile(resolve(root, 'supabase/tests/remote/milestone_5c_verification.sql'), 'utf8'),
+    );
+    const result = await db.query(
+      'select (select count(*) from auth.users)::int as users, (select count(*) from public.daily_plans)::int as plans, (select count(*) from public.tasks)::int as tasks, (select count(*) from public.planned_actions)::int as actions, (select count(*) from public.activity_logs)::int as logs',
+    );
+    if (Object.values(result.rows[0]).some((count) => count !== 0))
+      throw new Error('5C fixture rollback failed');
+    console.log('5C guarded Replanning SQL passed; all fixtures rolled back.');
+  }
   if (generateTypes || checkTypes) {
     // Use the official Supabase generator and catalog introspection queries, not substitute types.
     const metaPackage = JSON.parse(
@@ -212,7 +230,7 @@ try {
       if (normalize(currentTypes) !== normalize(output))
         throw new Error('Local-generated public types differ from authoritative remote types');
       console.log(
-        'Official generator check passed: public table/function types unchanged; remote-generated file preserved.',
+        'Official generator check passed: checked-in public types match the migrated local catalog; file preserved.',
       );
     } else {
       await writeFile(resolve(root, 'src/services/supabase/database.types.ts'), output, 'utf8');

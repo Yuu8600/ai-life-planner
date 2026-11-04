@@ -2,6 +2,10 @@ import type { PlannerInput, PlannerProposal, PlannerValidationIssue } from './co
 import { generatePlannerProposal } from './generatePlannerProposal';
 import { loadPlannerInput, type PlannerInputDependencies } from './loadPlannerInput';
 import type { PlannerProvider } from './providers/PlannerProvider';
+import type {
+  PlannerPlanSnapshot,
+  PlannerReplanRepository,
+} from './repositories/PlannerReplanRepository';
 
 export { PlannerPreviewCalendarPermissionError } from './loadPlannerInput';
 export type {
@@ -11,9 +15,11 @@ export type {
 
 export type GeneratePlannerPreviewInput = PlannerInputDependencies & {
   provider: PlannerProvider;
+  replanRepository?: PlannerReplanRepository;
 };
 
 export type PlannerPreviewData = {
+  expectedPlan?: PlannerPlanSnapshot;
   input: PlannerInput;
   proposal: PlannerProposal;
   timezone: string;
@@ -39,9 +45,15 @@ export class PlannerPreviewProviderError extends Error {
 
 export async function generatePlannerPreview({
   provider,
+  replanRepository,
   ...dependencies
 }: GeneratePlannerPreviewInput): Promise<PlannerPreviewGenerationResult> {
   const input = await loadPlannerInput(dependencies);
+  // Capture before Provider execution; never substitute a newer token during approval.
+  const expectedPlan = replanRepository
+    ? await replanRepository.getSnapshot(input.date)
+    : undefined;
+  if (replanRepository && !expectedPlan) throw new Error('Today Plan no longer exists.');
 
   try {
     const validation = await generatePlannerProposal(provider, input);
@@ -55,6 +67,7 @@ export async function generatePlannerPreview({
     }
 
     return {
+      ...(expectedPlan ? { expectedPlan } : {}),
       input,
       ok: true,
       proposal: validation.proposal,

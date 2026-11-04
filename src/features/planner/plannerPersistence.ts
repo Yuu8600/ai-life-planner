@@ -13,6 +13,10 @@ import type {
   SavePlannerProposalInput,
   SavedDailyPlan,
 } from './repositories/PlannerPersistenceRepository';
+import {
+  PlannerReplanConflictError,
+  type PlannerReplanRepository,
+} from './repositories/PlannerReplanRepository';
 
 export class PlannerPersistenceMappingError extends Error {
   readonly code = 'PLANNER_PERSISTENCE_MAPPING';
@@ -74,6 +78,7 @@ export async function approvePlannerProposal(
   preview: PlannerPreviewData,
   dependencies: PlannerInputDependencies,
   isCurrent: () => boolean = () => true,
+  replanRepository?: PlannerReplanRepository,
 ): Promise<SavedDailyPlan> {
   const input = await loadPlannerInput(dependencies).catch((error: unknown) => {
     if (error instanceof PlannerInputDateChangedError) {
@@ -102,7 +107,22 @@ export async function approvePlannerProposal(
   // A retired confirmation must not save after regeneration, sign-out, or dependency changes.
   if (!isCurrent()) throw new Error('Planner approval was cancelled.');
 
-  return repository.savePlan(
-    toSavePlannerProposalInput({ ...preview, input, timezone: input.timezone }),
-  );
+  const mapped = toSavePlannerProposalInput({ ...preview, input, timezone: input.timezone });
+  if (!preview.expectedPlan) return repository.savePlan(mapped);
+  if (!replanRepository)
+    throw new PlannerApprovalCheckError(new Error('Replan repository missing.'));
+  try {
+    return await replanRepository.replaceIfCurrent(mapped, preview.expectedPlan);
+  } catch (error) {
+    if (error instanceof PlannerReplanConflictError) {
+      throw new PlannerPreviewStaleError([
+        {
+          code: 'INVALID_INPUT',
+          message: 'The saved Plan or proposed Task state changed.',
+          path: 'expectedPlan',
+        },
+      ]);
+    }
+    throw error;
+  }
 }

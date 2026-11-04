@@ -23,6 +23,7 @@ import { TodayStatePanel } from './components/TodayStatePanel';
 import { DeadlineTaskList } from './components/DeadlineTaskList';
 
 type TodayScreenProps = {
+  onPressReplan?: () => void;
   onPressAi: () => void;
   onPressSettings: () => void;
   refreshToken?: number;
@@ -32,6 +33,7 @@ type TodayScreenProps = {
 };
 
 export function TodayScreen({
+  onPressReplan,
   onPressAi,
   onPressSettings,
   refreshToken = 0,
@@ -104,6 +106,18 @@ export function TodayScreen({
                 totalActions={today.plan.actions.length}
               />
               <SectionHeader detail={`${today.plan.actions.length}件`} title="今日の計画" />
+              {onPressReplan ? (
+                <ActionButton
+                  label="再計画する"
+                  onPress={onPressReplan}
+                  disabled={
+                    isLoading ||
+                    Boolean(loadError) ||
+                    Object.values(mutations).some((mutation) => mutation.status === 'updating')
+                  }
+                  variant="secondary"
+                />
+              ) : null}
               {today.plan.actions.length > 0 ? (
                 <Timeline
                   items={timelineItems}

@@ -311,9 +311,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_daily_plan_snapshot: { Args: { p_plan_date: string }; Returns: Json }
       replace_daily_plan: {
         Args: {
           p_actions: Json
+          p_plan_date: string
+          p_summary: string
+          p_timezone: string
+        }
+        Returns: {
+          daily_plan_id: string
+          saved_action_count: number
+        }[]
+      }
+      replace_daily_plan_if_current: {
+        Args: {
+          p_actions: Json
+          p_expected_snapshot: Json
           p_plan_date: string
           p_summary: string
           p_timezone: string

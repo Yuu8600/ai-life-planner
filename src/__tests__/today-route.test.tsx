@@ -51,6 +51,25 @@ beforeEach(() => {
 });
 
 describe('Today route composition', () => {
+  it('opens the shared AI tab with a new Replan entry token on each request', async () => {
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: '11111111-1111-4111-8111-111111111111' } },
+    });
+    await render(<TodayRoute />);
+    const props = mockTodayScreen.mock.calls.at(-1)?.[0] as unknown as {
+      onPressReplan: () => void;
+      onPressAi: () => void;
+    };
+    props.onPressReplan();
+    props.onPressReplan();
+    expect(mockPush.mock.calls[0][0]).toEqual({
+      pathname: '/ai',
+      params: { mode: 'replan', entry: expect.any(String) },
+    });
+    expect(mockPush.mock.calls[0][0].params.entry).not.toBe(mockPush.mock.calls[1][0].params.entry);
+    props.onPressAi();
+    expect(mockPush.mock.calls.at(-1)?.[0].params.mode).toBe('generate');
+  });
   it('does not create a repository without an authenticated session', async () => {
     mockUseAuth.mockReturnValue({ session: null });
 

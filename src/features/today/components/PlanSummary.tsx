@@ -16,13 +16,13 @@ export function PlanSummary({ completedActions, summary, totalActions }: PlanSum
         <Text style={styles.summary}>{summary}</Text>
       </View>
       <View
-        accessibilityLabel={'今日の完了数 ' + completedActions + '件、全' + totalActions + '件'}
+        accessibilityLabel={'この計画の完了数 ' + completedActions + '件、全' + totalActions + '件'}
         style={styles.count}
       >
         <Text style={styles.countValue}>
           {completedActions}/{totalActions}
         </Text>
-        <Text style={styles.countLabel}>完了</Text>
+        <Text style={styles.countLabel}>この計画の完了数</Text>
       </View>
     </View>
   );

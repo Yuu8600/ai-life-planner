@@ -95,6 +95,32 @@ function createRepository(
 }
 
 describe('TodayScreen', () => {
+  it.each(['none', 'empty', 'populated'])(
+    'shows Replan only for an existing %s Plan',
+    async (kind) => {
+      const today =
+        kind === 'none'
+          ? emptyToday
+          : kind === 'populated'
+            ? populatedToday
+            : { ...populatedToday, plan: { ...populatedToday.plan!, actions: [] } };
+      const onReplan = jest.fn();
+      const screen = await render(
+        <TodayScreen
+          onPressAi={jest.fn()}
+          onPressSettings={jest.fn()}
+          onPressReplan={onReplan}
+          repository={createRepository({ getToday: jest.fn(async () => today) })}
+        />,
+      );
+      await screen.findByText('今日の計画');
+      if (kind === 'none') expect(screen.queryByText('再計画する')).toBeNull();
+      else {
+        await fireEvent.press(screen.getByText('再計画する'));
+        expect(onReplan).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
   it('shows a loading state until Today data is fetched', async () => {
     const deferred = createDeferred<TodayProjection>();
     const repository = createRepository({ getToday: jest.fn(() => deferred.promise) });
@@ -197,7 +223,7 @@ describe('TodayScreen', () => {
     expect(screen.getByText('今日が期限のTask')).toBeTruthy();
     expect(screen.getByTestId('today-deadline-tasks')).toBeTruthy();
     expect(screen.getByText('未予定')).toBeTruthy();
-    expect(screen.getByLabelText('今日の完了数 1件、全3件')).toBeTruthy();
+    expect(screen.getByLabelText('この計画の完了数 1件、全3件')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'AIに今日の計画を相談する' }));
     await fireEvent.press(screen.getByRole('button', { name: '設定を開く' }));

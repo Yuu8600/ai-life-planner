@@ -13,6 +13,14 @@ export default function TodayRoute() {
   const userId = session?.user.id ?? null;
   const [refreshToken, setRefreshToken] = useState(0);
   const hasFocused = useRef(false);
+  const plannerEntry = useRef(0);
+  const openPlanner = (mode: 'generate' | 'replan') => {
+    plannerEntry.current += 1;
+    router.push({
+      pathname: '/ai',
+      params: { mode, entry: `${Date.now()}-${plannerEntry.current}` },
+    });
+  };
   const repository = useMemo(
     () => (userId ? createSupabaseTodayRepository(userId) : null),
     [userId],
@@ -38,7 +46,8 @@ export default function TodayRoute() {
 
   return (
     <TodayScreen
-      onPressAi={() => router.push('/ai')}
+      onPressAi={() => openPlanner('generate')}
+      onPressReplan={() => openPlanner('replan')}
       onPressSettings={() => router.push('/settings')}
       refreshToken={refreshToken}
       repository={repository}

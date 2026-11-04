@@ -10,6 +10,9 @@ import {
   type PlannerInputDependencies,
   type PlannerPersistenceRepository,
   type PlannerTaskSource,
+  PlannerReplanConflictError,
+  type PlannerPlanSnapshot,
+  type PlannerReplanRepository,
 } from '@/features/planner';
 import { generatePlannerPreview } from '@/features/planner/plannerPreview';
 
@@ -101,6 +104,146 @@ function scenario(providerId = 'openai') {
 }
 
 type Scenario = ReturnType<typeof scenario>;
+
+const replanSnapshot: PlannerPlanSnapshot = {
+  id: planId,
+  planDate: '2026-10-02',
+  summary: 'Old Plan',
+  timezone: 'Asia/Tokyo',
+  updatedAt: '2026-10-01T21:00:00.123456Z',
+  actions: [{ id: goalId, status: 'scheduled', updatedAt: '2026-10-01T21:00:00.123456Z' }],
+};
+
+describe('Replanning uses the existing Provider-neutral pipeline', () => {
+  function replanRepository(): jest.Mocked<PlannerReplanRepository> {
+    return {
+      getSnapshot: jest.fn<
+        ReturnType<PlannerReplanRepository['getSnapshot']>,
+        Parameters<PlannerReplanRepository['getSnapshot']>
+      >(async () => replanSnapshot),
+      replaceIfCurrent: jest.fn<
+        ReturnType<PlannerReplanRepository['replaceIfCurrent']>,
+        Parameters<PlannerReplanRepository['replaceIfCurrent']>
+      >(async (input) => ({
+        id: planId,
+        actionCount: input.actions.length,
+        planDate: input.planDate,
+      })),
+    };
+  }
+  it.each(['rule-based', 'openai'])(
+    'captures a token before %s execution, then guards the SAME Proposal without another Provider call',
+    async (id) => {
+      const test = scenario(id);
+      const replan = replanRepository();
+      test.provider.generate.mockImplementation(async (input) => {
+        expect(replan.getSnapshot).toHaveBeenCalledTimes(1);
+        expect(input).not.toHaveProperty('expectedPlan');
+        expect(input).not.toHaveProperty('existingActions');
+        return new RuleBasedPlannerProvider().generate(input);
+      });
+      const preview = await generatePlannerPreview({
+        ...test.dependencies,
+        provider: test.provider,
+        replanRepository: replan,
+      });
+      if (!preview.ok) throw new Error('Expected valid Replan');
+      expect(replan.replaceIfCurrent).not.toHaveBeenCalled();
+      expect(test.persistence.savePlan).not.toHaveBeenCalled();
+      await approvePlannerProposal(test.persistence, preview, test.dependencies, undefined, replan);
+      expect(replan.replaceIfCurrent).toHaveBeenCalledWith(
+        toSavePlannerProposalInput(preview),
+        replanSnapshot,
+      );
+      expect(test.provider.generate).toHaveBeenCalledTimes(1);
+      expect(replan.getSnapshot).toHaveBeenCalledTimes(1);
+      expect(test.persistence.savePlan).not.toHaveBeenCalled();
+    },
+  );
+  it('never generates or falls back to normal saving when the Today Plan has disappeared', async () => {
+    const test = scenario();
+    const replan = replanRepository();
+    replan.getSnapshot.mockResolvedValue(null);
+    await expect(
+      generatePlannerPreview({
+        ...test.dependencies,
+        provider: test.provider,
+        replanRepository: replan,
+      }),
+    ).rejects.toThrow('Today Plan no longer exists');
+    expect(test.provider.generate).not.toHaveBeenCalled();
+    expect(test.persistence.savePlan).not.toHaveBeenCalled();
+  });
+  it('translates only DB concurrency conflicts to stale without changing the Proposal or retrying', async () => {
+    const test = scenario();
+    const replan = replanRepository();
+    const preview = await generatePlannerPreview({
+      ...test.dependencies,
+      provider: test.provider,
+      replanRepository: replan,
+    });
+    if (!preview.ok) throw new Error('Expected Replan');
+    const original = preview.proposal;
+    replan.replaceIfCurrent.mockRejectedValue(new PlannerReplanConflictError());
+    await expect(
+      approvePlannerProposal(test.persistence, preview, test.dependencies, undefined, replan),
+    ).rejects.toBeInstanceOf(PlannerPreviewStaleError);
+    expect(preview.proposal).toBe(original);
+    expect(test.provider.generate).toHaveBeenCalledTimes(1);
+    expect(test.persistence.savePlan).not.toHaveBeenCalled();
+    expect(replan.replaceIfCurrent).toHaveBeenCalledTimes(1);
+    const network = new Error('offline');
+    replan.replaceIfCurrent.mockRejectedValue(network);
+    await expect(
+      approvePlannerProposal(test.persistence, preview, test.dependencies, undefined, replan),
+    ).rejects.toBe(network);
+  });
+  it('runs the application stale check BEFORE guarded persistence', async () => {
+    const test = scenario();
+    const replan = replanRepository();
+    const preview = await generatePlannerPreview({
+      ...test.dependencies,
+      provider: test.provider,
+      replanRepository: replan,
+    });
+    if (!preview.ok) throw new Error('Expected Replan');
+    test.source.tasks[0].status = 'completed';
+    await expect(
+      approvePlannerProposal(test.persistence, preview, test.dependencies, undefined, replan),
+    ).rejects.toBeInstanceOf(PlannerPreviewStaleError);
+    expect(replan.replaceIfCurrent).not.toHaveBeenCalled();
+  });
+  it('uses full pending Task estimates regardless of old Action time/status, without carrying free or final Actions', async () => {
+    const test = scenario('rule-based');
+    const replan = replanRepository();
+    test.source.now = new Date('2026-10-01T23:15:23Z');
+    const statuses = ['completed', 'skipped', 'scheduled', 'scheduled', 'scheduled'] as const;
+    replan.getSnapshot.mockResolvedValue({
+      ...replanSnapshot,
+      actions: statuses.map((status, index) => ({
+        id: `40000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        status,
+        updatedAt: replanSnapshot.updatedAt,
+      })),
+    });
+    test.source.tasks.push({ ...test.source.tasks[0], id: goalId, status: 'completed' });
+    const preview = await generatePlannerPreview({
+      ...test.dependencies,
+      provider: test.provider,
+      replanRepository: replan,
+    });
+    if (!preview.ok) throw new Error('Expected Replan');
+    expect(preview.input.tasks.map((task) => task.id)).toEqual([taskId]);
+    expect(preview.proposal.actions).toEqual([
+      expect.objectContaining({
+        taskId,
+        startAt: '2026-10-01T23:16:00.000Z',
+        endAt: '2026-10-01T23:46:00.000Z',
+      }),
+    ]);
+    expect(replan.replaceIfCurrent).not.toHaveBeenCalled();
+  });
+});
 
 async function expectStale(test: Scenario, change: () => void) {
   const preview = await test.generate();

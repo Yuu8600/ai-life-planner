@@ -18,6 +18,7 @@ import {
   type PlannerPreviewTaskRepository,
 } from './plannerPreview';
 import type { PlannerProvider } from './providers/PlannerProvider';
+import type { PlannerReplanRepository } from './repositories/PlannerReplanRepository';
 import type {
   PlannerPersistenceRepository,
   SavedDailyPlan,
@@ -44,6 +45,9 @@ export type PlannerSaveState =
   | { kind: 'verification' | 'persistence'; message: string; status: 'error' };
 
 type UsePlannerPreviewInput = {
+  mode?: 'generate' | 'replan';
+  replanRepository?: PlannerReplanRepository | null;
+  onSaved?: () => void;
   calendarRepository: CalendarRepository | null;
   goalRepository: PlannerPreviewGoalRepository | null;
   now?: () => Date;
@@ -57,6 +61,9 @@ type UsePlannerPreviewInput = {
 const getCurrentDate = () => new Date();
 
 export function usePlannerPreview({
+  mode = 'generate',
+  replanRepository = null,
+  onSaved,
   calendarRepository,
   goalRepository,
   now = getCurrentDate,
@@ -102,6 +109,8 @@ export function usePlannerPreview({
     goalRepository,
     persistenceRepository,
     provider,
+    replanRepository,
+    mode,
     settingsRepository,
     taskRepository,
   ]);
@@ -128,7 +137,13 @@ export function usePlannerPreview({
   const generate = useCallback(async () => {
     if (generationLock.current || saveLock.current) return;
 
-    if (!calendarRepository || !goalRepository || !settingsRepository || !taskRepository) {
+    if (
+      !calendarRepository ||
+      !goalRepository ||
+      !settingsRepository ||
+      !taskRepository ||
+      (mode === 'replan' && !replanRepository)
+    ) {
       setState({
         issues: [],
         kind: 'data',
@@ -153,6 +168,7 @@ export function usePlannerPreview({
         goalRepository,
         now,
         provider,
+        replanRepository: mode === 'replan' ? (replanRepository ?? undefined) : undefined,
         settingsRepository,
         taskRepository,
       });
@@ -170,6 +186,7 @@ export function usePlannerPreview({
       }
 
       const previewState: PlannerPreviewState = {
+        expectedPlan: result.expectedPlan,
         input: result.input,
         proposal: result.proposal,
         providerId: provider.id,
@@ -207,7 +224,16 @@ export function usePlannerPreview({
     } finally {
       if (generationVersion.current === activeVersion) generationLock.current = false;
     }
-  }, [calendarRepository, goalRepository, now, provider, settingsRepository, taskRepository]);
+  }, [
+    calendarRepository,
+    goalRepository,
+    now,
+    provider,
+    settingsRepository,
+    taskRepository,
+    mode,
+    replanRepository,
+  ]);
 
   const discard = useCallback(() => {
     if (saveLock.current) return;
@@ -226,7 +252,8 @@ export function usePlannerPreview({
       state.status !== 'success' ||
       activePreview.current !== state ||
       approvalBlocked.current ||
-      state.providerId !== provider.id
+      state.providerId !== provider.id ||
+      (mode === 'replan' && !state.expectedPlan)
     )
       return;
 
@@ -256,11 +283,13 @@ export function usePlannerPreview({
         state,
         { calendarRepository, goalRepository, now, settingsRepository, taskRepository },
         () => saveVersion.current === activeVersion && activePreview.current === state,
+        replanRepository ?? undefined,
       );
 
       if (saveVersion.current === activeVersion) {
         approvalBlocked.current = true;
         setSaveState({ plan, status: 'success' });
+        onSaved?.();
       }
     } catch (error) {
       if (saveVersion.current === activeVersion) {
@@ -293,6 +322,9 @@ export function usePlannerPreview({
     provider.id,
     settingsRepository,
     state,
+    mode,
+    replanRepository,
+    onSaved,
     taskRepository,
   ]);
   const hasRepositories = Boolean(
@@ -300,6 +332,7 @@ export function usePlannerPreview({
   );
   const canGenerate =
     hasRepositories &&
+    (mode !== 'replan' || replanRepository !== null) &&
     (state.status === 'success' ||
       (calendar.accessState === 'granted' &&
         !calendar.isLoadingEvents &&
@@ -311,6 +344,7 @@ export function usePlannerPreview({
     persistenceRepository !== null &&
     hasRepositories &&
     state.status === 'success' &&
+    (mode !== 'replan' || Boolean(state.expectedPlan)) &&
     state.providerId === provider.id &&
     saveState.status !== 'saving' &&
     saveState.status !== 'stale' &&
