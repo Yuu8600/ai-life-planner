@@ -10,10 +10,60 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action_title: string
+          event_type: string
+          id: string
+          occurred_at: string
+          plan_date: string
+          planned_action_id: string | null
+          scheduled_end_at: string
+          scheduled_start_at: string
+          task_id: string | null
+          timezone: string
+          user_id: string
+        }
+        Insert: {
+          action_title: string
+          event_type: string
+          id?: string
+          occurred_at?: string
+          plan_date: string
+          planned_action_id?: string | null
+          scheduled_end_at: string
+          scheduled_start_at: string
+          task_id?: string | null
+          timezone: string
+          user_id: string
+        }
+        Update: {
+          action_title?: string
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          plan_date?: string
+          planned_action_id?: string | null
+          scheduled_end_at?: string
+          scheduled_start_at?: string
+          task_id?: string | null
+          timezone?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_plans: {
         Row: {
           created_at: string

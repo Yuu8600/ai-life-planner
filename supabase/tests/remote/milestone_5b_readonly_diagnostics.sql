@@ -1,0 +1,22 @@
+-- Read-only post-verification diagnostics. Returns catalog facts and fixture counts only.
+select
+  has_schema_privilege('ai_life_planner_activity_writer', 'auth', 'USAGE') as writer_auth_usage,
+  has_schema_privilege('postgres', 'auth', 'USAGE') as migration_role_auth_usage,
+  has_schema_privilege('postgres', 'auth', 'USAGE WITH GRANT OPTION') as migration_role_can_grant_auth_usage,
+  has_function_privilege('ai_life_planner_activity_writer', 'auth.uid()', 'EXECUTE') as writer_uid_execute,
+  has_table_privilege('ai_life_planner_activity_writer', 'public.activity_logs', 'INSERT') as writer_log_insert,
+  has_column_privilege('ai_life_planner_activity_writer', 'public.daily_plans', 'user_id', 'SELECT') as writer_plan_owner_read,
+  (select r.rolname from pg_namespace n join pg_roles r on r.oid = n.nspowner where n.nspname = 'auth') as auth_schema_owner,
+  (select not rolcanlogin and not rolsuper and not rolbypassrls from pg_roles where rolname = 'ai_life_planner_activity_writer') as writer_role_restricted,
+  (select p.prosecdef from pg_proc p where p.oid = 'public.record_planned_action_execution()'::regprocedure) as logger_security_definer,
+  (select p.proconfig from pg_proc p where p.oid = 'public.record_planned_action_execution()'::regprocedure) as logger_config,
+  (select r.rolname from pg_proc p join pg_roles r on p.proowner = r.oid where p.oid = 'public.record_planned_action_execution()'::regprocedure) as logger_owner,
+  (select count(*) from auth.users where id in ('81000000-0000-4000-8000-000000000001'::uuid, '81000000-0000-4000-8000-000000000002'::uuid)) as fixture_users,
+  (select count(*) from public.profiles where id in ('81000000-0000-4000-8000-000000000001'::uuid, '81000000-0000-4000-8000-000000000002'::uuid)) as fixture_profiles,
+  (select count(*) from public.tasks where user_id in ('81000000-0000-4000-8000-000000000001'::uuid, '81000000-0000-4000-8000-000000000002'::uuid)) as fixture_tasks,
+  (select count(*) from public.daily_plans where user_id in ('81000000-0000-4000-8000-000000000001'::uuid, '81000000-0000-4000-8000-000000000002'::uuid)) as fixture_plans,
+  (select count(*) from public.planned_actions where user_id in ('81000000-0000-4000-8000-000000000001'::uuid, '81000000-0000-4000-8000-000000000002'::uuid)) as fixture_actions,
+  (select count(*) from public.activity_logs where user_id in ('81000000-0000-4000-8000-000000000001'::uuid, '81000000-0000-4000-8000-000000000002'::uuid)) as fixture_logs,
+  to_regprocedure('public.m5b_fail_task_update()') is null as fixture_task_function_removed,
+  to_regprocedure('public.m5b_fail_log_insert()') is null as fixture_log_function_removed,
+  not exists(select 1 from pg_trigger where tgname in ('m5b_fail_task_update', 'm5b_fail_log_insert') and not tgisinternal) as fixture_triggers_removed;

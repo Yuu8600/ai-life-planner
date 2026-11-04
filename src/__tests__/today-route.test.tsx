@@ -7,6 +7,7 @@ const mockPush = jest.fn();
 const mockUseAuth = jest.fn();
 const mockCreateRepository = jest.fn((_userId: string) => ({ repository: true }));
 const mockCreateExecutionRepository = jest.fn(() => ({ executionRepository: true }));
+const mockCreateActivityRepository = jest.fn((_userId: string) => ({ history: true }));
 let mockFocusCallback: (() => void) | undefined;
 const mockTodayScreen = jest.fn(
   ({ refreshToken, repository }: { refreshToken: number; repository: unknown }) => (
@@ -40,6 +41,9 @@ jest.mock('@/services/supabase/repositories/SupabaseTodayRepository', () => ({
 jest.mock('@/services/supabase/repositories/SupabasePlannedActionExecutionRepository', () => ({
   createSupabasePlannedActionExecutionRepository: () => mockCreateExecutionRepository(),
 }));
+jest.mock('@/services/supabase/repositories/SupabaseActivityLogRepository', () => ({
+  createSupabaseActivityLogRepository: (userId: string) => mockCreateActivityRepository(userId),
+}));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -55,8 +59,9 @@ describe('Today route composition', () => {
     expect(screen.getByTestId('today-route-probe').props.children).toBe('without-repository');
     expect(mockCreateRepository).not.toHaveBeenCalled();
     expect(mockCreateExecutionRepository).not.toHaveBeenCalled();
+    expect(mockCreateActivityRepository).not.toHaveBeenCalled();
     expect(mockTodayScreen.mock.calls.at(-1)?.[0]).toEqual(
-      expect.objectContaining({ executionRepository: null }),
+      expect.objectContaining({ executionRepository: null, activityLogRepository: null }),
     );
   });
 
@@ -70,8 +75,14 @@ describe('Today route composition', () => {
     expect(screen.getByTestId('today-route-probe').props.children).toBe('with-repository');
     expect(mockCreateRepository).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
     expect(mockCreateExecutionRepository).toHaveBeenCalledTimes(1);
+    expect(mockCreateActivityRepository).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+    );
     expect(mockTodayScreen.mock.calls.at(-1)?.[0]).toEqual(
-      expect.objectContaining({ executionRepository: { executionRepository: true } }),
+      expect.objectContaining({
+        executionRepository: { executionRepository: true },
+        activityLogRepository: { history: true },
+      }),
     );
   });
 

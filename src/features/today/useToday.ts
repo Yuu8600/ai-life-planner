@@ -7,6 +7,7 @@ export function useToday(repository: TodayRepository | null, refreshToken = 0) {
   const [today, setToday] = useState<TodayProjection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [dataRevision, setDataRevision] = useState(0);
   const loadVersion = useRef(0);
   const latestLoad = useRef<Promise<boolean> | null>(null);
 
@@ -20,6 +21,7 @@ export function useToday(repository: TodayRepository | null, refreshToken = 0) {
         const loadedToday = await repository.getToday();
         if (loadVersion.current !== activeVersion) return latestLoad.current ?? false;
         setToday(loadedToday);
+        setDataRevision((current) => current + 1);
         setLoadError(null);
         return true;
       } catch (error) {
@@ -59,5 +61,5 @@ export function useToday(repository: TodayRepository | null, refreshToken = 0) {
     void refresh();
   }, [refresh]);
 
-  return { isLoading, loadError, refresh, retry, today };
+  return { dataRevision, isLoading, loadError, refresh, retry, today };
 }

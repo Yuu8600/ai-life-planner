@@ -54,6 +54,7 @@
     "supabase:verify:linked:2b4": "supabase db query --linked --file supabase/tests/remote/milestone_2b4_verification.sql",
     "supabase:verify:linked:4d": "supabase db query --linked --file supabase/tests/remote/milestone_4d_verification.sql",
     "supabase:verify:linked:5a": "supabase db query --linked --file supabase/tests/remote/milestone_5a_verification.sql",
+    "supabase:verify:linked:5b": "supabase db query --linked --file supabase/tests/remote/milestone_5b_verification.sql",
     "test": "jest --watchAll",
     "test:ci": "jest --ci --runInBand",
     "typecheck": "tsc --noEmit"

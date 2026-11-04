@@ -1,5 +1,11 @@
 import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 
+import {
+  ActivityLogSection,
+  useActivityLogs,
+  type ActivityLogRepository,
+} from '@/features/activity';
+
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
@@ -22,6 +28,7 @@ type TodayScreenProps = {
   refreshToken?: number;
   repository: TodayRepository | null;
   executionRepository?: PlannedActionExecutionRepository | null;
+  activityLogRepository?: ActivityLogRepository | null;
 };
 
 export function TodayScreen({
@@ -30,8 +37,13 @@ export function TodayScreen({
   refreshToken = 0,
   repository,
   executionRepository = null,
+  activityLogRepository = null,
 }: TodayScreenProps) {
-  const { isLoading, loadError, refresh, retry, today } = useToday(repository, refreshToken);
+  const { dataRevision, isLoading, loadError, refresh, retry, today } = useToday(
+    repository,
+    refreshToken,
+  );
+  const activity = useActivityLogs(activityLogRepository, today?.localDate ?? null, dataRevision);
   const { execute, mutations } = usePlannedActionExecution(executionRepository, refresh);
   const timelineItems = today?.plan ? toTimelineItems(today.plan) : [];
   const deadlineTaskItems = today ? toDeadlineTaskItems(today.deadlineTasks) : [];
@@ -142,6 +154,7 @@ export function TodayScreen({
 
           <SectionHeader detail={`${deadlineTaskItems.length}件`} title="今日が期限のTask" />
           <DeadlineTaskList items={deadlineTaskItems} />
+          <ActivityLogSection state={activity.state} onRetry={activity.retry} />
         </>
       ) : null}
 

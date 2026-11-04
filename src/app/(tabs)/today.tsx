@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth';
 import { TodayScreen } from '@/features/today/TodayScreen';
 import { createSupabaseTodayRepository } from '@/services/supabase/repositories/SupabaseTodayRepository';
 import { createSupabasePlannedActionExecutionRepository } from '@/services/supabase/repositories/SupabasePlannedActionExecutionRepository';
+import { createSupabaseActivityLogRepository } from '@/services/supabase/repositories/SupabaseActivityLogRepository';
 
 export default function TodayRoute() {
   const router = useRouter();
@@ -18,6 +19,10 @@ export default function TodayRoute() {
   );
   const executionRepository = useMemo(
     () => (userId ? createSupabasePlannedActionExecutionRepository() : null),
+    [userId],
+  );
+  const activityLogRepository = useMemo(
+    () => (userId ? createSupabaseActivityLogRepository(userId) : null),
     [userId],
   );
 
@@ -38,6 +43,7 @@ export default function TodayRoute() {
       refreshToken={refreshToken}
       repository={repository}
       executionRepository={executionRepository}
+      activityLogRepository={activityLogRepository}
     />
   );
 }
