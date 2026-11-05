@@ -3,7 +3,7 @@ export const colors = {
   surface: '#FFFFFF',
   text: '#18211D',
   textMuted: '#66736D',
-  textSubtle: '#8A958F',
+  textSubtle: '#65736C',
   accent: '#2F7564',
   accentPressed: '#255E51',
   accentSoft: '#E6F1ED',
@@ -29,4 +29,11 @@ export const radius = {
   md: 12,
   lg: 18,
   pill: 999,
+} as const;
+
+export const typography = {
+  screenTitle: { fontSize: 28, lineHeight: 36, fontWeight: '700' },
+  sectionTitle: { fontSize: 19, lineHeight: 27, fontWeight: '700' },
+  body: { fontSize: 15, lineHeight: 23 },
+  caption: { fontSize: 13, lineHeight: 20 },
 } as const;

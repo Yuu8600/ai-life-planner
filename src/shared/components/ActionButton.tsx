@@ -47,10 +47,11 @@ export function ActionButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 44,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderRadius: radius.md,
   },
   primary: {
@@ -71,6 +72,8 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   label: {
+    textAlign: 'center',
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '700',
   },

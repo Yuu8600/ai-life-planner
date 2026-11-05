@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing } from '@/shared/theme';
+import { colors, spacing, typography } from '@/shared/theme';
 
 type SectionHeaderProps = {
   detail?: string;
@@ -20,15 +20,17 @@ export function SectionHeader({ detail, title }: SectionHeaderProps) {
 
 const styles = StyleSheet.create({
   container: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
   },
   title: {
+    ...typography.sectionTitle,
+    flexShrink: 1,
     color: colors.text,
-    fontSize: 19,
-    fontWeight: '700',
   },
   detail: {
     color: colors.textMuted,
