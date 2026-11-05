@@ -139,6 +139,7 @@ const styles = StyleSheet.create({
   },
   values: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-end',
     gap: spacing.md,
     marginTop: spacing.lg,
@@ -186,6 +187,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,

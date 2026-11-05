@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AccountSection } from '@/features/auth';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -32,70 +32,76 @@ export function SettingsScreen({ onPressBack, repository }: SettingsScreenProps)
   } = usePlanningSettings(repository);
 
   return (
-    <AppScreen testID="settings-screen">
-      <ScreenHeader
-        action={
-          <Pressable
-            accessibilityLabel="設定を閉じる"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={onPressBack}
-            style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}
-          >
-            <Text style={styles.closeIcon}>×</Text>
-          </Pressable>
-        }
-        subtitle="暮らしに合わせて、計画の前提を整えます。"
-        title="設定"
-      />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.keyboardView}
+    >
+      <AppScreen testID="settings-screen">
+        <ScreenHeader
+          action={
+            <Pressable
+              accessibilityLabel="設定を閉じる"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={onPressBack}
+              style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}
+            >
+              <Text style={styles.closeIcon}>×</Text>
+            </Pressable>
+          }
+          subtitle="暮らしに合わせて、計画の前提を整えます。"
+          title="設定"
+        />
 
-      <View style={styles.section}>
-        <SectionHeader title="一日の基本設定" />
-        {isLoading ? (
-          <SettingsStatePanel
-            isLoading
-            message="Supabaseからプロフィール設定を取得しています。"
-            testID="settings-loading-state"
-            title="読み込み中"
-          />
-        ) : loadError ? (
-          <SettingsStatePanel
-            actionLabel={repository ? '再読み込み' : undefined}
-            message={loadError}
-            onPressAction={repository ? retry : undefined}
-            testID="settings-error-state"
-            title={repository ? 'プロフィール設定を読み込めませんでした' : 'ログインが必要です'}
-          />
-        ) : settings ? (
-          <PlanningSettingsForm
-            clearSaveFeedback={clearSaveFeedback}
-            isSaving={isSaving}
-            key={`${settings.timezone}:${settings.planningStart}:${settings.planningEnd}:${settings.minimumFreeMinutes}`}
-            onSubmit={save}
-            saveError={saveError}
-            saveSucceeded={saveSucceeded}
-            settings={settings}
-          />
-        ) : null}
-      </View>
-
-      {SETTING_SECTIONS.map((section) => (
-        <View key={section.id} style={styles.section}>
-          <SectionHeader title={section.title} />
-          <View style={styles.list}>
-            {section.items.map((item, index) => (
-              <SettingRow isLast={index === section.items.length - 1} item={item} key={item.id} />
-            ))}
-          </View>
+        <View>
+          <SectionHeader title="一日の基本設定" />
+          {isLoading ? (
+            <SettingsStatePanel
+              isLoading
+              message="保存した計画の基本設定を読み込んでいます。"
+              testID="settings-loading-state"
+              title="読み込み中"
+            />
+          ) : loadError ? (
+            <SettingsStatePanel
+              actionLabel={repository ? '再読み込み' : undefined}
+              message={loadError}
+              onPressAction={repository ? retry : undefined}
+              testID="settings-error-state"
+              title={repository ? 'プロフィール設定を読み込めませんでした' : 'ログインが必要です'}
+            />
+          ) : settings ? (
+            <PlanningSettingsForm
+              clearSaveFeedback={clearSaveFeedback}
+              isSaving={isSaving}
+              key={`${settings.timezone}:${settings.planningStart}:${settings.planningEnd}:${settings.minimumFreeMinutes}`}
+              onSubmit={save}
+              saveError={saveError}
+              saveSucceeded={saveSucceeded}
+              settings={settings}
+            />
+          ) : null}
         </View>
-      ))}
 
-      <AccountSection />
-    </AppScreen>
+        {SETTING_SECTIONS.map((section) => (
+          <View key={section.id}>
+            <SectionHeader title={section.title} />
+            <View style={styles.list}>
+              {section.items.map((item, index) => (
+                <SettingRow isLast={index === section.items.length - 1} item={item} key={item.id} />
+              ))}
+            </View>
+          </View>
+        ))}
+
+        <AccountSection />
+      </AppScreen>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardView: { flex: 1, backgroundColor: colors.background },
   closeButton: {
     width: 44,
     height: 44,
@@ -114,11 +120,7 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
-  section: {
-    marginTop: spacing.xl,
-  },
   list: {
-    marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,

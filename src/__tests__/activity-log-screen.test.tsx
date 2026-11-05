@@ -84,7 +84,11 @@ describe('Today Activity Log', () => {
   it('shows a read-only empty state without treating the saved Plan as an error', async () => {
     const listForPlanDate = jest.fn(async () => []);
     const screen = await mount({ listForPlanDate });
-    expect(await screen.findByText('まだ実行履歴はありません')).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'まだ実行履歴はありません。予定を完了・スキップすると、ここに記録されます。',
+      ),
+    ).toBeTruthy();
     await waitFor(() => expect(listForPlanDate).toHaveBeenCalledWith(date));
     expect(screen.getByText('Saved plan')).toBeTruthy();
     expect(screen.getByText('Deadline task')).toBeTruthy();

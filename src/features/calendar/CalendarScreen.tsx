@@ -70,7 +70,7 @@ export function CalendarScreen({
     <AppScreen testID="calendar-screen">
       <ScreenHeader
         eyebrow={dateLabel}
-        subtitle="端末カレンダーの予定を読み取り専用で表示します。"
+        subtitle="予定から空き時間を計算し、Plannerの配置に使います。端末の予定は変更しません。"
         title="カレンダー"
       />
 

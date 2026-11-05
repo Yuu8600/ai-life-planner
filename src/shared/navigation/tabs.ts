@@ -20,8 +20,8 @@ export const TAB_CONFIG = {
     accessibilityLabel: 'Calendarタブ',
   },
   ai: {
-    title: 'AI',
+    title: 'Planner',
     symbol: '✦',
-    accessibilityLabel: 'AIタブ',
+    accessibilityLabel: 'Plannerタブ',
   },
 } as const;

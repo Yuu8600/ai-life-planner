@@ -72,12 +72,23 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
 
   return (
     <AppScreen testID="goals-screen">
-      <ScreenHeader subtitle="目指す状態と、いまの進捗をまとめて確認します。" title="目標" />
+      <ScreenHeader subtitle="目標を決めたら、Tasksで取り組む行動に分けましょう。" title="目標" />
+
+      {repository && !isLoading ? (
+        <ActionButton
+          accessibilityLabel="新しい目標を作成する"
+          disabled={isMutating}
+          label="＋ 目標を追加"
+          onPress={openCreateForm}
+          style={styles.addButton}
+          variant="primary"
+        />
+      ) : null}
 
       {isLoading ? (
         <GoalStatePanel
           isLoading
-          message="Supabaseから目標を取得しています。"
+          message="登録した目標を読み込んでいます。"
           testID="goals-loading-state"
           title="読み込み中"
         />
@@ -91,7 +102,7 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
         />
       ) : goals.length === 0 ? (
         <GoalStatePanel
-          message="最初の目標を登録すると、ここで進捗を確認できます。"
+          message="「目標を追加」から、達成したいことを登録しましょう。次にTasksで具体的な行動を登録します。"
           testID="goals-empty-state"
           title="まだ目標がありません"
         />
@@ -115,17 +126,6 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
         <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}>
           {mutationError}
         </Text>
-      ) : null}
-
-      {repository && !isLoading ? (
-        <ActionButton
-          accessibilityLabel="新しい目標を作成する"
-          disabled={isMutating}
-          label="＋ 新しい目標"
-          onPress={openCreateForm}
-          style={styles.addButton}
-          variant="secondary"
-        />
       ) : null}
 
       {editingGoal !== undefined ? (

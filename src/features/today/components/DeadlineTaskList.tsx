@@ -13,7 +13,7 @@ export function DeadlineTaskList({ items }: DeadlineTaskListProps) {
   if (items.length === 0) {
     return (
       <View style={styles.empty} testID="today-deadline-tasks-empty">
-        <Text style={styles.emptyText}>今日が期限のTaskはありません。</Text>
+        <Text style={styles.emptyText}>今日が期限のタスクはありません。</Text>
       </View>
     );
   }

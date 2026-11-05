@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { CalendarRepository } from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
+import { Badge } from '@/shared/components/Badge';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
@@ -23,6 +24,7 @@ type PlannerPreviewScreenProps = {
   replanRepository?: PlannerReplanRepository | null;
   onReplanSaved?: () => void;
   onCancelReplan?: () => void;
+  onPressToday?: () => void;
   calendarRepository: CalendarRepository | null;
   goalRepository: PlannerPreviewGoalRepository | null;
   now?: () => Date;
@@ -41,6 +43,7 @@ export function PlannerPreviewScreen({
   replanRepository = null,
   onReplanSaved,
   onCancelReplan,
+  onPressToday,
   calendarRepository,
   goalRepository,
   now,
@@ -86,13 +89,13 @@ export function PlannerPreviewScreen({
   );
   const confirmApproval = () => {
     Alert.alert(
-      'この計画を採用しますか？',
+      'この計画を保存しますか？',
       mode === 'replan'
         ? `今日の計画をこの内容に置き換えます。途中の予定も組み直されます。完了・スキップの履歴は残ります。${state.status === 'success' && state.proposal.actions.length === 0 ? '\n新しい予定は0件です。旧計画の予定もすべて削除されます。' : ''}`
         : '今日の既存の計画がある場合は、このプレビューの内容で置き換えます。',
       [
         { style: 'cancel', text: 'キャンセル' },
-        { onPress: approve, text: '採用する' },
+        { onPress: approve, text: '保存する' },
       ],
     );
   };
@@ -104,13 +107,26 @@ export function PlannerPreviewScreen({
         subtitle={
           mode === 'replan'
             ? '現在時刻以降の予定を、最新のTaskとカレンダーから組み直します。'
-            : 'Goals・Tasks・端末カレンダーから、今日の実行案を作成します。'
+            : '目標につながるタスクを、カレンダーの空き時間へ配置します。'
         }
-        title={mode === 'replan' ? '今日の計画を再計画' : 'Planner Preview'}
+        title={mode === 'replan' ? '今日の計画を再計画' : '今日の計画を作成'}
       />
 
+      <View accessibilityLabel="計画作成の流れ" style={styles.flow}>
+        <Badge label="1 作成" tone={state.status !== 'success' ? 'accent' : 'neutral'} />
+        <Badge
+          label="2 プレビュー"
+          tone={state.status === 'success' && saveState.status !== 'success' ? 'accent' : 'neutral'}
+        />
+        <Badge label="3 保存" tone={saveState.status === 'success' ? 'accent' : 'neutral'} />
+      </View>
+
       {onSelectProvider ? (
-        <View style={styles.providerOptions} testID="planner-provider-options">
+        <View
+          accessibilityRole="radiogroup"
+          style={styles.providerOptions}
+          testID="planner-provider-options"
+        >
           <Text style={styles.providerHeading}>生成方法</Text>
           <Pressable
             accessibilityRole="radio"
@@ -129,7 +145,7 @@ export function PlannerPreviewScreen({
             <Text style={styles.providerTitle}>
               {provider.id === 'rule-based' ? '◉' : '○'} ルールベース
             </Text>
-            <Text style={styles.providerDescription}>API不要・既定</Text>
+            <Text style={styles.providerDescription}>API設定なし・標準</Text>
           </Pressable>
           <Pressable
             accessibilityRole="radio"
@@ -142,18 +158,22 @@ export function PlannerPreviewScreen({
             style={[
               styles.providerOption,
               provider.id === 'openai' && styles.selectedProviderOption,
+              openAiAvailability !== 'available' && styles.unavailableProvider,
             ]}
             testID="planner-provider-openai"
           >
             <Text style={styles.providerTitle}>{provider.id === 'openai' ? '◉' : '○'} OpenAI</Text>
             <Text style={styles.providerDescription}>
               {openAiAvailability === 'available'
-                ? 'AIを使って柔軟に計画'
+                ? '任意・AIを使って計画'
                 : openAiAvailability === 'checking'
                   ? '利用状況を確認中…'
-                  : '現在利用できません'}
+                  : '任意・現在利用できません'}
             </Text>
           </Pressable>
+          <Text style={styles.providerDescription}>
+            OpenAIを設定しなくても、ルールベースで計画を作成・保存できます。
+          </Text>
         </View>
       ) : null}
 
@@ -224,7 +244,7 @@ export function PlannerPreviewScreen({
       ) : state.status === 'loading' ? (
         <PlannerStatePanel
           isLoading
-          message="最新のSettings・Calendar・Goals・Tasksから計画を作成しています。"
+          message="最新の設定・タスク・端末の予定から、今日の計画を作成しています。"
           testID="planner-generating-state"
           title="計画を作成中"
         />
@@ -251,15 +271,18 @@ export function PlannerPreviewScreen({
       ) : state.status === 'success' && preview ? (
         <>
           <Text style={styles.providerLabel} testID="planner-preview-provider-label">
-            生成方法: {state.providerId === 'openai' ? 'OpenAI' : 'RuleBased'}
+            生成方法: {state.providerId === 'openai' ? 'OpenAI' : 'ルールベース（API不要）'}
           </Text>
           <PlannerPreview isSaved={saveState.status === 'success'} preview={preview} />
           {saveState.status === 'success' ? (
             <View style={styles.saveSuccess} testID="planner-save-success">
               <Text style={styles.saveSuccessTitle}>今日の計画を保存しました</Text>
               <Text style={styles.saveSuccessText}>
-                {saveState.plan.actionCount}件のActionを保存しました。
+                {saveState.plan.actionCount}件の予定を保存しました。Todayで確認できます。
               </Text>
+              {mode === 'generate' && onPressToday ? (
+                <ActionButton label="今日の計画を見る" onPress={onPressToday} />
+              ) : null}
             </View>
           ) : saveState.status === 'stale' ? (
             <View style={styles.saveError} testID="planner-preview-stale">
@@ -291,7 +314,7 @@ export function PlannerPreviewScreen({
                     ? saveState.kind === 'verification'
                       ? '計画の承認を再試行する'
                       : '計画の保存を再試行する'
-                    : 'この計画を採用する'
+                    : 'この計画を保存する'
                 }
                 disabled={!canApprove}
                 label={
@@ -301,7 +324,7 @@ export function PlannerPreviewScreen({
                       ? saveState.kind === 'verification'
                         ? '承認を再試行'
                         : '保存を再試行'
-                      : 'この計画を採用'
+                      : 'この計画を保存'
                 }
                 onPress={confirmApproval}
               />
@@ -332,7 +355,7 @@ export function PlannerPreviewScreen({
               : '今日使える時間から計画を作ります'}
           </Text>
           <Text style={styles.introText}>
-            現在のGoals・Tasks・Settingsと、端末カレンダーの固定予定を確認して、保存前のプレビューを表示します。
+            Goals・Tasksの登録内容とCalendarの空き時間から提案します。内容を確認してから保存するので、作成しただけでは今日の計画は変わりません。
           </Text>
           <ActionButton
             accessibilityLabel={
@@ -361,6 +384,8 @@ export function PlannerPreviewScreen({
 }
 
 const styles = StyleSheet.create({
+  flow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  unavailableProvider: { opacity: 0.6 },
   providerOptions: {
     gap: spacing.sm,
     marginTop: spacing.lg,
@@ -371,6 +396,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   providerOption: {
+    minHeight: 60,
+    gap: spacing.xs,
     borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -379,6 +406,7 @@ const styles = StyleSheet.create({
   },
   selectedProviderOption: {
     borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
   },
   providerTitle: {
     color: colors.text,
@@ -386,6 +414,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   providerDescription: {
+    lineHeight: 20,
     color: colors.textMuted,
     fontSize: 12,
   },

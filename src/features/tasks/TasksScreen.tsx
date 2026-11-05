@@ -87,9 +87,20 @@ export function TasksScreen({ refreshToken = 0, repository }: TasksScreenProps) 
   return (
     <AppScreen testID="tasks-screen">
       <ScreenHeader
-        subtitle="目標につながる次の行動を、所要時間と一緒に確認します。"
+        subtitle="所要時間と優先度を登録すると、Plannerが空き時間に配置します。"
         title="タスク"
       />
+
+      {repository && !isLoading && !loadError ? (
+        <ActionButton
+          accessibilityLabel="新しいタスクを作成する"
+          disabled={isMutating}
+          label="＋ タスクを追加"
+          onPress={openCreateForm}
+          style={styles.addButton}
+          variant="primary"
+        />
+      ) : null}
 
       <TaskFilters activeFilter={activeFilter} filters={TASK_FILTERS} onChange={setActiveFilter} />
 
@@ -102,7 +113,7 @@ export function TasksScreen({ refreshToken = 0, repository }: TasksScreenProps) 
       {isLoading ? (
         <TaskStatePanel
           isLoading
-          message="Supabaseからタスクを取得しています。"
+          message="登録したタスクを読み込んでいます。"
           testID="tasks-loading-state"
           title="読み込み中"
         />
@@ -116,7 +127,7 @@ export function TasksScreen({ refreshToken = 0, repository }: TasksScreenProps) 
         />
       ) : tasks.length === 0 ? (
         <TaskStatePanel
-          message="最初のタスクを登録すると、ここで次の行動を確認できます。"
+          message="「タスクを追加」から、取り組む行動と所要時間を登録しましょう。登録したタスクはPlannerで計画にできます。"
           testID="tasks-empty-state"
           title="まだタスクがありません"
         />
@@ -146,17 +157,6 @@ export function TasksScreen({ refreshToken = 0, repository }: TasksScreenProps) 
         <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}>
           {mutationError}
         </Text>
-      ) : null}
-
-      {repository && !isLoading && !loadError ? (
-        <ActionButton
-          accessibilityLabel="新しいタスクを作成する"
-          disabled={isMutating}
-          label="＋ タスクを追加"
-          onPress={openCreateForm}
-          style={styles.addButton}
-          variant="secondary"
-        />
       ) : null}
 
       {editingTask !== undefined ? (

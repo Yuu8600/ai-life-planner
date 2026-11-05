@@ -68,14 +68,14 @@ export function TodayScreen({
           </Pressable>
         }
         eyebrow={today ? formatTodayDateLabel(today.localDate) : undefined}
-        subtitle="今日も、使える時間から始めましょう。"
-        title={today?.greeting ?? '今日の予定'}
+        subtitle="予定の合間に、一つずつ進めましょう。"
+        title="今日の予定"
       />
 
       {isLoading && !today ? (
         <TodayStatePanel
           isLoading
-          message="Supabaseから今日の予定を取得しています。"
+          message="保存した計画と今日が期限のタスクを確認しています。"
           testID="today-loading-state"
           title="読み込み中"
         />
@@ -157,25 +157,28 @@ export function TodayScreen({
             </>
           ) : (
             <>
-              <SectionHeader detail="保存済みPlan" title="今日の計画" />
+              <SectionHeader title="今日の計画" />
               <TodayStatePanel
-                message="AIタブで今日の計画を作成できます。"
+                actionLabel="今日の計画を作成"
+                onPressAction={onPressAi}
+                message="Tasksに行動を登録し、Calendarで空き時間を確認したら、Plannerで今日の計画を作りましょう。"
                 testID="today-plan-empty-state"
                 title="今日の計画はまだありません"
               />
             </>
           )}
 
-          <SectionHeader detail={`${deadlineTaskItems.length}件`} title="今日が期限のTask" />
+          <SectionHeader detail={`${deadlineTaskItems.length}件`} title="今日が期限のタスク" />
           <DeadlineTaskList items={deadlineTaskItems} />
           <ActivityLogSection state={activity.state} onRetry={activity.retry} />
         </>
       ) : null}
 
       <ActionButton
-        accessibilityLabel="AIに今日の計画を相談する"
-        label="AIに相談する"
+        accessibilityLabel="Plannerで今日の計画を作成する"
+        label="Plannerを開く"
         onPress={onPressAi}
+        variant="secondary"
         style={styles.aiButton}
       />
     </AppScreen>
