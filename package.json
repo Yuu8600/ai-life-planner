@@ -58,7 +58,10 @@
     "supabase:verify:linked:5b": "supabase db query --linked --file supabase/tests/remote/milestone_5b_verification.sql",
     "test": "jest --watchAll",
     "test:ci": "jest --ci --runInBand",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "export:pages": "node scripts/export-web-demo.mjs",
+    "preview:pages": "node scripts/serve-web-demo.mjs",
+    "verify:pages": "node scripts/verify-web-demo.mjs"
   },
   "overrides": {
     "react-dom": "19.2.3",

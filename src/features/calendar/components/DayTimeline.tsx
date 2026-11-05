@@ -6,15 +6,19 @@ import type { CalendarEventViewModel } from '../presentation';
 
 type DayTimelineProps = {
   events: CalendarEventViewModel[];
+  sourceLabel?: string;
 };
 
-export function DayTimeline({ events }: DayTimelineProps) {
+export function DayTimeline({
+  events,
+  sourceLabel = '端末カレンダー（読み取り専用）',
+}: DayTimelineProps) {
   return (
     <View style={styles.container}>
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, styles.calendarDot]} />
-          <Text style={styles.legendLabel}>端末カレンダー（読み取り専用）</Text>
+          <Text style={styles.legendLabel}>{sourceLabel}</Text>
         </View>
       </View>
 

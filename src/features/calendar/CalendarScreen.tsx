@@ -15,6 +15,7 @@ import type { CalendarRepository } from './repositories/CalendarRepository';
 import { useDeviceCalendar } from './useDeviceCalendar';
 
 type CalendarScreenProps = {
+  sourceLabel?: 'device' | 'demo';
   calendarRepository: CalendarRepository | null;
   now?: () => Date;
   onOpenSettings?: () => void;
@@ -23,6 +24,7 @@ type CalendarScreenProps = {
 };
 
 export function CalendarScreen({
+  sourceLabel = 'device',
   calendarRepository,
   now,
   onOpenSettings,
@@ -70,7 +72,11 @@ export function CalendarScreen({
     <AppScreen testID="calendar-screen">
       <ScreenHeader
         eyebrow={dateLabel}
-        subtitle="予定から空き時間を計算し、Plannerの配置に使います。端末の予定は変更しません。"
+        subtitle={
+          sourceLabel === 'demo'
+            ? 'サンプル予定から空き時間を計算し、Plannerの配置に使います。'
+            : '予定から空き時間を計算し、Plannerの配置に使います。端末の予定は変更しません。'
+        }
         title="カレンダー"
       />
 
@@ -158,7 +164,10 @@ export function CalendarScreen({
           title="予定はありません"
         />
       ) : (
-        <DayTimeline events={eventViewModels} />
+        <DayTimeline
+          events={eventViewModels}
+          sourceLabel={sourceLabel === 'demo' ? 'サンプルカレンダー' : undefined}
+        />
       )}
 
       {canShowFreeTime && freeTimeCalculation?.result && timeZone ? (

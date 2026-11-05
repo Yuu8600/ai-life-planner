@@ -1,6 +1,6 @@
+import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AccountSection } from '@/features/auth';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
@@ -14,11 +14,18 @@ import type { SettingsRepository } from './repositories/SettingsRepository';
 import { usePlanningSettings } from './usePlanningSettings';
 
 type SettingsScreenProps = {
+  accountSection?: ReactNode;
+  sections?: typeof SETTING_SECTIONS;
   onPressBack: () => void;
   repository: SettingsRepository | null;
 };
 
-export function SettingsScreen({ onPressBack, repository }: SettingsScreenProps) {
+export function SettingsScreen({
+  accountSection,
+  sections = SETTING_SECTIONS,
+  onPressBack,
+  repository,
+}: SettingsScreenProps) {
   const {
     clearSaveFeedback,
     isLoading,
@@ -83,7 +90,7 @@ export function SettingsScreen({ onPressBack, repository }: SettingsScreenProps)
           ) : null}
         </View>
 
-        {SETTING_SECTIONS.map((section) => (
+        {sections.map((section) => (
           <View key={section.id}>
             <SectionHeader title={section.title} />
             <View style={styles.list}>
@@ -94,7 +101,7 @@ export function SettingsScreen({ onPressBack, repository }: SettingsScreenProps)
           </View>
         ))}
 
-        <AccountSection />
+        {accountSection}
       </AppScreen>
     </KeyboardAvoidingView>
   );

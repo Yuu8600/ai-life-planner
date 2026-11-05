@@ -1,5 +1,1 @@
-import { AuthScreen } from '@/features/auth';
-
-export default function LoginRoute() {
-  return <AuthScreen />;
-}
+export { default } from '@/navigation/routes/LoginRoute';

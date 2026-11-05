@@ -10,6 +10,6 @@ export type {
   CalendarEventStatus,
   CalendarInterval,
 } from './types';
-export { occursOnCalendarDate } from './normalization';
+export { intersectsCalendarDay, occursOnCalendarDate } from './normalization';
 export { useDeviceCalendar } from './useDeviceCalendar';
 export type { CalendarAccessState, UseDeviceCalendarResult } from './useDeviceCalendar';

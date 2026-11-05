@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
+import { appAlert } from '@/shared/feedback/appAlert';
 import { colors, radius, spacing } from '@/shared/theme';
 
 import { GoalOptionsNotice } from './components/GoalOptionsNotice';
@@ -18,11 +19,12 @@ import type { TaskFilterId } from './types';
 import { useTasks } from './useTasks';
 
 type TasksScreenProps = {
+  now?: Date;
   refreshToken?: number;
   repository: TaskRepository | null;
 };
 
-export function TasksScreen({ refreshToken = 0, repository }: TasksScreenProps) {
+export function TasksScreen({ now, refreshToken = 0, repository }: TasksScreenProps) {
   const {
     clearMutationError,
     createTask,
@@ -42,8 +44,8 @@ export function TasksScreen({ refreshToken = 0, repository }: TasksScreenProps) 
   const [activeFilter, setActiveFilter] = useState<TaskFilterId>('all');
   const [editingTask, setEditingTask] = useState<Task | null | undefined>(undefined);
   const visibleTasks = useMemo(
-    () => tasks.filter((task) => matchesTaskFilter(task, activeFilter)),
-    [activeFilter, tasks],
+    () => tasks.filter((task) => matchesTaskFilter(task, activeFilter, now)),
+    [activeFilter, tasks, now],
   );
   const isMutating = pendingMutation !== null;
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
@@ -70,7 +72,7 @@ export function TasksScreen({ refreshToken = 0, repository }: TasksScreenProps) 
   const confirmDelete = (task: Task) => {
     if (isMutating) return;
 
-    Alert.alert(
+    appAlert.alert(
       'タスクを削除しますか？',
       `「${task.title}」を削除します。この操作は取り消せません。`,
       [

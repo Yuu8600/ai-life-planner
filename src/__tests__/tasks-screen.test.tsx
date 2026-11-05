@@ -56,6 +56,18 @@ describe('TasksScreen', () => {
     jest.restoreAllMocks();
   });
 
+  it('uses the supplied Demo clock for the today filter instead of the real date', async () => {
+    const now = new Date(2035, 4, 10, 8);
+    const deadline = new Date(2035, 4, 10, 23, 59).toISOString();
+    const repository = createRepository({ list: jest.fn(async () => [{ ...task, deadline }]) });
+    const screen = await render(<TasksScreen now={now} repository={repository} />);
+    expect(await screen.findByText('TOEIC Listening')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: '今日が期限のタスクを表示' }));
+    expect(screen.getByText('TOEIC Listening')).toBeTruthy();
+    await screen.rerender(<TasksScreen now={new Date(2035, 4, 11, 8)} repository={repository} />);
+    expect(screen.queryByText('TOEIC Listening')).toBeNull();
+  });
+
   it('shows a loading state until tasks are fetched', async () => {
     const deferred = createDeferred<Task[]>();
     const repository = createRepository({ list: jest.fn(() => deferred.promise) });

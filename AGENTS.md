@@ -7,12 +7,14 @@ This repository contains the Japanese-first AI Life Planner mobile app described
 device calendar events, and AI-generated daily plans. Implement only the milestone requested by
 the user; do not bring later-milestone behavior forward.
 
-Milestone 3C derives deterministic free-time slots from profile planning settings and normalized
-device calendar events through a pure planner calculator, and shows the result in the Calendar tab.
-Milestone 3A Settings, Milestone 3B Calendar, and the Goals, Tasks, and Today adapters remain
-complete. The existing remote migrations, generated Database types, and transactional RLS
-verification are complete. Calendar integration into Today, email-confirmation deep links, OpenAI
-calls, and AI planning logic are intentionally absent.
+Core v1 Native is implemented and verified on iOS Simulator and iPhone. It includes Auth,
+Goals/Tasks/Settings, device Calendar, free-time calculation, RuleBased and optional OpenAI
+planning, Preview approval, persistence, Today execution, Activity Log, and guarded replanning.
+Web Demo uses sample data and in-memory repositories, with no Auth, Supabase, OpenAI or device
+Calendar access. Native and `.web.tsx` composition lives in `src/navigation`; `src/app` stays thin.
+Shared Planner business rules remain common to both platforms. See `docs/web-demo.md` for the
+static export, Project Pages base path, manual deployment workflow and verification limits.
+Do not publish, push, create PRs or merge without the user's explicit instruction.
 
 Treat the versioned requirements file as a project source of truth. Do not silently reformat or
 rewrite it; requirement changes need explicit user authorization and should be versioned.
@@ -95,7 +97,8 @@ rewrite it; requirement changes need explicit user authorization and should be v
 - Keep free-time calculation under the planner feature as pure TypeScript. Resolve planning clock
   times with the public Today timezone utilities, preserve Calendar all-day date semantics, and do
   not make the calculator depend on Expo, React, Supabase, or UI components.
-- Do not connect AI dummy data to external services or add OpenAI until its requested milestone.
+- Keep OpenAI optional and server-mediated. Web Demo must not instantiate native SDKs, Supabase
+  clients or remote Planner providers. Keep Demo I/O adapters under `src/services/demo`.
 - Values prefixed with `EXPO_PUBLIC_` are bundled into the client and are not secrets.
 - Never expose `OPENAI_API_KEY`, a Supabase service-role key, or other server credentials to the
   mobile bundle. OpenAI requests must eventually cross a trusted server/Edge Function boundary.

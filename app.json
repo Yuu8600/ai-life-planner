@@ -7,6 +7,13 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "web": {
+      "output": "static",
+      "bundler": "metro",
+      "lang": "ja",
+      "name": "AI Life Planner Demo",
+      "description": "目標・タスクとサンプル予定から一日の計画を作る、ログイン不要のWeb Demo。"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.uyu.ailifeplanner"

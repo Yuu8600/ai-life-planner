@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { CalendarRepository } from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
@@ -7,6 +7,7 @@ import { Badge } from '@/shared/components/Badge';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
+import { appAlert } from '@/shared/feedback/appAlert';
 import { colors, radius, spacing } from '@/shared/theme';
 
 import { PlannerPreview } from './components/PlannerPreview';
@@ -88,7 +89,7 @@ export function PlannerPreviewScreen({
     [provider.id, state],
   );
   const confirmApproval = () => {
-    Alert.alert(
+    appAlert.alert(
       'この計画を保存しますか？',
       mode === 'replan'
         ? `今日の計画をこの内容に置き換えます。途中の予定も組み直されます。完了・スキップの履歴は残ります。${state.status === 'success' && state.proposal.actions.length === 0 ? '\n新しい予定は0件です。旧計画の予定もすべて削除されます。' : ''}`
