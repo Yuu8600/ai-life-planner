@@ -147,10 +147,14 @@ describe('TodayScreen', () => {
 
     expect(await screen.findByTestId('today-plan-empty-state')).toBeTruthy();
     expect(screen.getByText('今日の計画はまだありません')).toBeTruthy();
-    expect(screen.getByText('AIタブで今日の計画を作成できます。')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Tasksに行動を登録し、Calendarで空き時間を確認したら、Plannerで今日の計画を作りましょう。',
+      ),
+    ).toBeTruthy();
     expect(screen.getByTestId('today-deadline-tasks-empty')).toBeTruthy();
     expect(screen.getByText('2026年9月11日 金曜日')).toBeTruthy();
-    expect(screen.getByText('おはようございます')).toBeTruthy();
+    expect(screen.getByText('今日の予定')).toBeTruthy();
   });
 
   it('shows a saved Plan summary and a separate zero-action state', async () => {
@@ -213,19 +217,19 @@ describe('TodayScreen', () => {
     expect(screen.getByText('金フレ')).toBeTruthy();
     expect(screen.getByText('08:30')).toBeTruthy();
     expect(screen.getByText('08:50')).toBeTruthy();
-    expect(screen.getByText('朝の集中しやすい時間だからです。')).toBeTruthy();
+    expect(screen.getByLabelText(/朝の集中しやすい時間だからです。/)).toBeTruthy();
     expect(screen.getByText('Task: 英単語を20分学習')).toBeTruthy();
     expect(screen.getAllByText('Goal: TOEIC 730')).toHaveLength(2);
-    expect(screen.getAllByText('予定アクション')).toHaveLength(3);
+    expect(screen.getAllByLabelText(/予定アクション/)).toHaveLength(3);
     expect(screen.getByText('予定')).toBeTruthy();
     expect(screen.getAllByText('完了').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('スキップ')).toBeTruthy();
-    expect(screen.getByText('今日が期限のTask')).toBeTruthy();
+    expect(screen.getByText('今日が期限のタスク')).toBeTruthy();
     expect(screen.getByTestId('today-deadline-tasks')).toBeTruthy();
     expect(screen.getByText('未予定')).toBeTruthy();
     expect(screen.getByLabelText('この計画の完了数 1件、全3件')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'AIに今日の計画を相談する' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Plannerで今日の計画を作成する' }));
     await fireEvent.press(screen.getByRole('button', { name: '設定を開く' }));
     expect(onPressAi).toHaveBeenCalledTimes(1);
     expect(onPressSettings).toHaveBeenCalledTimes(1);

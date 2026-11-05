@@ -7,7 +7,7 @@ describe('Bottom navigation', () => {
       'Goals',
       'Tasks',
       'Calendar',
-      'AI',
+      'Planner',
     ]);
   });
 });

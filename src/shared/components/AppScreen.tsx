@@ -29,6 +29,8 @@ export function AppScreen({
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea} testID={testID}>
       <ScrollView
         contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
         {children}

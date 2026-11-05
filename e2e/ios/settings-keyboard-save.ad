@@ -1,0 +1,11 @@
+wait 'label="最小空き時間"' 5000
+press 'label="最小空き時間"'
+wait 'role="keyboard"' 5000
+type "\b\b25"
+press 'label="プロフィール設定を保存する" role="button"'
+wait 'label="設定を保存しました。"' 5000
+press 'label="最小空き時間"'
+wait 'role="keyboard"' 5000
+type "\b\b20"
+press 'label="プロフィール設定を保存する" role="button"'
+wait 'label="設定を保存しました。"' 5000

@@ -22,7 +22,7 @@ export function PlanSummary({ completedActions, summary, totalActions }: PlanSum
         <Text style={styles.countValue}>
           {completedActions}/{totalActions}
         </Text>
-        <Text style={styles.countLabel}>この計画の完了数</Text>
+        <Text style={styles.countLabel}>この計画の完了</Text>
       </View>
     </View>
   );
@@ -31,6 +31,7 @@ export function PlanSummary({ completedActions, summary, totalActions }: PlanSum
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.lg,
     padding: spacing.lg,
@@ -40,7 +41,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentSoft,
   },
   copy: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 160,
   },
   label: {
     marginBottom: spacing.xs,
@@ -55,7 +57,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   count: {
-    minWidth: 52,
+    minWidth: 80,
     alignItems: 'center',
   },
   countValue: {

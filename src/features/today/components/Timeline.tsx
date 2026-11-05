@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/shared/components/Badge';
 import { ActionButton } from '@/shared/components/ActionButton';
-import { colors, spacing } from '@/shared/theme';
+import { colors, radius, spacing } from '@/shared/theme';
 
 import type { TimelineItem } from '../types';
 import type { ActionExecutionStatus } from '../repositories/PlannedActionExecutionRepository';
@@ -21,6 +21,7 @@ export function Timeline({
   mutations = {},
   onExecute,
 }: TimelineProps) {
+  const nextActionId = items.find((item) => item.status === 'scheduled')?.id;
   return (
     <View style={styles.list}>
       {items.map((item, index) => {
@@ -29,6 +30,7 @@ export function Timeline({
         return (
           <View
             accessibilityLabel={[
+              item.id === nextActionId ? '次に取り組む' : null,
               item.start + 'から' + item.end,
               item.title,
               '予定アクション',
@@ -50,13 +52,17 @@ export function Timeline({
               <View style={[styles.dot, styles.plannedDot]} />
               {index < items.length - 1 ? <View style={styles.line} /> : null}
             </View>
-            <View style={styles.details}>
+            <View
+              testID={item.id === nextActionId ? 'today-next-action' : undefined}
+              style={[styles.details, item.id === nextActionId ? styles.nextAction : null]}
+            >
+              {item.id === nextActionId ? <Badge label="次に取り組む" tone="accent" /> : null}
               <Text style={styles.title}>{item.title}</Text>
-              {item.taskTitle ? <Text style={styles.relation}>Task: {item.taskTitle}</Text> : null}
+              {item.taskTitle && item.taskTitle !== item.title ? (
+                <Text style={styles.relation}>Task: {item.taskTitle}</Text>
+              ) : null}
               {item.goalTitle ? <Text style={styles.relation}>Goal: {item.goalTitle}</Text> : null}
-              {item.reason ? <Text style={styles.reason}>{item.reason}</Text> : null}
               <View style={styles.meta}>
-                <Text style={styles.source}>予定アクション</Text>
                 <Badge
                   label={item.statusLabel}
                   tone={
@@ -117,6 +123,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   startTime: {
+    fontVariant: ['tabular-nums'],
     color: colors.text,
     fontSize: 14,
     fontWeight: '700',
@@ -152,6 +159,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
   },
+  nextAction: {
+    marginVertical: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.accentSoft,
+    gap: spacing.xs,
+  },
   title: {
     color: colors.text,
     fontSize: 16,
@@ -162,12 +176,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
   },
-  reason: {
-    marginTop: spacing.sm,
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
+
   meta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -175,10 +184,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  source: {
-    color: colors.textMuted,
-    fontSize: 12,
-  },
+
   operations: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
   error: { color: colors.warning, fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
 });

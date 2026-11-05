@@ -52,7 +52,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   value: {
-    color: colors.accent,
+    flexShrink: 1,
+    maxWidth: '40%',
+    textAlign: 'right',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '700',
   },

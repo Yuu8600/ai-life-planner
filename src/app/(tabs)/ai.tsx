@@ -107,6 +107,7 @@ export default function AiRoute() {
       replanRepository={replanRepository}
       onReplanSaved={returnToToday}
       onCancelReplan={returnToToday}
+      onPressToday={returnToToday}
       calendarRepository={calendarRepository}
       goalRepository={goalRepository}
       onOpenSettings={() => void Linking.openSettings()}

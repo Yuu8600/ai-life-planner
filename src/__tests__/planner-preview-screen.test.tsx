@@ -99,6 +99,7 @@ async function renderScreen(
     openAiAvailability: 'available' | 'checking' | 'unavailable';
   },
   clock: () => Date = now,
+  onPressToday?: () => void,
 ) {
   return render(
     <PlannerPreviewScreen
@@ -106,6 +107,7 @@ async function renderScreen(
       goalRepository={createGoalRepository()}
       now={clock}
       onOpenSettings={jest.fn()}
+      onPressToday={onPressToday}
       onSelectProvider={selection?.onSelectProvider}
       openAiAvailability={selection?.openAiAvailability}
       persistenceRepository={persistenceRepository}
@@ -118,7 +120,7 @@ async function renderScreen(
 
 function confirmLatestAlert(alert: jest.SpyInstance): Promise<void> | undefined {
   const buttons = alert.mock.calls.at(-1)?.[2];
-  const confirm = buttons?.find((button: { text?: string }) => button.text === '採用する');
+  const confirm = buttons?.find((button: { text?: string }) => button.text === '保存する');
   return confirm?.onPress?.() as unknown as Promise<void> | undefined;
 }
 
@@ -195,7 +197,7 @@ describe('Replanning Preview', () => {
     const screen = await render(<PlannerPreviewScreen {...test.props} />);
     await waitFor(() => expect(screen.getByText('残り時間の計画を作成')).not.toBeDisabled());
     await fireEvent.press(screen.getByText('残り時間の計画を作成'));
-    await fireEvent.press(await screen.findByText('この計画を採用'));
+    await fireEvent.press(await screen.findByText('この計画を保存'));
     expect(alert.mock.calls.at(-1)?.[1]).toContain('途中の予定も組み直されます');
     await act(async () => {
       await confirmLatestAlert(alert);
@@ -205,7 +207,7 @@ describe('Replanning Preview', () => {
     expect(test.provider.generate).toHaveBeenCalledTimes(1);
     expect(test.onSaved).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByText('再生成'));
-    await fireEvent.press(await screen.findByText('この計画を採用'));
+    await fireEvent.press(await screen.findByText('この計画を保存'));
     await act(async () => {
       await confirmLatestAlert(alert);
     });
@@ -221,7 +223,7 @@ describe('Replanning Preview', () => {
     const screen = await render(<PlannerPreviewScreen {...test.props} />);
     await waitFor(() => expect(screen.getByText('残り時間の計画を作成')).not.toBeDisabled());
     await fireEvent.press(screen.getByText('残り時間の計画を作成'));
-    await fireEvent.press(await screen.findByText('この計画を採用'));
+    await fireEvent.press(await screen.findByText('この計画を保存'));
     expect(alert.mock.calls.at(-1)?.[1]).toContain('旧計画の予定もすべて削除されます');
     expect(test.replan.replaceIfCurrent).not.toHaveBeenCalled();
     expect(screen.getByTestId('planner-preview')).toBeTruthy();
@@ -253,7 +255,7 @@ describe('PlannerPreviewScreen', () => {
       await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
       expect(await screen.findByText('08:00–08:30')).toBeTruthy();
       currentInstant = new Date('2026-09-17T00:01:00.000Z');
-      await fireEvent.press(screen.getByRole('button', { name: 'この計画を採用する' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'この計画を保存する' }));
       await act(async () => {
         await confirmLatestAlert(alert);
       });
@@ -263,7 +265,7 @@ describe('PlannerPreviewScreen', () => {
       expect(screen.getByTestId('planner-preview')).toBeTruthy();
       expect(screen.getByText('08:00–08:30')).toBeTruthy();
       expect(screen.queryByTestId('planner-save-error')).toBeNull();
-      expect(screen.queryByRole('button', { name: 'この計画を採用する' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'この計画を保存する' })).toBeNull();
       expect(persistence.savePlan).not.toHaveBeenCalled();
       expect(provider.generate).toHaveBeenCalledTimes(1);
 
@@ -273,7 +275,7 @@ describe('PlannerPreviewScreen', () => {
       expect(await screen.findByText('09:01–09:31')).toBeTruthy();
       expect(screen.queryByTestId('planner-preview-stale')).toBeNull();
       expect(provider.generate).toHaveBeenCalledTimes(2);
-      await fireEvent.press(screen.getByRole('button', { name: 'この計画を採用する' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'この計画を保存する' }));
       await act(async () => {
         await confirmLatestAlert(alert);
       });
@@ -302,7 +304,7 @@ describe('PlannerPreviewScreen', () => {
     await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
     await screen.findByTestId('planner-preview');
     currentInstant = new Date('2026-09-17T00:01:00.000Z');
-    await fireEvent.press(screen.getByRole('button', { name: 'この計画を採用する' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'この計画を保存する' }));
     await act(async () => {
       await confirmLatestAlert(alert);
     });
@@ -327,7 +329,7 @@ describe('PlannerPreviewScreen', () => {
     await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
     await screen.findByTestId('planner-preview');
     tasks.list.mockRejectedValueOnce(new Error('offline'));
-    await fireEvent.press(screen.getByRole('button', { name: 'この計画を採用する' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'この計画を保存する' }));
     await act(async () => {
       await confirmLatestAlert(alert);
     });
@@ -357,7 +359,7 @@ describe('PlannerPreviewScreen', () => {
       persistence,
     );
     await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
-    await fireEvent.press(await screen.findByRole('button', { name: 'この計画を採用する' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'この計画を保存する' }));
     await fireEvent.press(
       screen.getByRole('button', { name: '最新データで今日の計画を再生成する' }),
     );
@@ -388,14 +390,14 @@ describe('PlannerPreviewScreen', () => {
           resolveTasks = resolve;
         }),
     );
-    await fireEvent.press(screen.getByRole('button', { name: 'この計画を採用する' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'この計画を保存する' }));
     let approval: Promise<void> | undefined;
     await act(async () => {
       approval = confirmLatestAlert(alert);
       await Promise.resolve();
     });
     await waitFor(() => expect(resolveTasks).toBeDefined());
-    expect(screen.getByRole('button', { name: 'この計画を採用する' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'この計画を保存する' })).toBeDisabled();
     expect(
       screen.getByRole('button', { name: '最新データで今日の計画を再生成する' }),
     ).toBeDisabled();
@@ -416,7 +418,7 @@ describe('PlannerPreviewScreen', () => {
       createPersistenceRepository(),
       { onSelectProvider, openAiAvailability: 'unavailable' },
     );
-    expect(screen.getByText('現在利用できません')).toBeTruthy();
+    expect(screen.getByText('任意・現在利用できません')).toBeTruthy();
     expect(screen.getByTestId('planner-provider-openai')).toBeDisabled();
     fireEvent.press(screen.getByTestId('planner-provider-openai'));
     expect(onSelectProvider).not.toHaveBeenCalled();
@@ -463,7 +465,7 @@ describe('PlannerPreviewScreen', () => {
     const screen = await render(<PlannerPreviewScreen {...shared} provider={ruleBased} />);
     await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
     expect(await screen.findByTestId('planner-preview')).toBeTruthy();
-    expect(screen.getByText('生成方法: RuleBased')).toBeTruthy();
+    expect(screen.getByText('生成方法: ルールベース（API不要）')).toBeTruthy();
 
     await screen.rerender(<PlannerPreviewScreen {...shared} provider={openAi} />);
     await waitFor(() => expect(screen.queryByTestId('planner-preview')).toBeNull());
@@ -502,7 +504,7 @@ describe('PlannerPreviewScreen', () => {
 
     await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
     expect(await screen.findByText('生成方法: OpenAI')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'この計画を採用する' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'この計画を保存する' }));
     await act(async () => {
       await confirmLatestAlert(alert);
     });
@@ -527,8 +529,10 @@ describe('PlannerPreviewScreen', () => {
     expect(screen.getByText('朝の復習')).toBeTruthy();
     expect(screen.getByText('長時間Task')).toBeTruthy();
     expect(screen.getByText(/推定所要時間を連続して確保/)).toBeTruthy();
-    expect(screen.getByText('この計画はまだ保存されていません。')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'この計画を採用する' })).toBeTruthy();
+    expect(
+      screen.getByText('内容を確認し、下の「この計画を保存」でTodayに反映します。'),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'この計画を保存する' })).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'プレビューを閉じる' }));
     expect(screen.getByTestId('planner-idle-state')).toBeTruthy();
@@ -619,7 +623,7 @@ describe('PlannerPreviewScreen', () => {
     expect(await screen.findByTestId('planner-preview')).toBeTruthy();
     expect(screen.getByTestId('planner-warnings')).toBeTruthy();
     expect(screen.getByText(/does not match estimatedMinutes/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'この計画を採用する' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'この計画を保存する' })).toBeTruthy();
   });
 
   it('does not show Approval for idle or invalid Preview states', async () => {
@@ -629,13 +633,14 @@ describe('PlannerPreviewScreen', () => {
     };
     const screen = await renderScreen(provider);
 
-    expect(screen.queryByRole('button', { name: 'この計画を採用する' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'この計画を保存する' })).toBeNull();
     await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
     expect(await screen.findByTestId('planner-validation-error')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'この計画を採用する' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'この計画を保存する' })).toBeNull();
   });
 
   it('confirms, disables competing actions while saving, and shows save success', async () => {
+    const onPressToday = jest.fn();
     let resolveSave:
       ((value: Awaited<ReturnType<PlannerPersistenceRepository['savePlan']>>) => void) | undefined;
     const persistenceRepository = createPersistenceRepository(
@@ -650,14 +655,17 @@ describe('PlannerPreviewScreen', () => {
       createCalendarRepository(),
       createTaskRepository(),
       persistenceRepository,
+      undefined,
+      now,
+      onPressToday,
     );
 
     await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
     await screen.findByTestId('planner-preview');
-    await fireEvent.press(screen.getByRole('button', { name: 'この計画を採用する' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'この計画を保存する' }));
 
     expect(alert).toHaveBeenCalledWith(
-      'この計画を採用しますか？',
+      'この計画を保存しますか？',
       expect.stringContaining('既存の計画'),
       expect.any(Array),
     );
@@ -668,11 +676,12 @@ describe('PlannerPreviewScreen', () => {
     });
 
     await waitFor(() => expect(persistenceRepository.savePlan).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('button', { name: 'この計画を採用する' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'この計画を保存する' })).toBeDisabled();
     expect(
       screen.getByRole('button', { name: '最新データで今日の計画を再生成する' }),
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: 'プレビューを閉じる' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '今日の計画を見る' })).toBeNull();
     expect(resolveSave).toBeDefined();
 
     await act(async () => {
@@ -683,6 +692,9 @@ describe('PlannerPreviewScreen', () => {
     expect(await screen.findByTestId('planner-save-success')).toBeTruthy();
     expect(screen.getByText('今日の計画を保存しました')).toBeTruthy();
     expect(screen.getByText('この計画は保存済みです。')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: '今日の計画を見る' }));
+    expect(onPressToday).toHaveBeenCalledTimes(1);
+    expect(persistenceRepository.savePlan).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the Preview after save failure and retries the same validated Proposal', async () => {
@@ -704,7 +716,7 @@ describe('PlannerPreviewScreen', () => {
     );
 
     await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
-    await fireEvent.press(await screen.findByRole('button', { name: 'この計画を採用する' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'この計画を保存する' }));
     await act(async () => {
       await confirmLatestAlert(alert);
     });
@@ -741,7 +753,7 @@ describe('PlannerPreviewScreen', () => {
     );
 
     await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
-    await fireEvent.press(await screen.findByRole('button', { name: 'この計画を採用する' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'この計画を保存する' }));
     expect(persistenceRepository.savePlan).not.toHaveBeenCalled();
 
     let firstSaveRequest: Promise<void> | undefined;

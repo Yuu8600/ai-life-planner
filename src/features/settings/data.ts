@@ -19,14 +19,14 @@ export const SETTING_SECTIONS: SettingSection[] = [
       {
         detail: '権限と端末の予定はCalendarタブで確認できます',
         id: 'calendar',
-        label: 'Calendar設定',
+        label: '端末カレンダー',
         value: 'Calendarタブ',
       },
       {
-        detail: '提案の方針や自動調整は今後設定できます',
+        detail: 'ルールベースはAPI設定なしで利用できます。生成方法はPlannerタブで選択します。',
         id: 'ai-planner',
-        label: 'AI Planner設定',
-        value: '標準',
+        label: '計画の生成方法',
+        value: 'Plannerタブ',
       },
     ],
   },

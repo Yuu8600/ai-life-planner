@@ -17,14 +17,18 @@ export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps
         <Text style={styles.eyebrow}>プレビュー</Text>
         <Text style={styles.summary}>{preview.summary}</Text>
         <Text style={styles.temporary}>
-          {isSaved ? 'この計画は保存済みです。' : 'この計画はまだ保存されていません。'}
+          {isSaved
+            ? 'この計画は保存済みです。'
+            : '内容を確認し、下の「この計画を保存」でTodayに反映します。'}
         </Text>
       </View>
 
-      <SectionHeader detail={`${preview.actions.length}件`} title="予定に配置したTask" />
+      <SectionHeader detail={`${preview.actions.length}件`} title="配置したタスク" />
       {preview.actions.length === 0 ? (
         <View style={styles.emptyCard} testID="planner-actions-empty">
-          <Text style={styles.emptyText}>配置されたActionはありません。</Text>
+          <Text style={styles.emptyText}>
+            配置できるタスクがありません。Tasksの所要時間やCalendarの空き時間を確認してください。
+          </Text>
         </View>
       ) : (
         <View style={styles.list} testID="planner-actions-list">
@@ -40,10 +44,10 @@ export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps
         </View>
       )}
 
-      <SectionHeader detail={`${preview.unscheduled.length}件`} title="未配置のTask" />
+      <SectionHeader detail={`${preview.unscheduled.length}件`} title="未配置のタスク" />
       {preview.unscheduled.length === 0 ? (
         <View style={styles.emptyCard} testID="planner-unscheduled-empty">
-          <Text style={styles.emptyText}>未配置のTaskはありません。</Text>
+          <Text style={styles.emptyText}>未配置のタスクはありません。</Text>
         </View>
       ) : (
         <View style={styles.list} testID="planner-unscheduled-list">

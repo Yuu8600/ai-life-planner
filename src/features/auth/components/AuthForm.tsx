@@ -93,8 +93,8 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
           <Text style={styles.title}>{isLogin ? 'おかえりなさい' : 'はじめましょう'}</Text>
           <Text style={styles.subtitle}>
             {isLogin
-              ? '今日の計画を確認するためにログインしてください。'
-              : '目標と毎日の予定を、ひとつの場所で整えます。'}
+              ? '目標・タスクとカレンダーの空き時間から、今日の計画を作成します。'
+              : '目標をタスクに分け、予定の合間に取り組める一日へ。'}
           </Text>
         </View>
 
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   modeButton: {
-    minHeight: 42,
+    minHeight: 48,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',

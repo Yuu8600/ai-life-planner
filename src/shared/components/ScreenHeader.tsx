@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing } from '@/shared/theme';
+import { colors, spacing, typography } from '@/shared/theme';
 
 type ScreenHeaderProps = {
   action?: ReactNode;
@@ -27,6 +27,7 @@ export function ScreenHeader({ action, eyebrow, subtitle, title }: ScreenHeaderP
 
 const styles = StyleSheet.create({
   container: {
+    marginBottom: spacing.lg,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
@@ -42,16 +43,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   title: {
+    ...typography.screenTitle,
     color: colors.text,
-    fontSize: 28,
-    fontWeight: '700',
     letterSpacing: -0.4,
   },
   subtitle: {
+    ...typography.body,
     marginTop: spacing.sm,
     color: colors.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
   },
   action: {
     paddingTop: spacing.xs,
