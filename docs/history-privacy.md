@@ -1,8 +1,9 @@
 # Git履歴のプライバシー整理手順
 
 方針決定: 2026-11-06（Asia/Tokyo）。**個人メールの非公開を優先する。**
-この文書は実行前の手順書であり、履歴整理の完了記録ではない。
-既存履歴のrewrite、remoteへのpush、repositoryの作成・rename・Public化は行っていない。
+**公開用の独立したコピーで履歴整理とprivacy再監査を実施済み。** 元private repositoryは変更していない。
+検証結果は[公開準備・監査記録](portfolio-release.md)を参照。以下は実施手順と今後のremote移行時の注意点。
+remoteへのpush、repositoryの作成・rename・Public化は行っていない。
 
 ## 対象と現在地
 
@@ -94,7 +95,7 @@ literal:OLD_PRIVATE_ABSOLUTE_PROJECT_PATH==>ai-life-planner
 
 ## 4. 検証cloneだけをfilterする
 
-実行時に公式のgit-filter-repoを用意し、使用versionと入力表を記録する。今回toolのインストール・実行はしていない。
+実行時に公式のgit-filter-repoを用意し、使用versionと入力表を記録する。今回、公式release v2.47.0を取得し、private backup内の独立コピーだけで実行した。
 既存checkoutに対する`--force`でfresh-clone保護を回避しない。
 
 ```sh
@@ -141,7 +142,8 @@ remoteから新しくcloneして同じ検査を行ってからPublic化を判断
 4. 公開URLでasset・直接URL・reload・主要フローを確認し、READMEとAbout Websiteへ実URLを掲載する。
 5. 元の個人情報入りcloneから公開先へpushしない。日常開発も整理後の新しいcloneから再開し、そのcloneに手順1のnoreplyローカル設定を再適用する。
 
-現時点は**手順準備・再混入防止の設定まで完了、履歴整理自体は未実施**。Public化・Pages公開は保留する。
+現時点は**公開用コピーの履歴整理・再混入防止設定・privacy再監査まで完了**。元private repositoryの履歴は保持している。
+remote作成・rename・push・Pages公開は未実施で、公開用mainだけを新しいrepositoryへ移す。
 
 参照: [GitHubのメール設定](https://docs.github.com/en/account-and-profile/how-tos/email-preferences/setting-your-commit-email-address)、
 [GitHubの履歴除去と残存参照の説明](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)、

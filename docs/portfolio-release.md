@@ -1,5 +1,42 @@
 # Portfolio release preparation
 
+## 公開用clean historyの検証結果（2026-11-06）
+
+元private repositoryを変更せず、独立したコピーをgit-filter-repo v2.47.0で整理した。
+元の37 commitは全て保持し、親子関係・メッセージ・Author / Committerの日時も保持した。
+作者の旧メールをAuthor 35件・Committer 31件で確認済みGitHub noreplyへ変更し、名前とGitHub botのidentityは維持した。
+旧macOSローカルパスは過去の検証docsの2箇所で相対化。Windowsの個人パスは全履歴から検出されなかった。
+
+公開用mainの整理直後のtreeは元の最新HEADと完全一致した。その後、このファイルとhistory-privacy.mdだけを
+実行済みの監査記録へ更新した。src / supabase / assets / tests / app・package設定 / README / Actionsは元と一致する。
+37件の整理済み開発commitに、この監査記録のcommitを1件追加して公開用履歴とする。
+
+- 公開用refはmainのみ。tag・古い作業branch・remote-tracking ref・remote設定なし。
+- 生のcommit metadataと全blobを検査し、作者の個人メール・macOS / Windowsの個人パスを検出せず。
+- 予約example domainの架空fixtureと、第三者packageのlicenseにある公開連絡先は保持する。
+- Gitleaksのcurrent tree / full history検査は検出0件。未検出のsecretを新たに見つけた場合は公開を止める。
+- 元private側のPR・履歴は保持する。backup bundle・置換表・旧commit対応表は公開用repositoryの外に保管する。
+- 新しいGitHub repositoryの作成・rename・push・Public化・Pages公開はまだ行っていない。
+
+品質チェックではnpm ci、typecheck、lint、format / format:check、Jest（watch無効、54 suites / 497 tests）、
+git diff --check、Pages export / verify:pagesが成功した。配信用distから生成・保存・Complete / Skip・履歴・
+再計画・mobile表示・reload・直接URLも再確認した。ブラウザの重大なconsole error・アプリ外部通信は検出しなかった。
+
+### 依存パッケージ監査の残事項
+
+secret検査とは別に、npm auditは全依存34件（critical 1 / high 8 / moderate 16 / low 9）、
+開発依存除外でも25件を報告した。依存とlockfileを元と一致させるため、今回自動修正・更新はしていない。
+criticalのshell-quoteは検査用source map上で静的Web bundleに含まれなかったが、
+decode-uri-componentは含まれている。bundleへの包含だけでは実際の悪用可能性を判定できないため、
+依存の修正・影響評価は別途必要であり、秘密情報0件をアプリの脆弱性0件と読み替えない。
+検査用source mapは一時領域にのみ出力し、配信用distとGitには含めていない。
+
+参照: [shell-quote advisory](https://github.com/advisories/GHSA-pqg4-j6r4-53mv)、
+[decode-uri-component advisory](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr)。
+
+以下の監査記録は元private repositoryを調べた当時の状態も含む。「個人メールが残る」は元private側の記録であり、
+今回検証した公開用clean historyに同じ値が残っていることを意味しない。
+
 確認日: 2026-11-06（Asia/Tokyo）。新機能追加・Native業務ロジック変更は行わず、
 README、公開画像、docs導線、License表記、GitHub用の品質CIを整えた。
 repositoryのPublic化・push・PR作成・merge・GitHub Pages公開・remote history rewriteは実行していない。
@@ -55,10 +92,10 @@ starter assetsのXMP等にも個人メール・ローカルpath・GPS・creator�
 **既存Git履歴のAuthor / Committerには個人のGmailアドレスが残っている。**
 また、相対化した旧検証記録の元の絶対pathは過去commitに残る。
 現在のファイルだけを修正しても、これらをGit履歴から除去したことにはならない。
-本人の選択により、**メール非公開を優先する方針が確定**した。履歴整理の手順を用意し、実行・再検証が完了するまでPublic化しない。
+本人の選択により、**メール非公開を優先する方針が確定**した。この方針に基づき公開用コピーを整理・再検証した。元private repositoryはPublicへ変更しない。
 この文書へ実メール・元の絶対pathは転載していない。
 
-具体的な実行前手順は[Git履歴のプライバシー整理](history-privacy.md)に記載した。Public化より先に以下を整理する。
+実施した手順と公開先への引き継ぎは[Git履歴のプライバシー整理](history-privacy.md)に記載した。以下は初回監査時の整理方針。
 
 1. GitHub個人設定のEmailsで **Keep my email addresses private** と、メール露出を含むpushのブロックを設定する。
 2. 今後のローカルcommitはGitHub提供のnoreply addressを使う。現在の接続アカウントID / loginで確認した形式は
@@ -111,14 +148,15 @@ mainの保護を設定するなら、PR CIのquality jobが成功してからmer
 
 ## ユーザーが行う順番
 
-1. **確定したメール非公開方針に従い、履歴整理または公開用repositoryへの移行を先に完了する。** 手順の用意のみ完了しており、実行は別途確認後。
-2. この公開準備branchをレビューし、push / PR → CI成功 → mainへmergeする。historyを変える方針なら、先にbranchの基点を調整する。
-3. GitHubのDescription / Topicsを設定し、LICENSE・画像・公開予定branch / tag / PRの内容を最終確認する。
-4. 公開方針の未解決事項がなくなってからrepositoryをPublicへ変更する。GitHub FreeでのPagesはpublic repositoryが対象。
-5. Settings → Pages → SourceをGitHub Actionsへ設定する。
-6. Actions → Web Demo Pages → Run workflow、branchはmainを選ぶ。
-7. workflowの表示した実URLで、root / tasks / calendar / ai / today / settings、直接URL、reload、asset、生成・保存・完了・Skip・再計画を確認する。
-8. Desktop / Mobileでconsoleと表示を確認し、READMEのDemo節とAbout Websiteへその実URLを追加する。
-9. 次の作業としてPersonal Team Release buildを行う。Metro停止・Mac切断後のiPhone単体利用を別途検証する。
+1. 元のGitHub repositoryをprivateのままai-life-planner-dev等へrenameする。削除・force rewriteはしない。
+2. 元の開発cloneのoriginをrename後のprivate URLへ変更する。同じ名前の新repositoryを作る前に行い、旧履歴の誤pushを防ぐ。
+3. GitHubに空の公開用Yuu8600/ai-life-plannerを作る。README / LICENSE / .gitignoreを自動生成しない。
+4. **検証済みの公開用clean repositoryからだけ**、新しいremoteを設定してmainを通常pushする。mirror / force pushや旧cloneからのpushはしない。
+5. CI成功を確認し、Description / Topicsを設定する。公開用main以外のrefs・履歴を追加しない。
+6. Settings → Pages → SourceをGitHub Actionsへ設定し、Web Demo Pagesをmainで手動実行する。
+7. https://Yuu8600.github.io/ai-life-planner/でasset、直接URL、reload、生成・保存・完了・Skip・再計画、Desktop / Mobile表示を確認する。
+8. READMEのDemo節とAbout Websiteへ検証した実URLを掲載する。以後、公開側へ反映する変更は整理済み履歴を基点にする。
+9. Personal Team Release buildによるMetro停止・Mac切断後のiPhone単体利用は別の検証として進める。
 
-技術面の公開準備と履歴整理の手順は用意済み。メール非公開方針に対する履歴整理・再検証が未実施のため、現時点ではPublic化・Pages公開を保留する。
+ローカルの履歴整理・privacy検証は公開用コピーで完了した。品質チェックの最終結果を確認してから、
+ユーザーの操作で新しい公開用repositoryへmainを通常pushする。既存private repositoryのPublic化は不要。
