@@ -38,4 +38,5 @@
 - [Native setup、Supabase、migrations、任意OpenAI](development.md)
 - [agent guide](../AGENTS.md): repositoryでの変更ルールと作業コマンド。
 
-Personal Team Release buildによるMetroなしの実機利用は次の確認対象で、まだ完了扱いにしていません。
+[Personal Team Release](ios-personal-release.md)で、Metro停止・USB解除後のiPhone単体利用と、
+依存更新後のNative回帰を確認しました。再署名・上書きinstall手順と未確認範囲も記録しています。
