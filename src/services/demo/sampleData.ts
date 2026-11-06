@@ -11,6 +11,8 @@ export const DEMO_START = getUtcInstantForLocalTime(DEMO_DATE, '08:00', DEMO_TIM
 export const DEMO_AFTERNOON = getUtcInstantForLocalTime(DEMO_DATE, '15:00', DEMO_TIMEZONE);
 
 export const DEMO_SETTINGS: ProfilePlanningSettings = {
+  calendarBufferBeforeMinutes: 0,
+  calendarBufferAfterMinutes: 0,
   minimumFreeMinutes: 20,
   planningEnd: '23:00',
   planningStart: '08:00',

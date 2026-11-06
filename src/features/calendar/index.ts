@@ -16,3 +16,4 @@ export type { CalendarAccessState, UseDeviceCalendarResult } from './useDeviceCa
 export { CalendarTimelineCard } from './components/CalendarTimelineCard';
 export type { CalendarTimelineEvent } from './components/CalendarTimelineCard';
 export { useDailyCalendar } from './useDailyCalendar';
+export { loadCalendarPlanningEvents } from './loadCalendarPlanningEvents';

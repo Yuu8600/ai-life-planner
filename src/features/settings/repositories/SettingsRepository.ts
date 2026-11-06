@@ -1,4 +1,6 @@
 export type ProfilePlanningSettings = {
+  calendarBufferBeforeMinutes: number;
+  calendarBufferAfterMinutes: number;
   minimumFreeMinutes: number;
   planningEnd: string;
   planningStart: string;

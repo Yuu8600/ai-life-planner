@@ -4,6 +4,10 @@ import type {
 } from './repositories/SettingsRepository';
 
 export type SettingsFormValues = {
+  calendarBufferBeforeHours: string;
+  calendarBufferBeforeMinutes: string;
+  calendarBufferAfterHours: string;
+  calendarBufferAfterMinutes: string;
   minimumFreeMinutes: string;
   planningEnd: string;
   planningStart: string;
@@ -35,6 +39,10 @@ function toMinutes(value: string): number {
 
 export function createSettingsFormValues(settings: ProfilePlanningSettings): SettingsFormValues {
   return {
+    calendarBufferBeforeHours: String(Math.floor(settings.calendarBufferBeforeMinutes / 60)),
+    calendarBufferBeforeMinutes: String(settings.calendarBufferBeforeMinutes % 60),
+    calendarBufferAfterHours: String(Math.floor(settings.calendarBufferAfterMinutes / 60)),
+    calendarBufferAfterMinutes: String(settings.calendarBufferAfterMinutes % 60),
     minimumFreeMinutes: String(settings.minimumFreeMinutes),
     planningEnd: settings.planningEnd,
     planningStart: settings.planningStart,
@@ -44,6 +52,25 @@ export function createSettingsFormValues(settings: ProfilePlanningSettings): Set
 
 export function validateSettingsForm(values: SettingsFormValues): SettingsValidationResult {
   const errors: SettingsFormErrors = {};
+  const readBuffer = (prefix: 'calendarBufferBefore' | 'calendarBufferAfter') => {
+    const hoursKey = `${prefix}Hours` as const;
+    const minutesKey = `${prefix}Minutes` as const;
+    const hours = values[hoursKey];
+    const minutes = values[minutesKey];
+    const total = Number(hours) * 60 + Number(minutes);
+    if (
+      !/^\d+$/.test(hours) ||
+      !/^\d+$/.test(minutes) ||
+      !Number.isSafeInteger(total) ||
+      Number(minutes) > 59 ||
+      total > 240
+    ) {
+      errors[minutesKey] = '時間と分は整数で、分は0〜59、合計は0〜240分にしてください。';
+    }
+    return total;
+  };
+  const calendarBufferBeforeMinutes = readBuffer('calendarBufferBefore');
+  const calendarBufferAfterMinutes = readBuffer('calendarBufferAfter');
   const timezone = values.timezone.trim();
   const planningStart = values.planningStart.trim();
   const planningEnd = values.planningEnd.trim();
@@ -89,6 +116,8 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
   return {
     errors: null,
     input: {
+      calendarBufferBeforeMinutes,
+      calendarBufferAfterMinutes,
       minimumFreeMinutes,
       planningEnd,
       planningStart,

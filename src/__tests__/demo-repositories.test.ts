@@ -98,6 +98,8 @@ describe('browser-only Demo repositories with the shared Planner core', () => {
       timezone: 'America/Los_Angeles',
       planningStart: '08:00',
       planningEnd: '23:00',
+      calendarBufferBeforeMinutes: 0,
+      calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 20,
     });
     const input = await loadPlannerInput(dependencies(demo));
@@ -108,6 +110,8 @@ describe('browser-only Demo repositories with the shared Planner core', () => {
         timezone: 'invalid',
         planningStart: '08:00',
         planningEnd: '23:00',
+        calendarBufferBeforeMinutes: 0,
+        calendarBufferAfterMinutes: 0,
         minimumFreeMinutes: 20,
       }),
     ).rejects.toThrow();

@@ -125,6 +125,8 @@ describe('Planner persistence mapping', () => {
       now: () => new Date('2026-09-18T00:00:00.000Z'),
       settingsRepository: {
         getProfilePlanningSettings: async () => ({
+          calendarBufferBeforeMinutes: 0,
+          calendarBufferAfterMinutes: 0,
           minimumFreeMinutes: 20,
           planningStart: '09:00',
           planningEnd: '10:00',

@@ -1,6 +1,10 @@
-import type { CalendarPermissionStatus, CalendarRepository } from '@/features/calendar';
+import {
+  loadCalendarPlanningEvents,
+  type CalendarPermissionStatus,
+  type CalendarRepository,
+} from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
-import { getLocalDate, getUtcDayBounds, resolveTimeZone } from '@/features/today';
+import { getLocalDate, resolveTimeZone } from '@/features/today';
 
 import { buildPlannerInput } from './buildPlannerInput';
 import { clipPlannerFreeSlots } from './clipPlannerFreeSlots';
@@ -62,14 +66,22 @@ export async function loadPlannerInput({
   }
 
   const [calendarResult, goals, tasks] = await Promise.all([
-    calendarRepository.listEvents(getUtcDayBounds(date, timezone), date),
+    loadCalendarPlanningEvents(
+      calendarRepository,
+      date,
+      timezone,
+      settings.calendarBufferBeforeMinutes,
+      settings.calendarBufferAfterMinutes,
+    ),
     goalRepository.list(),
     taskRepository.list(),
   ]);
   const currentInstant = now();
   if (getLocalDate(currentInstant, timezone) !== date) throw new PlannerInputDateChangedError();
   const freeTimeResult = calculateFreeTime({
-    events: calendarResult.events,
+    events: calendarResult.calculationEvents,
+    calendarBufferBeforeMinutes: settings.calendarBufferBeforeMinutes,
+    calendarBufferAfterMinutes: settings.calendarBufferAfterMinutes,
     minimumFreeMinutes: settings.minimumFreeMinutes,
     planningEnd: settings.planningEnd,
     planningStart: settings.planningStart,

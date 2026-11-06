@@ -1,3 +1,5 @@
+import { Text } from 'react-native';
+import { colors } from '@/shared/theme';
 import { useMemo } from 'react';
 
 import { calculateFreeTime } from '@/features/planner';
@@ -46,7 +48,9 @@ export function CalendarScreen({
       return {
         error: null,
         result: calculateFreeTime({
-          events: calendar.events,
+          events: calendar.calculationEvents,
+          calendarBufferBeforeMinutes: calendar.planningSettings.calendarBufferBeforeMinutes,
+          calendarBufferAfterMinutes: calendar.planningSettings.calendarBufferAfterMinutes,
           minimumFreeMinutes: calendar.planningSettings.minimumFreeMinutes,
           planningEnd: calendar.planningSettings.planningEnd,
           planningStart: calendar.planningSettings.planningStart,
@@ -60,7 +64,7 @@ export function CalendarScreen({
         result: null,
       };
     }
-  }, [calendar.events, calendar.planningSettings, selectedDate, timeZone]);
+  }, [calendar.calculationEvents, calendar.planningSettings, selectedDate, timeZone]);
   const canShowFreeTime =
     calendar.accessState === 'granted' &&
     !calendar.isLoadingEvents &&
@@ -172,7 +176,15 @@ export function CalendarScreen({
       )}
 
       {canShowFreeTime && freeTimeCalculation?.result && timeZone ? (
-        <FreeTimeSummary result={freeTimeCalculation.result} timezone={timeZone} />
+        <>
+          {calendar.planningSettings?.calendarBufferBeforeMinutes ||
+          calendar.planningSettings?.calendarBufferAfterMinutes ? (
+            <Text style={{ color: colors.textMuted }}>
+              予定前後の余白時間を除いて計算しています。
+            </Text>
+          ) : null}
+          <FreeTimeSummary result={freeTimeCalculation.result} timezone={timeZone} />
+        </>
       ) : canShowFreeTime && freeTimeCalculation?.error ? (
         <CalendarStatePanel
           message={freeTimeCalculation.error}
