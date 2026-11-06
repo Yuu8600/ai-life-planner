@@ -66,9 +66,37 @@ rewrite it; requirement changes need explicit user authorization and should be v
 - Keep TypeScript strict mode enabled. Avoid `any`; validate data at system boundaries.
 - Prefer small components, pure functions, and explicit domain types.
 - Keep tests outside `src/app` so Expo Router never treats them as routes.
-- Run `npm run typecheck`, `npm run lint`, `npm run format:check`, and `npm run test:ci` before
-  handing off changes.
 - Add focused tests for requested behavior without introducing redundant test libraries.
+
+### Staged verification
+
+- **A. During development:** prioritize related Jest tests and the lint / format checks needed for
+  changed files. Run the full typecheck when types or interfaces change. Do not run all tests after
+  every small edit.
+- **B. At implementation completion:** run `npm run typecheck`, `npm run lint`, Prettier checks
+  for changed files, related Jest tests, and `git diff --check`. Run **all Jest tests** when changes
+  affect shared Planner logic / contracts / Validator; Calendar / free time / timezone;
+  persistence / replanning / stale guards; shared UI or multiple screens; dependencies or
+  configuration; or when the impact is unclear.
+- **C. Before a PR or release:** verify all Jest tests, typecheck, lint, full format check
+  (`npm run format:check`), and `git diff --check`. Add Web export / artifact verification and
+  Expo Doctor / native builds / device checks according to the change. Keep existing CI quality
+  gates intact. `npm run format` writes changes; it is not the format verification command.
+- For documentation-only changes, check formatting of changed files, review the diff and document
+  consistency, and run `git diff --check`. At stage C, the full checks above still apply. Do not run
+  E2E, native builds, or exports solely for documentation changes.
+- See `docs/development.md#品質チェック--ci` for commands and platform verification triggers.
+
+### Reuse results and report concisely
+
+- Reuse a successful check when its command, scope, and tested code state are known and still
+  applicable; do not repeat it just because work moves to another stage. After related source,
+  tests, configuration, or dependencies change, rerun affected checks. If the result or tested
+  state is uncertain, perform the necessary verification. Never report an unrun check as passed.
+- On success, report the command, pass / fail result, test counts where applicable, and elapsed
+  time when useful. Do not paste long PASS lists or unnecessary build logs into the final report.
+- On failure, retain and inspect the details needed to diagnose it. Surface warnings and failures,
+  preserve and check exit codes, and do not treat a zero-test selection as successful verification.
 
 ## Integrations and secrets
 
