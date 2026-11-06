@@ -45,7 +45,8 @@ AI Life Plannerは、目標を具体的なTaskへ分け、カレンダーの空�
 | Auth / persistence             | Supabase Auth・RLS・PostgreSQLによるユーザー別保存                   | ログイン不要。reloadで初期化         |
 
 Core v1 Native版の主要フローはiOS Simulator・iPhone 16で確認済みです。
-現在の実機検証はMetro接続下のdevelopment buildが対象で、**MetroなしのRelease build単体利用は未確認**です。
+無料Personal Team署名の**Release buildで、Metro停止・USB解除後のiPhone単体利用も確認済み**です。
+再署名・上書きinstall手順と検証範囲は[Personal Team Release](docs/ios-personal-release.md)を参照してください。
 OpenAIは任意機能の実装であり、実APIの動作確認を今回の検証範囲には含めていません。
 
 ## How it works

@@ -60,8 +60,9 @@ npm run start:dev
 
 iPhoneでLAN接続する場合の確認記録は[iPhone verification](ios-device-core-v1-verification.md)。
 Personal TeamのSigningは各自のローカル環境へ設定し、Team ID・UDID・profileをcommitしない。
-今回確認済みなのはMetro接続下のDebug development build。
-**Metro停止・Mac切断後のRelease build単体利用は次の作業で、まだ確認済みではない。**
+Personal Team署名のRelease buildで、Metro停止・USB解除後のiPhone単体利用も確認済み。
+再build・上書きinstallは`npm run ios:release`。署名期限後の更新、データ保持、検証範囲は
+[Personal Team Release](ios-personal-release.md)を参照。
 
 ## Calendar / planning settings
 
