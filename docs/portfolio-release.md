@@ -22,17 +22,14 @@
 git diff --check、Pages export / verify:pagesが成功した。配信用distから生成・保存・Complete / Skip・履歴・
 再計画・mobile表示・reload・直接URLも再確認した。ブラウザの重大なconsole error・アプリ外部通信は検出しなかった。
 
-### 依存パッケージ監査の残事項
+### 依存パッケージ監査（更新済み）
 
-secret検査とは別に、npm auditは全依存34件（critical 1 / high 8 / moderate 16 / low 9）、
-開発依存除外でも25件を報告した。依存とlockfileを元と一致させるため、今回自動修正・更新はしていない。
-criticalのshell-quoteは検査用source map上で静的Web bundleに含まれなかったが、
-decode-uri-componentは含まれている。bundleへの包含だけでは実際の悪用可能性を判定できないため、
-依存の修正・影響評価は別途必要であり、秘密情報0件をアプリの脆弱性0件と読み替えない。
-検査用source mapは一時領域にのみ出力し、配信用distとGitには含めていない。
-
-参照: [shell-quote advisory](https://github.com/advisories/GHSA-pqg4-j6r4-53mv)、
-[decode-uri-component advisory](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr)。
+privacy cleanup時点では全依存34件（critical 1）だった。その後SDK 57の互換更新を実施し、
+全依存23件（critical 0 / high 3 / moderate 11 / low 9）、omit=dev 14件になった。
+criticalのshell-quoteは修正済み。残存highのdecoderはbundleに含まれるが、現在のRouterの
+受信URL処理はURLSearchParamsを使用し、検証経路から呼ばれなかった。
+公開可否・残存項目・Native再buildの検証限界は[依存監査の詳細](dependency-security.md)を参照。
+秘密情報の検出0件は、アプリの脆弱性0件を意味しない。
 
 以下の監査記録は元private repositoryを調べた当時の状態も含む。「個人メールが残る」は元private側の記録であり、
 今回検証した公開用clean historyに同じ値が残っていることを意味しない。
