@@ -1,3 +1,4 @@
+import type { CalendarRepository, CalendarEvent } from '@/features/calendar';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
@@ -315,6 +316,7 @@ describe('Today Action execution', () => {
         onPressAi={jest.fn()}
         onPressSettings={jest.fn()}
         repository={repository}
+        calendarRepository={calendarReader()}
         executionRepository={executionRepository}
       />,
     );
@@ -577,5 +579,136 @@ describe('Today Action execution', () => {
       await write.promise;
     });
     expect(getToday).toHaveBeenCalledTimes(1);
+  });
+});
+
+const calendarEvent: CalendarEvent = {
+  allDay: false,
+  allDayEndDate: null,
+  allDayStartDate: null,
+  availability: 'busy',
+  calendarId: 'cal',
+  calendarTitle: null,
+  startAt: '2026-09-11T04:00:00Z',
+  endAt: '2026-09-11T05:00:00Z',
+  id: 'event',
+  instanceId: null,
+  location: null,
+  status: 'confirmed',
+  timeZone: null,
+  title: 'Calendar meeting',
+};
+function calendarReader(): jest.Mocked<CalendarRepository> {
+  return {
+    getPermission: jest.fn(async () => ({ status: 'granted' as const, canAskAgain: true })),
+    requestPermission: jest.fn(),
+    listEvents: jest.fn<
+      ReturnType<CalendarRepository['listEvents']>,
+      Parameters<CalendarRepository['listEvents']>
+    >(async () => ({
+      calendarCount: 1,
+      discardedEventCount: 0,
+      events: [calendarEvent],
+    })),
+  };
+}
+describe('Today calendar integration', () => {
+  it('queries the profile day while displaying Calendar and Actions in the saved Plan timezone', async () => {
+    const calendar = calendarReader();
+    const screen = await render(
+      <TodayScreen
+        calendarRepository={calendar}
+        repository={createRepository()}
+        onPressAi={jest.fn()}
+        onPressSettings={jest.fn()}
+      />,
+    );
+    expect(await screen.findByText('Calendar meeting')).toBeTruthy();
+    expect(screen.getByText('13:00–14:00')).toBeTruthy();
+    expect(screen.getByText('時刻表示: Asia/Tokyo')).toBeTruthy();
+    expect(calendar.listEvents).toHaveBeenCalledWith(
+      { startAt: '2026-09-11T04:00:00.000Z', endAt: '2026-09-12T04:00:00.000Z' },
+      '2026-09-11',
+    );
+    const titles = screen.toJSON();
+    const json = JSON.stringify(titles);
+    expect(json.indexOf('金フレ')).toBeLessThan(json.indexOf('Calendar meeting'));
+    expect(json.indexOf('Calendar meeting')).toBeLessThan(json.indexOf('TOEIC Listening'));
+    expect(calendar.requestPermission).not.toHaveBeenCalled();
+  });
+  it('shows Calendar with no saved Plan and preserves the create-plan guidance', async () => {
+    const screen = await render(
+      <TodayScreen
+        calendarRepository={calendarReader()}
+        repository={createRepository({ getToday: jest.fn(async () => emptyToday) })}
+        onPressAi={jest.fn()}
+        onPressSettings={jest.fn()}
+      />,
+    );
+    expect(await screen.findByText('Calendar meeting')).toBeTruthy();
+    expect(screen.getByText('今日の計画はまだありません')).toBeTruthy();
+  });
+  it.each(['denied', 'failure', 'pending', 'no-calendars'])(
+    'does not gate Action execution when Calendar is %s',
+    async (kind) => {
+      const calendar = calendarReader();
+      if (kind === 'denied')
+        calendar.getPermission.mockResolvedValue({ status: 'denied', canAskAgain: false });
+      if (kind === 'failure') calendar.listEvents.mockRejectedValue(new Error('private failure'));
+      if (kind === 'pending') calendar.listEvents.mockReturnValue(new Promise(() => {}));
+      if (kind === 'no-calendars')
+        calendar.listEvents.mockResolvedValue({
+          calendarCount: 0,
+          discardedEventCount: 0,
+          events: [],
+        });
+      const transition = jest.fn(async () => {});
+      const screen = await render(
+        <TodayScreen
+          calendarRepository={calendar}
+          repository={createRepository()}
+          executionRepository={{ transition }}
+          onPressAi={jest.fn()}
+          onPressSettings={jest.fn()}
+        />,
+      );
+      await fireEvent.press(
+        await screen.findByRole('button', { name: 'TOEIC Listeningを完了する' }),
+      );
+      await waitFor(() =>
+        expect(transition).toHaveBeenCalledWith({
+          actionId: 'action-listening',
+          targetStatus: 'completed',
+        }),
+      );
+      expect(calendar.requestPermission).not.toHaveBeenCalled();
+    },
+  );
+  it('ignores late Calendar results after the displayed day changes', async () => {
+    const calendar = calendarReader();
+    const old = createDeferred<Awaited<ReturnType<CalendarRepository['listEvents']>>>();
+    calendar.listEvents.mockReturnValueOnce(old.promise);
+    const repository = createRepository({ getToday: jest.fn(async () => emptyToday) });
+    const props = {
+      calendarRepository: calendar,
+      repository,
+      onPressAi: jest.fn(),
+      onPressSettings: jest.fn(),
+    };
+    const screen = await render(<TodayScreen {...props} />);
+    await waitFor(() => expect(calendar.listEvents).toHaveBeenCalledTimes(1));
+    repository.getToday.mockResolvedValue({ ...emptyToday, localDate: '2026-09-12' });
+    calendar.listEvents.mockResolvedValue({
+      calendarCount: 1,
+      discardedEventCount: 0,
+      events: [{ ...calendarEvent, title: 'new day' }],
+    });
+    await screen.rerender(<TodayScreen {...props} refreshToken={1} />);
+    expect(await screen.findByText('new day')).toBeTruthy();
+    await act(async () =>
+      old.resolve({ calendarCount: 1, discardedEventCount: 0, events: [calendarEvent] }),
+    );
+    expect(screen.queryByText('Calendar meeting')).toBeNull();
+    expect(screen.getByText('new day')).toBeTruthy();
   });
 });

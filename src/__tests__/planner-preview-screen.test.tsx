@@ -241,11 +241,36 @@ describe('PlannerPreviewScreen', () => {
           new RuleBasedPlannerProvider().generate(input),
         ),
       };
+      let contextTitle = '生成時の予定';
+      const calendar = createCalendarRepository({
+        listEvents: jest.fn(async () => ({
+          calendarCount: 1,
+          discardedEventCount: 0,
+          events: [
+            {
+              allDay: true,
+              allDayStartDate: '2026-09-17',
+              allDayEndDate: '2026-09-18',
+              availability: 'free' as const,
+              calendarId: 'cal',
+              calendarTitle: null,
+              startAt: '2026-09-16T15:00:00Z',
+              endAt: '2026-09-17T15:00:00Z',
+              id: 'event',
+              instanceId: null,
+              location: null,
+              status: 'confirmed' as const,
+              timeZone: null,
+              title: contextTitle,
+            },
+          ],
+        })),
+      });
       const persistence = createPersistenceRepository();
       const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
       const screen = await renderScreen(
         provider,
-        createCalendarRepository(),
+        calendar,
         createTaskRepository(),
         persistence,
         undefined,
@@ -254,6 +279,9 @@ describe('PlannerPreviewScreen', () => {
 
       await fireEvent.press(await screen.findByRole('button', { name: '今日の計画を作成する' }));
       expect(await screen.findByText('08:00–08:30')).toBeTruthy();
+      expect(screen.getByText('生成時の予定')).toBeTruthy();
+      expect(calendar.listEvents).toHaveBeenCalledTimes(2);
+      contextTitle = '最新の予定';
       currentInstant = new Date('2026-09-17T00:01:00.000Z');
       await fireEvent.press(screen.getByRole('button', { name: 'この計画を保存する' }));
       await act(async () => {
@@ -263,6 +291,8 @@ describe('PlannerPreviewScreen', () => {
       expect(await screen.findByTestId('planner-preview-stale')).toBeTruthy();
       expect(screen.getByText('状況が変わったため、計画を再生成してください。')).toBeTruthy();
       expect(screen.getByTestId('planner-preview')).toBeTruthy();
+      expect(screen.getByText('生成時の予定')).toBeTruthy();
+      expect(screen.queryByText('最新の予定')).toBeNull();
       expect(screen.getByText('08:00–08:30')).toBeTruthy();
       expect(screen.queryByTestId('planner-save-error')).toBeNull();
       expect(screen.queryByRole('button', { name: 'この計画を保存する' })).toBeNull();
@@ -273,6 +303,8 @@ describe('PlannerPreviewScreen', () => {
         screen.getByRole('button', { name: '最新データで今日の計画を再生成する' }),
       );
       expect(await screen.findByText('09:01–09:31')).toBeTruthy();
+      expect(screen.getByText('最新の予定')).toBeTruthy();
+      expect(screen.queryByText('生成時の予定')).toBeNull();
       expect(screen.queryByTestId('planner-preview-stale')).toBeNull();
       expect(provider.generate).toHaveBeenCalledTimes(2);
       await fireEvent.press(screen.getByRole('button', { name: 'この計画を保存する' }));
@@ -281,6 +313,8 @@ describe('PlannerPreviewScreen', () => {
       });
       expect(await screen.findByTestId('planner-save-success')).toBeTruthy();
       expect(persistence.savePlan).toHaveBeenCalledTimes(1);
+      expect(persistence.savePlan.mock.calls[0][0].actions).toHaveLength(1);
+      expect(persistence.savePlan.mock.calls[0][0].actions[0].title).toBe('朝の復習');
       expect(provider.generate).toHaveBeenCalledTimes(2);
       expect(persistence.savePlan.mock.calls[0][0].actions[0].startAt).toBe(
         '2026-09-17T00:01:00.000Z',

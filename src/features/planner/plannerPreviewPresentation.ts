@@ -1,9 +1,11 @@
+import type { CalendarTimelineEvent } from '@/features/calendar';
 import { formatLocalDateJa, formatLocalTimeJa, getUtcDayBounds } from '@/features/today';
 
 import type { PlannerValidationIssue } from './contracts';
 import type { PlannerPreviewData } from './plannerPreview';
 
 export type PlannerActionPreviewItem = {
+  startAt: string;
   endTime: string;
   id: string;
   reason: string;
@@ -19,6 +21,9 @@ export type PlannerUnscheduledPreviewItem = {
 };
 
 export type PlannerPreviewViewModel = {
+  calendarEvents: CalendarTimelineEvent[];
+  localDate: string;
+  timezone: string;
   actions: PlannerActionPreviewItem[];
   summary: string;
   unscheduled: PlannerUnscheduledPreviewItem[];
@@ -38,11 +43,24 @@ export function toPlannerPreviewViewModel({
   const taskTitles = new Map(input.tasks.map((task) => [task.id.toLowerCase(), task.title]));
 
   return {
+    localDate: input.date,
+    timezone,
+    calendarEvents: input.calendarEvents.map((event) =>
+      event.kind === 'timed'
+        ? { ...event, allDay: false }
+        : {
+            title: event.title,
+            allDay: true,
+            startAt: getUtcDayBounds(event.startDate, timezone).startAt,
+            endAt: getUtcDayBounds(event.endDate, timezone).startAt,
+          },
+    ),
     actions: proposal.actions.map((action, index) => {
       const startTime = formatLocalTimeJa(action.startAt, timezone);
       const endTime = formatLocalTimeJa(action.endAt, timezone);
 
       return {
+        startAt: action.startAt,
         endTime,
         id: action.taskId ?? `free-action-${index}`,
         reason: action.reason,
