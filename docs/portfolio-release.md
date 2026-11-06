@@ -43,7 +43,7 @@ scanはローカルで行い、repository内容を外部scannerへ送信して�
 pattern検出による監査であり、未知形式の秘密情報の不存在を保証するものではない。
 GitHubのPR本文・Actions log / artifact・外部clone・他のrepositoryは対象外。
 
-## Privacy audit / 公開前に残る判断
+## Privacy audit / メール非公開の方針
 
 現在の公開対象本文に、個人メール、ユーザー固有の絶対path、実remote Supabase host、private LAN URLを検出していない。
 package-lock内の第三者packageのlicense表記に含まれる連絡先は作者本人の情報ではなく、そのまま保持した。
@@ -55,14 +55,14 @@ starter assetsのXMP等にも個人メール・ローカルpath・GPS・creator�
 **既存Git履歴のAuthor / Committerには個人のGmailアドレスが残っている。**
 また、相対化した旧検証記録の元の絶対pathは過去commitに残る。
 現在のファイルだけを修正しても、これらをGit履歴から除去したことにはならない。
-本人にメール公開の扱いを確認中で、同意を推定してPublic化可能とは判定しない。
+本人の選択により、**メール非公開を優先する方針が確定**した。履歴整理の手順を用意し、実行・再検証が完了するまでPublic化しない。
 この文書へ実メール・元の絶対pathは転載していない。
 
-メールを非公開に保つ場合は、Public化より先に以下を整理する。
+具体的な実行前手順は[Git履歴のプライバシー整理](history-privacy.md)に記載した。Public化より先に以下を整理する。
 
 1. GitHub個人設定のEmailsで **Keep my email addresses private** と、メール露出を含むpushのブロックを設定する。
 2. 今後のローカルcommitはGitHub提供のnoreply addressを使う。現在の接続アカウントID / loginで確認した形式は
-   `207811593+Yuu8600@users.noreply.github.com`。必要ならこのrepositoryだけの設定として使う。
+   `207811593+Yuu8600@users.noreply.github.com`。このrepositoryだけのローカル設定として反映済み。global設定は変更していない。
 3. 過去履歴は別途、バックアップ・全公開予定refs・PR参照を含む整理方針を決める。
    元repositoryを保持し、履歴を引き継がない公開用repositoryを作る方法も選択肢となる。
 4. 既存remoteの履歴を変更する場合は、対象branch / tag、hash変更、他clone、PR参照への影響をレビューし、
@@ -111,7 +111,7 @@ mainの保護を設定するなら、PR CIのquality jobが成功してからmer
 
 ## ユーザーが行う順番
 
-1. **履歴の個人メール・旧pathを公開してよいか決定する。** 非公開を優先する場合は、履歴整理または公開用repositoryへの移行を先に計画・完了する。
+1. **確定したメール非公開方針に従い、履歴整理または公開用repositoryへの移行を先に完了する。** 手順の用意のみ完了しており、実行は別途確認後。
 2. この公開準備branchをレビューし、push / PR → CI成功 → mainへmergeする。historyを変える方針なら、先にbranchの基点を調整する。
 3. GitHubのDescription / Topicsを設定し、LICENSE・画像・公開予定branch / tag / PRの内容を最終確認する。
 4. 公開方針の未解決事項がなくなってからrepositoryをPublicへ変更する。GitHub FreeでのPagesはpublic repositoryが対象。
@@ -121,4 +121,4 @@ mainの保護を設定するなら、PR CIのquality jobが成功してからmer
 8. Desktop / Mobileでconsoleと表示を確認し、READMEのDemo節とAbout Websiteへその実URLを追加する。
 9. 次の作業としてPersonal Team Release buildを行う。Metro停止・Mac切断後のiPhone単体利用を別途検証する。
 
-技術面の公開準備は完了しているが、履歴の個人情報の扱いが未確定のままPublic化してよいとは判断しない。
+技術面の公開準備と履歴整理の手順は用意済み。メール非公開方針に対する履歴整理・再検証が未実施のため、現時点ではPublic化・Pages公開を保留する。

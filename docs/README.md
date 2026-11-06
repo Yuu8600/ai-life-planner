@@ -30,6 +30,7 @@
 - [Web Demoのローカル起動・GitHub Pages公開手順](web-demo.md)
 - [公開用screenshots・サンプルデータ・Native撮影手順](screenshots/README.md)
 - [公開準備・Security / Privacy監査・GitHub設定チェック](portfolio-release.md)
+- [個人メールを非公開にするための履歴整理手順](history-privacy.md)
 
 ## Development notes
 
