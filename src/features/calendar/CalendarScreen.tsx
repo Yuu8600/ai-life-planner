@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { calculateFreeTime } from '@/features/planner';
+import { getLocalDate } from '@/features/today';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 
@@ -10,7 +11,7 @@ import { CalendarDateNavigator } from './components/CalendarDateNavigator';
 import { CalendarStatePanel } from './components/CalendarStatePanel';
 import { DayTimeline } from './components/DayTimeline';
 import { FreeTimeSummary } from './components/FreeTimeSummary';
-import { getCalendarDateLabel, toCalendarEventViewModel } from './presentation';
+import { toCalendarEventViewModel } from './presentation';
 import type { CalendarRepository } from './repositories/CalendarRepository';
 import { useDeviceCalendar } from './useDeviceCalendar';
 
@@ -34,8 +35,6 @@ export function CalendarScreen({
   const calendar = useDeviceCalendar(calendarRepository, settingsRepository, refreshToken, now);
   const selectedDate = calendar.selectedDate;
   const timeZone = calendar.timeZone;
-  const dateLabel =
-    selectedDate && timeZone ? getCalendarDateLabel(selectedDate, timeZone) : undefined;
   const eventViewModels =
     selectedDate && timeZone
       ? calendar.events.map((event) => toCalendarEventViewModel(event, selectedDate, timeZone))
@@ -71,7 +70,6 @@ export function CalendarScreen({
   return (
     <AppScreen testID="calendar-screen">
       <ScreenHeader
-        eyebrow={dateLabel}
         subtitle={
           sourceLabel === 'demo'
             ? 'サンプル予定から空き時間を計算し、Plannerの配置に使います。'
@@ -80,11 +78,14 @@ export function CalendarScreen({
         title="カレンダー"
       />
 
-      {calendar.accessState === 'granted' && calendar.selectedDate ? (
+      {calendar.accessState === 'granted' && selectedDate && timeZone ? (
         <CalendarDateNavigator
+          isToday={selectedDate === getLocalDate(now ? now() : new Date(), timeZone)}
           onNext={calendar.goToNextDay}
           onPrevious={calendar.goToPreviousDay}
           onToday={calendar.goToToday}
+          selectedDate={selectedDate}
+          timeZone={timeZone}
         />
       ) : null}
 

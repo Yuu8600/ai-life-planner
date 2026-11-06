@@ -271,10 +271,15 @@ describe('CalendarScreen', () => {
     const screen = await renderCalendar(repository);
 
     expect(await screen.findByText('2026年9月15日（火）')).toBeTruthy();
+    expect(screen.getAllByText('2026年9月15日（火）')).toHaveLength(1);
+    expect(screen.getByText('今日')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '今日に戻る' })).toBeNull();
     await waitFor(() => expect(listEvents).toHaveBeenCalledTimes(1));
 
     await fireEvent.press(screen.getByRole('button', { name: '次の日を表示' }));
     await waitFor(() => expect(listEvents).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('2026年9月16日（水）')).toBeTruthy();
+    expect(screen.queryByText('今日')).toBeNull();
     expect(listEvents).toHaveBeenLastCalledWith(
       {
         endAt: '2026-09-16T15:00:00.000Z',
@@ -283,7 +288,7 @@ describe('CalendarScreen', () => {
       '2026-09-16',
     );
 
-    await fireEvent.press(screen.getByRole('button', { name: '前の日を表示' }));
+    await fireEvent.press(screen.getByRole('button', { name: '今日に戻る' }));
     await waitFor(() => expect(listEvents).toHaveBeenCalledTimes(3));
     expect(listEvents).toHaveBeenLastCalledWith(
       {
@@ -291,6 +296,107 @@ describe('CalendarScreen', () => {
         startAt: '2026-09-14T15:00:00.000Z',
       },
       '2026-09-15',
+    );
+    expect(screen.getByText('今日')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '今日に戻る' })).toBeNull();
+  });
+
+  it.each([
+    [
+      '2026-09-30T03:00:00Z',
+      '2026年9月30日（水）',
+      '2026年10月1日（木）',
+      '2026-10-01',
+      '2026-09-30T15:00:00.000Z',
+      '2026-10-01T15:00:00.000Z',
+    ],
+    [
+      '2026-12-31T03:00:00Z',
+      '2026年12月31日（木）',
+      '2027年1月1日（金）',
+      '2027-01-01',
+      '2026-12-31T15:00:00.000Z',
+      '2027-01-01T15:00:00.000Z',
+    ],
+    [
+      '2028-02-28T03:00:00Z',
+      '2028年2月28日（月）',
+      '2028年2月29日（火）',
+      '2028-02-29',
+      '2028-02-28T15:00:00.000Z',
+      '2028-02-29T15:00:00.000Z',
+    ],
+  ])(
+    'navigates both directions across date boundaries from %s',
+    async (instant, initialLabel, nextLabel, nextDate, startAt, endAt) => {
+      const repository = createCalendarRepository({
+        listEvents: jest.fn(async () => ({ calendarCount: 1, discardedEventCount: 0, events: [] })),
+      });
+      const clock = () => new Date(instant);
+      const screen = await render(
+        <CalendarScreen
+          calendarRepository={repository}
+          now={clock}
+          settingsRepository={createSettingsRepository()}
+        />,
+      );
+      expect(await screen.findByText(initialLabel)).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: '次の日を表示' }));
+      expect(await screen.findByText(nextLabel)).toBeTruthy();
+      await waitFor(() =>
+        expect(repository.listEvents).toHaveBeenLastCalledWith({ startAt, endAt }, nextDate),
+      );
+      await fireEvent.press(screen.getByRole('button', { name: '前の日を表示' }));
+      expect(await screen.findByText(initialLabel)).toBeTruthy();
+      await waitFor(() => expect(repository.listEvents).toHaveBeenCalledTimes(3));
+      expect(repository.listEvents.mock.calls[2]).toEqual(repository.listEvents.mock.calls[0]);
+      expect(screen.getByText('今日')).toBeTruthy();
+    },
+  );
+
+  it('uses the profile timezone and injected clock for today and returning after midnight', async () => {
+    let instant = '2027-01-01T03:00:00Z';
+    const clock = () => new Date(instant);
+    const repository = createCalendarRepository({
+      listEvents: jest.fn(async () => ({ calendarCount: 1, discardedEventCount: 0, events: [] })),
+    });
+    const screen = await render(
+      <CalendarScreen
+        calendarRepository={repository}
+        now={clock}
+        settingsRepository={createSettingsRepository({
+          getProfilePlanningSettings: jest.fn(async () => ({
+            ...settings,
+            timezone: 'America/Los_Angeles',
+          })),
+        })}
+      />,
+    );
+    expect(await screen.findByText('2026年12月31日（木）')).toBeTruthy();
+    expect(screen.getByText('今日')).toBeTruthy();
+    await waitFor(() =>
+      expect(repository.listEvents).toHaveBeenLastCalledWith(
+        {
+          startAt: '2026-12-31T08:00:00.000Z',
+          endAt: '2027-01-01T08:00:00.000Z',
+        },
+        '2026-12-31',
+      ),
+    );
+    await fireEvent.press(screen.getByRole('button', { name: '前の日を表示' }));
+    expect(await screen.findByText('2026年12月30日（水）')).toBeTruthy();
+    instant = '2027-01-01T09:00:00Z';
+    await fireEvent.press(screen.getByRole('button', { name: '今日に戻る' }));
+    expect(await screen.findByText('2027年1月1日（金）')).toBeTruthy();
+    expect(screen.getByText('今日')).toBeTruthy();
+    await waitFor(() =>
+      expect(repository.listEvents).toHaveBeenLastCalledWith(
+        {
+          startAt: '2027-01-01T08:00:00.000Z',
+          endAt: '2027-01-02T08:00:00.000Z',
+        },
+        '2027-01-01',
+      ),
     );
   });
 
