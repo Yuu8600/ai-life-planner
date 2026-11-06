@@ -102,20 +102,79 @@ linked projectのtransactional検証SQLとfixtureは`supabase/tests/remote`に�
 
 ## 品質チェック / CI
 
+チェックは次の3段階で選ぶ。既存CIの品質ゲートは維持する。
+
+| 段階                   | 実施するチェック                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| A. 開発途中            | 関連Jest、変更に必要なlint・format確認。型やinterface変更時は全体typecheck。小さな変更のたびに全Jestを実行しない |
+| B. 実装完了時          | 全体typecheck・lint、変更ファイルのformat確認、関連Jest、`git diff --check`                                      |
+| C. PR作成前・Release前 | 全Jest、全体typecheck・lint・format確認、`git diff --check`。変更に応じて下記の追加確認                          |
+
+Bでも、次の変更は全Jestを実行する。
+
+- Planner共通ロジック・Contracts・Validator。
+- Calendar・Free Time・timezone。
+- Persistence・Replanning・stale guard。
+- 共通UI・複数画面に影響する変更。
+- 依存関係・設定、または影響範囲が不明な変更。
+
+文書のみの変更では、変更ファイルのformat確認、差分・文書整合性の確認、`git diff --check`を行う。
+Cでは文書変更でも全体チェックを満たす。文書変更だけを理由にE2E・iOS build・Web exportは実行しない。
+
+関連Jestの実行例（`<変更ファイル>`・`<テストファイル>`は実際のパスへ置き換える）:
+
+```bash
+npm run test:ci -- --findRelatedTests <変更ファイル>
+npm run test:ci -- --runTestsByPath <テストファイル>
+npm run test:ci -- --changedSince=origin/main
+```
+
+`--findRelatedTests`は依存関係から対象を選び、`--runTestsByPath`はテストファイルを明示する。
+`--changedSince`は指定branchとの差分に関連するテストを選ぶ。`origin/main`の状態と選択対象を確認する。
+自動選択だけで実機・DB・Web出力まで検証できるわけではない。0件なら成功扱いせず、対象を見直す。
+
+変更ファイルのformat確認例:
+
+```sh
+npx prettier --check AGENTS.md docs/development.md
+```
+
+Cの全体チェック:
+
 ```sh
 npm run typecheck
 npm run lint
 npm run format:check
 npm run test:ci
 git diff --check
-npm run export:pages
-npm run verify:pages
 ```
 
-`npm run format`は自動整形、`npm test`はwatch mode。
+`npm run format`は自動整形であり、確認には`format:check`を使う。`npm test`は全テストのwatch mode。
 PR / mainのCIはtypecheck・lint・format・Jestだけを実行し、DB・OpenAIへ接続しない。
 Pages workflowは手動実行で、品質チェックに加えてexportとartifactの検査を行う。
 実際のGitHub上でのCI / Pages実行はユーザーがpushした後の確認項目。
+
+### 再実行とログ
+
+成功したコマンド・対象範囲・コード状態が明確で、その後に影響する変更がなければ、段階が変わっても
+同じチェックを不必要に再実行しない。関連ソース・テスト・設定・依存関係を変更したら影響するチェックを再実行する。
+結果や対象コード状態が不明なら必要な検証を行い、未実行のチェックを成功済みとして報告しない。
+
+成功時はコマンド・成否・テスト件数・必要に応じた所要時間を簡潔に報告する。
+大量のPASS一覧や不要なbuildログを最終報告へ貼り付けない。
+失敗時は原因調査に必要な詳細を保持・確認し、警告や失敗を隠さず、終了コードを正しく判定する。
+
+### 変更に応じた追加確認
+
+| 確認                                            | 実施する変更・タイミング                                                                                                                                                                                                            |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run export:pages` → `npm run verify:pages` | Web Demo、Webにも影響する共通UI・業務ロジック、navigation、Web配信設定・依存の変更時とPages公開前。検査は今回生成した出力に対して実行                                                                                               |
+| `npx expo-doctor`                               | Expo / Native依存・app config変更時とRelease前                                                                                                                                                                                      |
+| iOS build                                       | Native依存・plugin・app config変更時とiOS Release時。JSのみの開発では既存development buildを活用                                                                                                                                    |
+| 実機確認 / 必要なE2E                            | Native画面・操作変更時は関連フロー、特にkeyboard・Safe Area・権限・Calendarを確認。Calendar変更では終日予定・timezone、Planner / Today変更では保存・Complete / Skip・再計画・履歴を確認。Release前は起動・session・主要フローを確認 |
+
+実機・E2Eは端末やデータへの影響を考慮して実施し、未確認の範囲は報告する。
+iPhone Releaseのbuild・上書きinstallは[Personal Team Release](ios-personal-release.md)を参照。
 
 Expo/native dependencyを追加する場合は`npx expo install`でSDK互換性を確認する。
 package.jsonのpeer overridesはSDK 57互換範囲を保つための固定値で、更新時にlockfileと共に確認する。
