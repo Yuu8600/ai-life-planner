@@ -56,6 +56,7 @@ export function DemoTodayRoute() {
     router.push({ pathname: '/ai', params: { mode, entry: String(Date.now()) } });
   return (
     <TodayScreen
+      calendarRepository={repositories.calendarRepository}
       repository={repositories.todayRepository}
       executionRepository={repositories.executionRepository}
       activityLogRepository={repositories.activityLogRepository}

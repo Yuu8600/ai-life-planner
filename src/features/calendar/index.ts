@@ -13,3 +13,6 @@ export type {
 export { intersectsCalendarDay, occursOnCalendarDate } from './normalization';
 export { useDeviceCalendar } from './useDeviceCalendar';
 export type { CalendarAccessState, UseDeviceCalendarResult } from './useDeviceCalendar';
+export { CalendarTimelineCard } from './components/CalendarTimelineCard';
+export type { CalendarTimelineEvent } from './components/CalendarTimelineCard';
+export { useDailyCalendar } from './useDailyCalendar';

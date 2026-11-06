@@ -1,3 +1,4 @@
+import { useDailyCalendar, type CalendarRepository } from '@/features/calendar';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import {
@@ -24,6 +25,7 @@ import { TodayStatePanel } from './components/TodayStatePanel';
 import { DeadlineTaskList } from './components/DeadlineTaskList';
 
 type TodayScreenProps = {
+  calendarRepository?: CalendarRepository | null;
   onPressReplan?: () => void;
   onPressAi: () => void;
   onPressSettings: () => void;
@@ -34,6 +36,7 @@ type TodayScreenProps = {
 };
 
 export function TodayScreen({
+  calendarRepository = null,
   onPressReplan,
   onPressAi,
   onPressSettings,
@@ -46,6 +49,13 @@ export function TodayScreen({
     repository,
     refreshToken,
   );
+  const calendar = useDailyCalendar(
+    calendarRepository,
+    today?.localDate ?? null,
+    today?.profileTimezone ?? null,
+    dataRevision,
+  );
+  const displayTimezone = today?.plan?.timezone ?? today?.profileTimezone ?? 'UTC';
   const activity = useActivityLogs(activityLogRepository, today?.localDate ?? null, dataRevision);
   const { execute, mutations } = usePlannedActionExecution(executionRepository, refresh);
   const timelineItems = today?.plan ? toTimelineItems(today.plan) : [];
@@ -99,6 +109,12 @@ export function TodayScreen({
               title="最新の予定を読み込めませんでした"
             />
           ) : null}
+          {today.plan && today.plan.timezone !== today.profileTimezone ? (
+            <Text style={{ color: colors.textMuted }}>時刻表示: {displayTimezone}</Text>
+          ) : null}
+          {calendar.message ? (
+            <Text style={{ color: colors.textMuted }}>{calendar.message}</Text>
+          ) : null}
           {today.plan ? (
             <>
               <PlanSummary
@@ -119,9 +135,21 @@ export function TodayScreen({
                   variant="secondary"
                 />
               ) : null}
-              {today.plan.actions.length > 0 ? (
+              {today.plan.actions.length === 0 && calendar.events.length > 0 ? (
+                <Text>予定されたアクションはありません</Text>
+              ) : null}
+              {today.plan.actions.length > 0 || calendar.events.length > 0 ? (
                 <Timeline
                   items={timelineItems}
+                  calendarEvents={calendar.events.map((event) => ({
+                    ...event,
+                    canceled: event.status === 'canceled',
+                  }))}
+                  actionStarts={Object.fromEntries(
+                    today.plan.actions.map((action) => [action.id, action.startAt]),
+                  )}
+                  localDate={today.localDate}
+                  timezone={displayTimezone}
                   mutations={mutations}
                   executionDisabled={isLoading || Boolean(loadError)}
                   onExecute={
@@ -169,6 +197,17 @@ export function TodayScreen({
             </>
           )}
 
+          {!today.plan && calendar.events.length > 0 ? (
+            <Timeline
+              items={[]}
+              calendarEvents={calendar.events.map((event) => ({
+                ...event,
+                canceled: event.status === 'canceled',
+              }))}
+              localDate={today.localDate}
+              timezone={displayTimezone}
+            />
+          ) : null}
           <SectionHeader detail={`${deadlineTaskItems.length}件`} title="今日が期限のタスク" />
           <DeadlineTaskList items={deadlineTaskItems} />
           <ActivityLogSection state={activity.state} onRetry={activity.retry} />

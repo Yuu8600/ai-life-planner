@@ -1,3 +1,6 @@
+import { CalendarTimelineCard } from '@/features/calendar';
+import { orderDailyTimeline } from '@/shared/types/dailyTimeline';
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { SectionHeader } from '@/shared/components/SectionHeader';
@@ -11,6 +14,18 @@ type PlannerPreviewProps = {
 };
 
 export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps) {
+  const calendarRows = preview.calendarEvents.map((event, index) => ({
+    allDay: event.allDay,
+    startAt: event.startAt,
+    value: (
+      <CalendarTimelineCard
+        key={`calendar-${index}`}
+        event={event}
+        localDate={preview.localDate}
+        timezone={preview.timezone}
+      />
+    ),
+  }));
   return (
     <View style={styles.container} testID="planner-preview">
       <View style={styles.summaryCard}>
@@ -23,26 +38,38 @@ export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps
         </Text>
       </View>
 
-      <SectionHeader detail={`${preview.actions.length}件`} title="配置したタスク" />
+      <SectionHeader
+        detail={`Action ${preview.actions.length}件・Calendar ${preview.calendarEvents.length}件`}
+        title="1日の流れ"
+      />
+      {preview.calendarEvents.length > 0 ? (
+        <Text style={styles.temporary}>Calendar予定は生成時点の参考情報です。</Text>
+      ) : null}
       {preview.actions.length === 0 ? (
         <View style={styles.emptyCard} testID="planner-actions-empty">
           <Text style={styles.emptyText}>
             配置できるタスクがありません。Tasksの所要時間やCalendarの空き時間を確認してください。
           </Text>
         </View>
-      ) : (
-        <View style={styles.list} testID="planner-actions-list">
-          {preview.actions.map((action) => (
-            <View key={action.id} style={styles.item}>
-              <View style={styles.itemHeader}>
-                <Text style={styles.time}>{action.timeRange}</Text>
-                <Text style={styles.title}>{action.title}</Text>
+      ) : null}
+      <View style={styles.list} testID="planner-actions-list">
+        {orderDailyTimeline<ReactNode>([
+          ...calendarRows,
+          ...preview.actions.map((action, index) => ({
+            allDay: false,
+            startAt: action.startAt,
+            value: (
+              <View key={`action-${index}`} style={styles.item}>
+                <View style={styles.itemHeader}>
+                  <Text style={styles.time}>{action.timeRange}</Text>
+                  <Text style={styles.title}>{action.title}</Text>
+                </View>
+                <Text style={styles.reason}>{action.reason}</Text>
               </View>
-              <Text style={styles.reason}>{action.reason}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+            ),
+          })),
+        ])}
+      </View>
 
       <SectionHeader detail={`${preview.unscheduled.length}件`} title="未配置のタスク" />
       {preview.unscheduled.length === 0 ? (

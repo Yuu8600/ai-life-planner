@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { createExpoCalendarRepository } from '@/services/calendar/ExpoCalendarRepository';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '@/features/auth';
@@ -8,10 +10,17 @@ import { createSupabasePlannedActionExecutionRepository } from '@/services/supab
 import { createSupabaseActivityLogRepository } from '@/services/supabase/repositories/SupabaseActivityLogRepository';
 
 export default function TodayRoute() {
+  const calendarRepository = useMemo(() => createExpoCalendarRepository(), []);
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const [refreshToken, setRefreshToken] = useState(0);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setRefreshToken((value) => value + 1);
+    });
+    return () => subscription.remove();
+  }, []);
   const hasFocused = useRef(false);
   const plannerEntry = useRef(0);
   const openPlanner = (mode: 'generate' | 'replan') => {
@@ -46,6 +55,7 @@ export default function TodayRoute() {
 
   return (
     <TodayScreen
+      calendarRepository={calendarRepository}
       onPressAi={() => openPlanner('generate')}
       onPressReplan={() => openPlanner('replan')}
       onPressSettings={() => router.push('/settings')}

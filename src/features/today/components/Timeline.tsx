@@ -1,5 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { CalendarTimelineCard, type CalendarTimelineEvent } from '@/features/calendar';
+import { orderDailyTimeline } from '@/shared/types/dailyTimeline';
+
 import { Badge } from '@/shared/components/Badge';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { colors, radius, spacing } from '@/shared/theme';
@@ -10,6 +13,10 @@ import type { ActionMutationState } from '../usePlannedActionExecution';
 
 type TimelineProps = {
   items: TimelineItem[];
+  calendarEvents?: CalendarTimelineEvent[];
+  actionStarts?: Record<string, string>;
+  localDate?: string;
+  timezone?: string;
   executionDisabled?: boolean;
   mutations?: Record<string, ActionMutationState>;
   onExecute?: (id: string, status: ActionExecutionStatus) => void;
@@ -17,14 +24,42 @@ type TimelineProps = {
 
 export function Timeline({
   items,
+  calendarEvents = [],
+  actionStarts = {},
+  localDate = '',
+  timezone = 'UTC',
   executionDisabled = false,
   mutations = {},
   onExecute,
 }: TimelineProps) {
   const nextActionId = items.find((item) => item.status === 'scheduled')?.id;
+  const rows = orderDailyTimeline<
+    { kind: 'action'; item: TimelineItem } | { kind: 'calendar'; event: CalendarTimelineEvent }
+  >([
+    ...items.map((item) => ({
+      allDay: false,
+      startAt: actionStarts[item.id] ?? `2000-01-01T${item.start}:00Z`,
+      value: { kind: 'action' as const, item },
+    })),
+    ...calendarEvents.map((event) => ({
+      allDay: event.allDay,
+      startAt: event.startAt,
+      value: { kind: 'calendar' as const, event },
+    })),
+  ]);
   return (
     <View style={styles.list}>
-      {items.map((item, index) => {
+      {rows.map((row, index) => {
+        if (row.kind === 'calendar')
+          return (
+            <CalendarTimelineCard
+              key={`calendar-${index}`}
+              event={row.event}
+              localDate={localDate}
+              timezone={timezone}
+            />
+          );
+        const item = row.item;
         const mutation = mutations[item.id];
         const updating = mutation?.status === 'updating';
         return (
@@ -42,7 +77,7 @@ export function Timeline({
               .filter(Boolean)
               .join('、')}
             key={item.id}
-            style={[styles.row, index === items.length - 1 ? styles.lastRow : null]}
+            style={[styles.row, index === rows.length - 1 ? styles.lastRow : null]}
           >
             <View style={styles.timeColumn}>
               <Text style={styles.startTime}>{item.start}</Text>
@@ -50,7 +85,7 @@ export function Timeline({
             </View>
             <View style={styles.rail}>
               <View style={[styles.dot, styles.plannedDot]} />
-              {index < items.length - 1 ? <View style={styles.line} /> : null}
+              {index < rows.length - 1 ? <View style={styles.line} /> : null}
             </View>
             <View
               testID={item.id === nextActionId ? 'today-next-action' : undefined}
