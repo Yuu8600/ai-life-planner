@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { StyleSheet, Text, type ColorValue } from 'react-native';
+import { Platform, StyleSheet, Text, type ColorValue } from 'react-native';
 
 import { TAB_CONFIG } from '@/shared/navigation/tabs';
 import { colors } from '@/shared/theme';
@@ -85,6 +85,7 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
+    ...Platform.select({ web: { height: 76, paddingBottom: 8 } }),
     borderTopColor: colors.border,
     borderTopWidth: StyleSheet.hairlineWidth,
     backgroundColor: colors.surface,
@@ -93,6 +94,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
   },
   label: {
+    ...Platform.select({ web: { lineHeight: 17, minHeight: 17, flexShrink: 0 } }),
     fontSize: 11,
     fontWeight: '600',
   },

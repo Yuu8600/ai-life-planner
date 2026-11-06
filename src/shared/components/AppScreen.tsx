@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '@/shared/theme';
@@ -46,9 +53,11 @@ const styles = StyleSheet.create({
   },
   staticContent: {
     flex: 1,
+    ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
   },
   scrollContent: {
     flexGrow: 1,
+    ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,

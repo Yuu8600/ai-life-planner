@@ -5,9 +5,12 @@
 
 要件定義は [requirements-v0.1.md](docs/requirements/requirements-v0.1.md) を参照してください。
 
-現在は **Milestone 4F-2のローカル実装** まで進んでいます。Goals / Tasks / Calendarから
-空き時間を計算し、API不要のRuleBased PlannerでPreview・保存・Today表示まで利用できます。
-任意のOpenAI Providerはローカル実装済みですが、Edge Functionはまだremoteへdeployしていません。
+**Core v1 Native版**はiOS Simulator・iPhone実機で主要フローを確認済みです。Goals / Tasks / Calendarから
+空き時間を計算し、API不要のRuleBased Plannerで生成・Preview・保存・Today・完了/スキップ・再計画まで利用できます。
+
+**Web Demo**ではログイン不要で同じCoreロジックを試せます。サンプル予定とブラウザ内のメモリだけを使い、
+Supabase・端末Calendar・OpenAIへ接続しません。GitHub Pages公開用の設定と手動workflowを用意しています。
+実際の公開操作はまだ行っていません。
 
 ## 技術構成
 
@@ -23,6 +26,26 @@
 - Jest / React Native Testing Library
 
 OpenAI API keyなしでもCore AppとRuleBased Plannerを利用できます。
+
+## Web Demo（API・アカウント不要）
+
+```bash
+npm ci
+npm run export:pages
+npm run verify:pages
+npm run preview:pages
+```
+
+ブラウザで `http://127.0.0.1:4173/ai-life-planner/` を開きます。サンプルTaskを確認し、Calendarの
+空き時間からPlannerを生成、Previewを保存してTodayで完了・スキップできます。
+「時計を15:00に進める」と再計画の変化を試せます。「デモをリセット」かページ再読み込みで初期状態に戻ります。
+
+Web Demoの時計は**2026年11月6日08:00（東京）の固定サンプル**です。実際の現在時刻ではありません。
+端末Calendarとの同期・ログイン・複数タブ間のデータ共有・リロード後の保存は行いません。
+Native版の実データとDemoデータは別のadapterで扱います。
+
+通常の `npx expo export -p web` はサイトルート向けのstatic export、`npm run export:pages` は
+`/ai-life-planner/` 向けのexportです。公開手順と確認記録は [Web Demo guide](docs/web-demo.md) を参照してください。
 
 ## セットアップ
 

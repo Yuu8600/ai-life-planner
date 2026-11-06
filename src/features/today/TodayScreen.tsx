@@ -1,4 +1,4 @@
-import { Alert, Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
 import {
   ActivityLogSection,
@@ -10,6 +10,7 @@ import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
+import { appAlert } from '@/shared/feedback/appAlert';
 import { colors, radius, spacing } from '@/shared/theme';
 
 import { formatTodayDateLabel, toDeadlineTaskItems, toTimelineItems } from './presentation';
@@ -131,7 +132,7 @@ export function TodayScreen({
                           if (targetStatus === 'completed') {
                             void execute(action, targetStatus);
                           } else {
-                            Alert.alert(
+                            appAlert.alert(
                               'この予定をスキップしますか？',
                               '関連するTaskは未完了のまま残ります。',
                               [

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
+import { appAlert } from '@/shared/feedback/appAlert';
 import { colors, radius, spacing } from '@/shared/theme';
 
 import type { CreateGoalInput, Goal, GoalRepository } from './repositories/GoalRepository';
@@ -56,7 +57,7 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
   const confirmDelete = (goal: Goal) => {
     if (isMutating) return;
 
-    Alert.alert(
+    appAlert.alert(
       '目標を削除しますか？',
       `「${goal.title}」を削除します。この操作は取り消せません。`,
       [
