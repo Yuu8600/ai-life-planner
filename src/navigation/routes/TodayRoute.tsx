@@ -1,3 +1,5 @@
+import { createSupabaseSettingsRepository } from '@/services/supabase/repositories/SupabaseSettingsRepository';
+import { createSupabaseCalendarEventBufferRepository } from '@/services/supabase/repositories/SupabaseCalendarEventBufferRepository';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { createExpoCalendarRepository } from '@/services/calendar/ExpoCalendarRepository';
@@ -14,6 +16,14 @@ export default function TodayRoute() {
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
+  const settingsRepository = useMemo(
+    () => (userId ? createSupabaseSettingsRepository(userId) : null),
+    [userId],
+  );
+  const eventBufferRepository = useMemo(
+    () => (userId ? createSupabaseCalendarEventBufferRepository(userId) : null),
+    [userId],
+  );
   const [refreshToken, setRefreshToken] = useState(0);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -56,6 +66,8 @@ export default function TodayRoute() {
   return (
     <TodayScreen
       calendarRepository={calendarRepository}
+      settingsRepository={settingsRepository}
+      eventBufferRepository={eventBufferRepository}
       onPressAi={() => openPlanner('generate')}
       onPressReplan={() => openPlanner('replan')}
       onPressSettings={() => router.push('/settings')}

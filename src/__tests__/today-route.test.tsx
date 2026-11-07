@@ -3,6 +3,12 @@ import { act, render, waitFor } from '@testing-library/react-native';
 
 import TodayRoute from '@/app/(tabs)/today';
 
+jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => ({
+  createSupabaseSettingsRepository: jest.fn(() => ({ type: 'settings' })),
+}));
+jest.mock('@/services/supabase/repositories/SupabaseCalendarEventBufferRepository', () => ({
+  createSupabaseCalendarEventBufferRepository: jest.fn(() => ({ type: 'buffers' })),
+}));
 const mockPush = jest.fn();
 const mockUseAuth = jest.fn();
 const mockCreateRepository = jest.fn((_userId: string) => ({ repository: true }));

@@ -1,6 +1,8 @@
 export type TimelineItemStatus = 'completed' | 'scheduled' | 'skipped';
 
 export type TimelineItem = {
+  startAt: string;
+  endAt: string;
   end: string;
   goalTitle?: string | null;
   id: string;

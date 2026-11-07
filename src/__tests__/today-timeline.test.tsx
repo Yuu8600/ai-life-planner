@@ -5,6 +5,8 @@ import type { TimelineItem } from '@/features/today/types';
 
 function item(id: string, status: TimelineItem['status']): TimelineItem {
   return {
+    startAt: '2000-01-01T10:00:00Z',
+    endAt: '2000-01-01T10:30:00Z',
     id,
     title: id,
     taskTitle: id,
