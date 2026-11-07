@@ -1,7 +1,8 @@
 # Calendar予定前後の余白
 
 Settingsの「予定前の余白時間」「予定後の余白時間」で共通の余白を設定する。
-時間・分を入力し、前後それぞれ0〜240分の整数として保存する。初期値は前後0分。
+プリセットまたは「その他」で分数を選び、前後それぞれ0〜240分の整数として保存する。初期値は前後0分。
+操作と既存値の互換性は[時間入力UI](time-input-ui.md)を参照。
 
 ## 計算と取得
 
@@ -28,7 +29,7 @@ Web Demoはメモリ内の設定を使い、外部サービスへ接続しない
 
 **このbranchのNative版を、DB反映前に本番利用しない。** 新列を読むため、未反映DBではSettingsやPlannerが失敗する。
 
-1. migrationと差分をレビューしてpush / PRする（Codexは実行しない）。
+1. migrationと差分をレビューしてpush / PRする（Codexがbranchへpush・PRし、CI成功・差分レビュー後にmergeする）。
 2. 対象のSupabase projectと既存migrationの適用状況を確認し、ユーザーの判断で
    `npx supabase db push --dry-run`を実行する。既存の未適用migrationも含まれないか確認する。
 3. ユーザーが`npm run supabase:db:push`で承認したmigrationを適用する。

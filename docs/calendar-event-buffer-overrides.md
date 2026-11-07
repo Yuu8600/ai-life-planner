@@ -44,7 +44,7 @@ service_roleに既存方針と同じ管理権限を明示付与する。プロ�
 
 ## 適用・更新順序
 
-1. local commitをレビューしてユーザーがpush / PRする。
+1. Codexがlocal commitをpush / PRし、CI成功・差分レビュー後にmergeする。
 2. 対象Supabase projectと既存migrationの適用状態を確認してdry-runする。
    Step 4が未適用なら、そのmigrationと今回の
    `20261107110000_add_calendar_event_buffer_overrides.sql`の両方を含む順序を確認する。

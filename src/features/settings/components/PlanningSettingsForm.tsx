@@ -1,3 +1,5 @@
+import { TimeSelectionRow } from '@/shared/components/timeSelection/TimeSelectionRow';
+import { DurationSelectionRow } from '@/shared/components/timeSelection/DurationSelectionRow';
 import { useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -85,117 +87,65 @@ export function PlanningSettingsForm({
         />
       </FormField>
 
-      <View style={styles.timeRow}>
-        <View style={styles.timeField}>
-          <FormField error={fieldErrors.planningStart} label="活動開始時間">
-            <TextInput
-              accessibilityLabel="活動開始時間"
-              autoCapitalize="none"
-              editable={!isSaving}
-              keyboardType="numbers-and-punctuation"
-              maxLength={5}
-              onChangeText={(value) => updateValue('planningStart', value)}
-              placeholder="08:00"
-              placeholderTextColor={colors.textSubtle}
-              style={styles.input}
-              value={values.planningStart}
-            />
-          </FormField>
-        </View>
-        <View style={styles.timeField}>
-          <FormField error={fieldErrors.planningEnd} label="活動終了時間">
-            <TextInput
-              accessibilityLabel="活動終了時間"
-              autoCapitalize="none"
-              editable={!isSaving}
-              keyboardType="numbers-and-punctuation"
-              maxLength={5}
-              onChangeText={(value) => updateValue('planningEnd', value)}
-              placeholder="23:00"
-              placeholderTextColor={colors.textSubtle}
-              style={styles.input}
-              value={values.planningEnd}
-            />
-          </FormField>
-        </View>
-      </View>
-
-      <FormField label="終了日" error={fieldErrors.planningEndDayOffset}>
-        <View style={styles.timeRow}>
-          <ActionButton
-            label="当日"
-            disabled={isSaving}
-            variant={values.planningEndDayOffset === '0' ? 'primary' : 'secondary'}
-            onPress={() => updateValue('planningEndDayOffset', '0')}
-          />
-          <ActionButton
-            label="翌日"
-            disabled={isSaving}
-            variant={values.planningEndDayOffset === '1' ? 'primary' : 'secondary'}
-            onPress={() => updateValue('planningEndDayOffset', '1')}
-          />
-        </View>
-      </FormField>
-      <FormField
-        error={fieldErrors.minimumFreeMinutes}
-        helper="AIが行動を配置できる空き時間の最小値です。"
-        label="最小空き時間（分）"
-      >
-        <TextInput
-          accessibilityLabel="最小空き時間"
-          editable={!isSaving}
-          keyboardType="number-pad"
-          maxLength={10}
-          onChangeText={(value) => updateValue('minimumFreeMinutes', value)}
-          placeholder="20"
-          placeholderTextColor={colors.textSubtle}
-          style={styles.input}
-          value={values.minimumFreeMinutes}
-        />
-      </FormField>
-
+      <TimeSelectionRow
+        label="活動開始時間"
+        value={values.planningStart}
+        disabled={isSaving}
+        onChange={(time) => updateValue('planningStart', time)}
+      />
+      <TimeSelectionRow
+        label="活動終了時間"
+        value={values.planningEnd}
+        dayOffset={values.planningEndDayOffset}
+        disabled={isSaving}
+        onChange={(time, offset) => {
+          updateValue('planningEnd', time);
+          updateValue('planningEndDayOffset', offset ?? '0');
+        }}
+      />
+      <Text style={styles.helper}>
+        {(() => {
+          const minutes = (text: string) => Number(text.slice(0, 2)) * 60 + Number(text.slice(3));
+          const duration =
+            Number(values.planningEndDayOffset) * 1440 +
+            minutes(values.planningEnd) -
+            minutes(values.planningStart);
+          return duration > 0 && duration <= 1440
+            ? `活動時間 ${Math.floor(duration / 60)}時間${duration % 60 ? `${duration % 60}分` : ''}`
+            : '活動時間は0分より長く、24時間以内にしてください。';
+        })()}
+      </Text>
+      {fieldErrors.planningStart || fieldErrors.planningEnd || fieldErrors.planningEndDayOffset ? (
+        <Text style={styles.fieldError}>
+          {fieldErrors.planningStart ?? fieldErrors.planningEnd ?? fieldErrors.planningEndDayOffset}
+        </Text>
+      ) : null}
+      <DurationSelectionRow
+        label="最小空き時間"
+        value={values.minimumFreeMinutes}
+        disabled={isSaving}
+        onChange={(value) => updateValue('minimumFreeMinutes', value)}
+      />
+      {fieldErrors.minimumFreeMinutes ? (
+        <Text style={styles.fieldError}>{fieldErrors.minimumFreeMinutes}</Text>
+      ) : null}
       {(['Before', 'After'] as const).map((side) => {
-        const label = side === 'Before' ? '予定前の余白時間' : '予定後の余白時間';
-        const hoursKey = `calendarBuffer${side}Hours` as const;
-        const minutesKey = `calendarBuffer${side}Minutes` as const;
+        const hoursKey = `calendarBuffer${side}Hours` as const,
+          minutesKey = `calendarBuffer${side}Minutes` as const;
         return (
-          <FormField
+          <DurationSelectionRow
             key={side}
-            label={label}
-            helper="合計0〜4時間。Calendar予定の時刻は変更しません。"
-            error={fieldErrors[minutesKey]}
-          >
-            <View style={styles.timeRow}>
-              <View style={styles.timeField}>
-                <TextInput
-                  accessibilityLabel={`${label}（時間）`}
-                  value={values[hoursKey]}
-                  onChangeText={(value) => updateValue(hoursKey, value)}
-                  keyboardType="number-pad"
-                  editable={!isSaving}
-                  style={styles.input}
-                />
-                <Text style={styles.helper}>時間</Text>
-              </View>
-              <View style={styles.timeField}>
-                <TextInput
-                  accessibilityLabel={`${label}（分）`}
-                  value={values[minutesKey]}
-                  onChangeText={(value) => updateValue(minutesKey, value)}
-                  keyboardType="number-pad"
-                  editable={!isSaving}
-                  style={styles.input}
-                />
-                <Text style={styles.helper}>分</Text>
-              </View>
-            </View>
-          </FormField>
+            label={side === 'Before' ? '予定前の余白時間' : '予定後の余白時間'}
+            buffer
+            value={String(Number(values[hoursKey]) * 60 + Number(values[minutesKey]))}
+            disabled={isSaving}
+            onChange={(value) => {
+              updateValue(hoursKey, String(Math.floor(Number(value) / 60)));
+              updateValue(minutesKey, String(Number(value) % 60));
+            }}
+          />
         );
       })}
-      <Text style={styles.helper}>
-        保存済みの計画は変わりません。新しい余白を反映するには、明示的に再計画してください。
-      </Text>
-
       {saveError ? (
         <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.errorBox}>
           {saveError}
@@ -269,14 +219,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     color: colors.text,
     fontSize: 16,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  timeField: {
-    flex: 1,
   },
   helper: {
     color: colors.textMuted,

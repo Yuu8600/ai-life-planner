@@ -1,3 +1,4 @@
+import { selectTime, selectDuration } from '@/testUtils/timeSelection';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import type {
@@ -57,9 +58,9 @@ describe('SettingsScreen', () => {
       await deferred.promise;
     });
     expect(await screen.findByDisplayValue('Asia/Tokyo')).toBeTruthy();
-    expect(screen.getByDisplayValue('08:00')).toBeTruthy();
-    expect(screen.getByDisplayValue('23:00')).toBeTruthy();
-    expect(screen.getByDisplayValue('20')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '活動開始時間、08:00' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '活動終了時間、23:00' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '最小空き時間、20分' })).toBeTruthy();
   });
 
   it('loads the saved profile values again when Settings is reopened', async () => {
@@ -84,15 +85,15 @@ describe('SettingsScreen', () => {
       <SettingsScreen onPressBack={jest.fn()} repository={repository} />,
     );
 
-    expect(await firstScreen.findByDisplayValue('08:00')).toBeTruthy();
+    expect(await firstScreen.findByRole('button', { name: '活動開始時間、08:00' })).toBeTruthy();
     await firstScreen.unmount();
 
     const reopenedScreen = await render(
       <SettingsScreen onPressBack={jest.fn()} repository={repository} />,
     );
-    expect(await reopenedScreen.findByDisplayValue('09:00')).toBeTruthy();
-    expect(reopenedScreen.getByDisplayValue('21:30')).toBeTruthy();
-    expect(reopenedScreen.getByDisplayValue('45')).toBeTruthy();
+    expect(await reopenedScreen.findByRole('button', { name: '活動開始時間、09:00' })).toBeTruthy();
+    expect(reopenedScreen.getByRole('button', { name: '活動終了時間、21:30' })).toBeTruthy();
+    expect(reopenedScreen.getByRole('button', { name: '最小空き時間、45分' })).toBeTruthy();
     expect(getProfilePlanningSettings).toHaveBeenCalledTimes(2);
   });
 
@@ -136,9 +137,9 @@ describe('SettingsScreen', () => {
 
     await screen.findByDisplayValue('Asia/Tokyo');
     await fireEvent.changeText(screen.getByLabelText('タイムゾーン'), 'America/New_York');
-    await fireEvent.changeText(screen.getByLabelText('活動開始時間'), '09:00');
-    await fireEvent.changeText(screen.getByLabelText('活動終了時間'), '21:30');
-    await fireEvent.changeText(screen.getByLabelText('最小空き時間'), '45');
+    await selectTime(screen, '活動開始時間', '09:00');
+    await selectTime(screen, '活動終了時間', '21:30');
+    await selectDuration(screen, '最小空き時間', '45');
     await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
 
     expect(updateProfilePlanningSettings).toHaveBeenCalledWith({
@@ -151,7 +152,7 @@ describe('SettingsScreen', () => {
       timezone: 'America/New_York',
     });
     expect(await screen.findByText('設定を保存しました。')).toBeTruthy();
-    expect(screen.getByDisplayValue('46')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '最小空き時間、46分' })).toBeTruthy();
   });
 
   it('prevents duplicate saves while Supabase is pending', async () => {
@@ -182,16 +183,17 @@ describe('SettingsScreen', () => {
 
     await screen.findByDisplayValue('Asia/Tokyo');
     await fireEvent.changeText(screen.getByLabelText('タイムゾーン'), 'Mars/Olympus');
-    await fireEvent.changeText(screen.getByLabelText('活動開始時間'), '22:00');
-    await fireEvent.changeText(screen.getByLabelText('活動終了時間'), '08:00');
-    await fireEvent.changeText(screen.getByLabelText('最小空き時間'), '0');
+    await selectTime(screen, '活動開始時間', '22:00');
+    await selectTime(screen, '活動終了時間', '08:00');
+    await selectDuration(screen, '最小空き時間', '0');
+    expect(screen.getByText('1以上の整数で入力してください。')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'キャンセル' }));
     await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
 
     expect(
       await screen.findByText('有効なIANAタイムゾーンを入力してください（例: Asia/Tokyo）。'),
     ).toBeTruthy();
     expect(screen.getByText('終了時刻は開始時刻より後にしてください。')).toBeTruthy();
-    expect(screen.getByText('1以上の整数で入力してください。')).toBeTruthy();
     expect(repository.updateProfilePlanningSettings).not.toHaveBeenCalled();
   });
 
@@ -205,7 +207,7 @@ describe('SettingsScreen', () => {
     const screen = await render(<SettingsScreen onPressBack={jest.fn()} repository={repository} />);
 
     await screen.findByDisplayValue('Asia/Tokyo');
-    await fireEvent.changeText(screen.getByLabelText('最小空き時間'), '45');
+    await selectDuration(screen, '最小空き時間', '45');
     await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
 
     expect(
@@ -213,7 +215,7 @@ describe('SettingsScreen', () => {
         'プロフィール設定に接続できません。通信状況を確認して再度お試しください。',
       ),
     ).toBeTruthy();
-    expect(screen.getByDisplayValue('45')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '最小空き時間、45分' })).toBeTruthy();
   });
 
   it('does not expose the form without an authenticated repository', async () => {
@@ -233,12 +235,12 @@ describe('SettingsScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
     expect(await screen.findByText('設定を保存しました。')).toBeTruthy();
 
-    await fireEvent.changeText(screen.getByLabelText('最小空き時間'), '21');
+    await selectDuration(screen, '最小空き時間', '21');
     await waitFor(() => expect(screen.queryByText('設定を保存しました。')).toBeNull());
   });
 });
 
-it('saves independent hour/minute buffer values and restores them on reopen', async () => {
+it('saves selected buffer durations and restores them on reopen', async () => {
   let current = settings;
   const repository = createRepository({
     getProfilePlanningSettings: jest.fn(async () => current),
@@ -248,19 +250,16 @@ it('saves independent hour/minute buffer values and restores them on reopen', as
     }),
   });
   const screen = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
-  await screen.findByLabelText('予定前の余白時間（時間）');
-  await fireEvent.changeText(screen.getByLabelText('予定前の余白時間（時間）'), '1');
-  await fireEvent.changeText(screen.getByLabelText('予定前の余白時間（分）'), '30');
-  await fireEvent.changeText(screen.getByLabelText('予定後の余白時間（分）'), '15');
+  await selectDuration(screen, '予定前の余白時間', '90');
+  await selectDuration(screen, '予定後の余白時間', '15');
   await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
   await screen.findByText('設定を保存しました。');
   expect(current.calendarBufferBeforeMinutes).toBe(90);
   expect(current.calendarBufferAfterMinutes).toBe(15);
   await screen.unmount();
   const reopened = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
-  expect((await reopened.findByLabelText('予定前の余白時間（時間）')).props.value).toBe('1');
-  expect(reopened.getByLabelText('予定前の余白時間（分）').props.value).toBe('30');
-  expect(reopened.getByLabelText('予定後の余白時間（分）').props.value).toBe('15');
+  expect(await reopened.findByRole('button', { name: '予定前の余白時間、90分' })).toBeTruthy();
+  expect(reopened.getByRole('button', { name: '予定後の余白時間、15分' })).toBeTruthy();
 });
 
 it('saves and reloads next-day end without rounding HH:mm values', async () => {
@@ -273,10 +272,9 @@ it('saves and reloads next-day end without rounding HH:mm values', async () => {
     }),
   });
   const screen = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
-  await screen.findByLabelText('活動終了時間');
-  await fireEvent.changeText(screen.getByLabelText('活動開始時間'), '09:17');
-  await fireEvent.changeText(screen.getByLabelText('活動終了時間'), '02:00');
-  await fireEvent.press(screen.getByText('翌日'));
+  await screen.findByRole('button', { name: /^活動終了時間、/ });
+  await selectTime(screen, '活動開始時間', '09:17');
+  await selectTime(screen, '活動終了時間', '02:00', '1');
   await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
   await screen.findByText('設定を保存しました。');
   expect(current.planningEndDayOffset).toBe(1);
@@ -284,5 +282,5 @@ it('saves and reloads next-day end without rounding HH:mm values', async () => {
   expect(current.planningEnd).toBe('02:00');
   await screen.unmount();
   const reopened = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
-  expect((await reopened.findByLabelText('活動終了時間')).props.value).toBe('02:00');
+  expect(await reopened.findByRole('button', { name: '活動終了時間、翌日 02:00' })).toBeTruthy();
 });

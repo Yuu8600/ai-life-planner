@@ -14,7 +14,11 @@ Web Demo uses sample data and in-memory repositories, with no Auth, Supabase, Op
 Calendar access. Native and `.web.tsx` composition lives in `src/navigation`; `src/app` stays thin.
 Shared Planner business rules remain common to both platforms. See `docs/web-demo.md` for the
 static export, Project Pages base path, manual deployment workflow and verification limits.
-Do not publish, push, create PRs or merge without the user's explicit instruction.
+For requested improvements, Codex may sync main, create a branch, implement and verify, commit,
+push the branch, create a PR, inspect CI and review the diff, fix issues, merge after CI succeeds,
+sync local main, and remove merged local branches. Never push directly to main, force-push, or
+bypass CI. Remote branch deletion, DB migrations, Web publication, and device installation still
+require separate explicit authorization. Stop and report required permissions or destructive risks.
 
 Treat the versioned requirements file as a project source of truth. Do not silently reformat or
 rewrite it; requirement changes need explicit user authorization and should be versioned.

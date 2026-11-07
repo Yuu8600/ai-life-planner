@@ -153,7 +153,8 @@ git diff --check
 `npm run format`は自動整形であり、確認には`format:check`を使う。`npm test`は全テストのwatch mode。
 PR / mainのCIはtypecheck・lint・format・Jestだけを実行し、DB・OpenAIへ接続しない。
 Pages workflowは手動実行で、品質チェックに加えてexportとartifactの検査を行う。
-実際のGitHub上でのCI / Pages実行はユーザーがpushした後の確認項目。
+GitHub CIはCodexが作業branchのpush・PR作成後に確認し、成功と差分レビュー後にmergeする。
+mainへの直接push・force push・CI省略は禁止。DB適用・Web公開・端末更新は別途明示的な指示が必要。
 
 ### 再実行とログ
 
@@ -181,3 +182,5 @@ Expo/native dependencyを追加する場合は`npx expo install`でSDK互換性�
 package.jsonのpeer overridesはSDK 57互換範囲を保つための固定値で、更新時にlockfileと共に確認する。
 
 翌日終了・計画日・DB互換性・更新手順は[翌日深夜までの活動時間](overnight-planning.md)を参照。
+
+時間設定UIとGitHub運用は[時間入力UI](time-input-ui.md)を参照。

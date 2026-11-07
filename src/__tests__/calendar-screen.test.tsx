@@ -1,3 +1,4 @@
+import { selectDuration } from '@/testUtils/timeSelection';
 import { DemoRepositories } from '@/services/demo/DemoRepositories';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 
@@ -471,7 +472,7 @@ it('edits only eligible Calendar cards and recalculates after saving or restorin
   expect(within(screen.getByTestId('calendar-free-time')).getByText('08:00–09:00')).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: '会議の余白を設定' }));
   await fireEvent.press(screen.getByText('この予定だけ変更する'));
-  await fireEvent.changeText(screen.getByLabelText('この予定の前の余白（分）'), '30');
+  await selectDuration(screen, 'この予定の前の余白', '30');
   await fireEvent.press(screen.getByText('余白設定を保存'));
   expect(await screen.findByText('個別余白')).toBeTruthy();
   expect(within(screen.getByTestId('calendar-free-time')).getByText('08:00–08:30')).toBeTruthy();
