@@ -1,4 +1,4 @@
-import type { CalendarEvent } from '@/features/calendar';
+import type { CalendarEventBufferOverride, CalendarEvent } from '@/features/calendar';
 
 export type TimeInterval = {
   endAt: string;
@@ -10,6 +10,7 @@ export type FreeTimeSlot = TimeInterval & {
 };
 
 export type FreeTimeCalculationInput = {
+  calendarEventBufferOverrides?: readonly CalendarEventBufferOverride[];
   calendarBufferBeforeMinutes?: number;
   calendarBufferAfterMinutes?: number;
   events: readonly CalendarEvent[];

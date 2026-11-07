@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { CalendarRepository } from '@/features/calendar';
+import type { CalendarEventBufferRepository, CalendarRepository } from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
 import { Badge } from '@/shared/components/Badge';
 import { ActionButton } from '@/shared/components/ActionButton';
@@ -21,6 +21,7 @@ import { usePlannerPreview } from './usePlannerPreview';
 import type { PlannerReplanRepository } from './repositories/PlannerReplanRepository';
 
 type PlannerPreviewScreenProps = {
+  eventBufferRepository?: CalendarEventBufferRepository | null;
   mode?: 'generate' | 'replan';
   replanRepository?: PlannerReplanRepository | null;
   onReplanSaved?: () => void;
@@ -40,6 +41,7 @@ type PlannerPreviewScreenProps = {
 };
 
 export function PlannerPreviewScreen({
+  eventBufferRepository,
   mode = 'generate',
   replanRepository = null,
   onReplanSaved,
@@ -59,6 +61,7 @@ export function PlannerPreviewScreen({
 }: PlannerPreviewScreenProps) {
   const { approve, calendar, canApprove, canGenerate, discard, generate, saveState, state } =
     usePlannerPreview({
+      eventBufferRepository,
       mode,
       replanRepository,
       onSaved: mode === 'replan' ? onReplanSaved : undefined,

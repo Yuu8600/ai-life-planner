@@ -1,8 +1,11 @@
+import { EventBufferEditor } from './components/EventBufferEditor';
+import { bufferKey, eventBufferKey, type CalendarEventBufferRepository } from './eventBuffers';
+import { isBlockingCalendarEvent, calculateFreeTime } from '@/features/planner';
+import type { CalendarEvent } from './types';
 import { Text } from 'react-native';
 import { colors } from '@/shared/theme';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
-import { calculateFreeTime } from '@/features/planner';
 import { getLocalDate } from '@/features/today';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
@@ -18,6 +21,7 @@ import type { CalendarRepository } from './repositories/CalendarRepository';
 import { useDeviceCalendar } from './useDeviceCalendar';
 
 type CalendarScreenProps = {
+  eventBufferRepository?: CalendarEventBufferRepository | null;
   sourceLabel?: 'device' | 'demo';
   calendarRepository: CalendarRepository | null;
   now?: () => Date;
@@ -27,6 +31,7 @@ type CalendarScreenProps = {
 };
 
 export function CalendarScreen({
+  eventBufferRepository,
   sourceLabel = 'device',
   calendarRepository,
   now,
@@ -34,7 +39,14 @@ export function CalendarScreen({
   refreshToken = 0,
   settingsRepository,
 }: CalendarScreenProps) {
-  const calendar = useDeviceCalendar(calendarRepository, settingsRepository, refreshToken, now);
+  const calendar = useDeviceCalendar(
+    calendarRepository,
+    settingsRepository,
+    refreshToken,
+    now,
+    eventBufferRepository,
+  );
+  const [editing, setEditing] = useState<{ event: CalendarEvent; date: string } | null>(null);
   const selectedDate = calendar.selectedDate;
   const timeZone = calendar.timeZone;
   const eventViewModels =
@@ -49,6 +61,7 @@ export function CalendarScreen({
         error: null,
         result: calculateFreeTime({
           events: calendar.calculationEvents,
+          calendarEventBufferOverrides: calendar.overrides,
           calendarBufferBeforeMinutes: calendar.planningSettings.calendarBufferBeforeMinutes,
           calendarBufferAfterMinutes: calendar.planningSettings.calendarBufferAfterMinutes,
           minimumFreeMinutes: calendar.planningSettings.minimumFreeMinutes,
@@ -64,7 +77,13 @@ export function CalendarScreen({
         result: null,
       };
     }
-  }, [calendar.calculationEvents, calendar.planningSettings, selectedDate, timeZone]);
+  }, [
+    calendar.calculationEvents,
+    calendar.overrides,
+    calendar.planningSettings,
+    selectedDate,
+    timeZone,
+  ]);
   const canShowFreeTime =
     calendar.accessState === 'granted' &&
     !calendar.isLoadingEvents &&
@@ -93,6 +112,26 @@ export function CalendarScreen({
         />
       ) : null}
 
+      {editing &&
+      editing.date === selectedDate &&
+      eventBufferRepository &&
+      calendar.planningSettings &&
+      timeZone &&
+      !calendar.loadError ? (
+        <EventBufferEditor
+          key={bufferKey(eventBufferKey(editing.event))}
+          event={editing.event}
+          timeLabel={toCalendarEventViewModel(editing.event, editing.date, timeZone).timeLabel}
+          commonBefore={calendar.planningSettings.calendarBufferBeforeMinutes}
+          commonAfter={calendar.planningSettings.calendarBufferAfterMinutes}
+          individual={calendar.overrides.find(
+            (value) => bufferKey(value) === bufferKey(eventBufferKey(editing.event)),
+          )}
+          repository={eventBufferRepository}
+          onClose={() => setEditing(null)}
+          onSaved={calendar.retry}
+        />
+      ) : null}
       {calendar.accessState === 'checking' ? (
         <CalendarStatePanel
           isLoading
@@ -171,6 +210,27 @@ export function CalendarScreen({
       ) : (
         <DayTimeline
           events={eventViewModels}
+          editableKeys={calendar.events.flatMap((event, index) =>
+            !event.allDay && isBlockingCalendarEvent(event) ? [eventViewModels[index].key] : [],
+          )}
+          individualKeys={calendar.events.flatMap((event, index) =>
+            !event.allDay &&
+            isBlockingCalendarEvent(event) &&
+            calendar.overrides.some(
+              (value) => bufferKey(value) === bufferKey(eventBufferKey(event)),
+            )
+              ? [eventViewModels[index].key]
+              : [],
+          )}
+          onEditBuffer={
+            eventBufferRepository
+              ? (key) => {
+                  const index = eventViewModels.findIndex((value) => value.key === key);
+                  if (index >= 0 && selectedDate)
+                    setEditing({ event: calendar.events[index], date: selectedDate });
+                }
+              : undefined
+          }
           sourceLabel={sourceLabel === 'demo' ? 'サンプルカレンダー' : undefined}
         />
       )}
@@ -178,7 +238,8 @@ export function CalendarScreen({
       {canShowFreeTime && freeTimeCalculation?.result && timeZone ? (
         <>
           {calendar.planningSettings?.calendarBufferBeforeMinutes ||
-          calendar.planningSettings?.calendarBufferAfterMinutes ? (
+          calendar.planningSettings?.calendarBufferAfterMinutes ||
+          calendar.overrides.length > 0 ? (
             <Text style={{ color: colors.textMuted }}>
               予定前後の余白時間を除いて計算しています。
             </Text>

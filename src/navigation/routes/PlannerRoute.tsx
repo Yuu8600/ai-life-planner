@@ -1,3 +1,4 @@
+import { createSupabaseCalendarEventBufferRepository } from '@/services/supabase/repositories/SupabaseCalendarEventBufferRepository';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -24,6 +25,10 @@ export default function AiRoute() {
   const mode = params.mode === 'replan' ? 'replan' : 'generate';
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
+  const eventBufferRepository = useMemo(
+    () => (userId ? createSupabaseCalendarEventBufferRepository(userId) : null),
+    [userId],
+  );
   const replanRepository = useMemo(
     () => (userId ? createSupabasePlannerReplanRepository() : null),
     [userId],
@@ -108,6 +113,7 @@ export default function AiRoute() {
       onReplanSaved={returnToToday}
       onCancelReplan={returnToToday}
       onPressToday={returnToToday}
+      eventBufferRepository={eventBufferRepository}
       calendarRepository={calendarRepository}
       goalRepository={goalRepository}
       onOpenSettings={() => void Linking.openSettings()}

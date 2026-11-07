@@ -42,6 +42,7 @@ export function DemoCalendarRoute() {
   return (
     <CalendarScreen
       sourceLabel="demo"
+      eventBufferRepository={repositories.eventBufferRepository}
       calendarRepository={repositories.calendarRepository}
       settingsRepository={repositories.settingsRepository}
       refreshToken={refreshToken}
@@ -82,6 +83,7 @@ export function DemoPlannerRoute() {
       key={`${mode}-${params.entry ?? ''}`}
       mode={mode}
       provider={ruleBasedProvider}
+      eventBufferRepository={repositories.eventBufferRepository}
       calendarRepository={repositories.calendarRepository}
       settingsRepository={repositories.settingsRepository}
       goalRepository={repositories.goalRepository}

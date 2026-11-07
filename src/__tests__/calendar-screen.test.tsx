@@ -1,4 +1,5 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { DemoRepositories } from '@/services/demo/DemoRepositories';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 
 import { CalendarScreen } from '@/features/calendar/CalendarScreen';
 import type {
@@ -438,4 +439,45 @@ it('shows buffer-adjusted free time without changing the displayed event times',
   expect(screen.getByText('09:00–10:00')).toBeTruthy();
   expect(screen.getByText('予定前後の余白時間を除いて計算しています。')).toBeTruthy();
   expect(repository.listEvents).toHaveBeenCalledTimes(3);
+});
+
+it('edits only eligible Calendar cards and recalculates after saving or restoring common buffers', async () => {
+  const store = new DemoRepositories().eventBufferRepository;
+  const repository = createCalendarRepository({
+    listEvents: jest.fn(async () => ({
+      calendarCount: 1,
+      discardedEventCount: 0,
+      events: [
+        busyEvent,
+        timedEvent,
+        { ...allDayEvent, availability: 'free' as const },
+        { ...busyEvent, id: 'canceled', status: 'canceled' as const, title: '中止' },
+      ],
+    })),
+  });
+  const screen = await render(
+    <CalendarScreen
+      calendarRepository={repository}
+      eventBufferRepository={store}
+      settingsRepository={createSettingsRepository()}
+      now={now}
+    />,
+  );
+  await screen.findByRole('button', { name: '会議の余白を設定' });
+  expect(screen.queryByRole('button', { name: '朝会の余白を設定' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '終日予定の余白を設定' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '中止の余白を設定' })).toBeNull();
+  expect(within(screen.getByTestId('calendar-free-time')).getByText('08:00–09:00')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: '会議の余白を設定' }));
+  await fireEvent.press(screen.getByText('この予定だけ変更する'));
+  await fireEvent.changeText(screen.getByLabelText('この予定の前の余白（分）'), '30');
+  await fireEvent.press(screen.getByText('余白設定を保存'));
+  expect(await screen.findByText('個別余白')).toBeTruthy();
+  expect(within(screen.getByTestId('calendar-free-time')).getByText('08:00–08:30')).toBeTruthy();
+  expect(await store.list()).toHaveLength(1);
+  await fireEvent.press(screen.getByRole('button', { name: '会議の余白を設定' }));
+  await fireEvent.press(screen.getByText('共通設定を使う'));
+  await fireEvent.press(screen.getByText('余白設定を保存'));
+  await waitFor(() => expect(screen.queryByText('個別余白')).toBeNull());
+  expect(await store.list()).toEqual([]);
 });

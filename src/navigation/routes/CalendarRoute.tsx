@@ -1,3 +1,4 @@
+import { createSupabaseCalendarEventBufferRepository } from '@/services/supabase/repositories/SupabaseCalendarEventBufferRepository';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -10,6 +11,10 @@ import { createSupabaseSettingsRepository } from '@/services/supabase/repositori
 export default function CalendarRoute() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
+  const eventBufferRepository = useMemo(
+    () => (userId ? createSupabaseCalendarEventBufferRepository(userId) : null),
+    [userId],
+  );
   const [refreshToken, setRefreshToken] = useState(0);
   const hasFocused = useRef(false);
   const calendarRepository = useMemo(() => createExpoCalendarRepository(), []);
@@ -38,6 +43,7 @@ export default function CalendarRoute() {
 
   return (
     <CalendarScreen
+      eventBufferRepository={eventBufferRepository}
       calendarRepository={calendarRepository}
       onOpenSettings={() => void Linking.openSettings()}
       refreshToken={refreshToken}

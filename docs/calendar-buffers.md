@@ -43,3 +43,5 @@ Web Demoはメモリ内の設定を使い、外部サービスへ接続しない
 
 この作業ではlinked DBへのmigration適用・型取得、remote deploy、Pages公開、Native更新を行わない。
 ローカルSQL検証は`supabase/tests/local/calendar_buffers.sql`を使い、fixtureはrollbackする。
+
+予定ごとの上書きは[個別余白設定](calendar-event-buffer-overrides.md)を参照。

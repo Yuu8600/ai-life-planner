@@ -17,3 +17,15 @@ export { CalendarTimelineCard } from './components/CalendarTimelineCard';
 export type { CalendarTimelineEvent } from './components/CalendarTimelineCard';
 export { useDailyCalendar } from './useDailyCalendar';
 export { loadCalendarPlanningEvents } from './loadCalendarPlanningEvents';
+export {
+  eventBufferKey,
+  bufferKey,
+  validateEventBuffer,
+  effectiveEventBuffers,
+  loadEventBuffers,
+} from './eventBuffers';
+export type {
+  CalendarEventBufferKey,
+  CalendarEventBufferOverride,
+  CalendarEventBufferRepository,
+} from './eventBuffers';

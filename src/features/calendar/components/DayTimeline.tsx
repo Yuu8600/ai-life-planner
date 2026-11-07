@@ -1,3 +1,4 @@
+import { ActionButton } from '@/shared/components/ActionButton';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/shared/theme';
@@ -7,10 +8,16 @@ import type { CalendarEventViewModel } from '../presentation';
 type DayTimelineProps = {
   events: CalendarEventViewModel[];
   sourceLabel?: string;
+  onEditBuffer?: (key: string) => void;
+  editableKeys?: string[];
+  individualKeys?: string[];
 };
 
 export function DayTimeline({
   events,
+  onEditBuffer,
+  editableKeys = [],
+  individualKeys = [],
   sourceLabel = '端末カレンダー（読み取り専用）',
 }: DayTimelineProps) {
   return (
@@ -45,6 +52,17 @@ export function DayTimeline({
                 <Text numberOfLines={1} style={styles.metadata}>
                   {event.location}
                 </Text>
+              ) : null}
+              {individualKeys.includes(event.key) ? (
+                <Text style={styles.metadata}>個別余白</Text>
+              ) : null}
+              {onEditBuffer && editableKeys.includes(event.key) ? (
+                <ActionButton
+                  label="余白を設定"
+                  accessibilityLabel={`${event.title}の余白を設定`}
+                  onPress={() => onEditBuffer(event.key)}
+                  variant="secondary"
+                />
               ) : null}
               {event.isCanceled ? <Text style={styles.canceledLabel}>キャンセル済み</Text> : null}
             </View>

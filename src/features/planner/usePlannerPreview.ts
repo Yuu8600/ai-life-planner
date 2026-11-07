@@ -1,6 +1,10 @@
+import {
+  type CalendarEventBufferRepository,
+  useDeviceCalendar,
+  type CalendarRepository,
+} from '@/features/calendar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useDeviceCalendar, type CalendarRepository } from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
 
 import type { PlannerValidationIssue } from './contracts';
@@ -45,6 +49,7 @@ export type PlannerSaveState =
   | { kind: 'verification' | 'persistence'; message: string; status: 'error' };
 
 type UsePlannerPreviewInput = {
+  eventBufferRepository?: CalendarEventBufferRepository | null;
   mode?: 'generate' | 'replan';
   replanRepository?: PlannerReplanRepository | null;
   onSaved?: () => void;
@@ -61,6 +66,7 @@ type UsePlannerPreviewInput = {
 const getCurrentDate = () => new Date();
 
 export function usePlannerPreview({
+  eventBufferRepository,
   mode = 'generate',
   replanRepository = null,
   onSaved,
@@ -73,7 +79,13 @@ export function usePlannerPreview({
   settingsRepository,
   taskRepository,
 }: UsePlannerPreviewInput) {
-  const calendar = useDeviceCalendar(calendarRepository, settingsRepository, refreshToken, now);
+  const calendar = useDeviceCalendar(
+    calendarRepository,
+    settingsRepository,
+    refreshToken,
+    now,
+    eventBufferRepository,
+  );
   const [state, setState] = useState<PlannerPreviewState>({ status: 'idle' });
   const [saveState, setSaveState] = useState<PlannerSaveState>({ status: 'idle' });
   const generationLock = useRef(false);
@@ -106,6 +118,7 @@ export function usePlannerPreview({
     };
   }, [
     calendarRepository,
+    eventBufferRepository,
     goalRepository,
     persistenceRepository,
     provider,
@@ -165,6 +178,7 @@ export function usePlannerPreview({
     try {
       const result = await generatePlannerPreview({
         calendarRepository,
+        eventBufferRepository,
         goalRepository,
         now,
         provider,
@@ -226,6 +240,7 @@ export function usePlannerPreview({
     }
   }, [
     calendarRepository,
+    eventBufferRepository,
     goalRepository,
     now,
     provider,
@@ -281,7 +296,14 @@ export function usePlannerPreview({
       const plan = await approvePlannerProposal(
         persistenceRepository,
         state,
-        { calendarRepository, goalRepository, now, settingsRepository, taskRepository },
+        {
+          calendarRepository,
+          eventBufferRepository,
+          goalRepository,
+          now,
+          settingsRepository,
+          taskRepository,
+        },
         () => saveVersion.current === activeVersion && activePreview.current === state,
         replanRepository ?? undefined,
       );
@@ -316,6 +338,7 @@ export function usePlannerPreview({
     }
   }, [
     calendarRepository,
+    eventBufferRepository,
     goalRepository,
     now,
     persistenceRepository,
