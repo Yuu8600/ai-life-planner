@@ -1,3 +1,4 @@
+import type { CalendarEventBufferRepository, CalendarEventBufferOverride } from './eventBuffers';
 import { loadCalendarPlanningEvents } from './loadCalendarPlanningEvents';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -17,6 +18,7 @@ export type UseDeviceCalendarResult = {
   canAskAgain: boolean;
   events: CalendarEvent[];
   calculationEvents: CalendarEvent[];
+  overrides: CalendarEventBufferOverride[];
   goToNextDay: () => void;
   goToPreviousDay: () => void;
   goToToday: () => void;
@@ -41,10 +43,12 @@ export function useDeviceCalendar(
   settingsRepository: SettingsRepository | null,
   refreshToken = 0,
   now: () => Date = getCurrentDate,
+  eventBufferRepository?: CalendarEventBufferRepository | null,
 ): UseDeviceCalendarResult {
   const [accessState, setAccessState] = useState<CalendarAccessState>('checking');
   const [calendarCount, setCalendarCount] = useState<number | null>(null);
   const [canAskAgain, setCanAskAgain] = useState(false);
+  const [overrides, setOverrides] = useState<CalendarEventBufferOverride[]>([]);
   const [calculationEvents, setCalculationEvents] = useState<CalendarEvent[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [initializationAttempt, setInitializationAttempt] = useState(0);
@@ -67,6 +71,7 @@ export function useDeviceCalendar(
       setCanAskAgain(false);
       setEvents([]);
       setCalculationEvents([]);
+      setOverrides([]);
       setIsLoadingEvents(false);
       setLoadError(null);
       setPlanningSettings(null);
@@ -127,6 +132,7 @@ export function useDeviceCalendar(
       setCalendarCount(null);
       setEvents([]);
       setCalculationEvents([]);
+      setOverrides([]);
       setIsLoadingEvents(true);
       setLoadError(null);
     });
@@ -137,12 +143,14 @@ export function useDeviceCalendar(
       timeZone,
       planningSettings.calendarBufferBeforeMinutes,
       planningSettings.calendarBufferAfterMinutes,
+      eventBufferRepository,
     )
       .then((result) => {
         if (!isActive) return;
         setCalendarCount(result.calendarCount);
         setEvents(result.events);
         setCalculationEvents(result.calculationEvents);
+        setOverrides(result.overrides);
       })
       .catch((error: unknown) => {
         if (!isActive) return;
@@ -156,7 +164,15 @@ export function useDeviceCalendar(
     return () => {
       isActive = false;
     };
-  }, [accessState, calendarRepository, eventLoadAttempt, selectedDate, timeZone, planningSettings]);
+  }, [
+    accessState,
+    calendarRepository,
+    eventLoadAttempt,
+    selectedDate,
+    timeZone,
+    planningSettings,
+    eventBufferRepository,
+  ]);
 
   const requestPermission = useCallback(async () => {
     if (!calendarRepository || isRequestingRef.current) return;
@@ -201,6 +217,7 @@ export function useDeviceCalendar(
     canAskAgain,
     events,
     calculationEvents,
+    overrides,
     goToNextDay,
     goToPreviousDay,
     goToToday,

@@ -178,3 +178,11 @@ describe('Planner route composition', () => {
     expect(screen.getByTestId('planner-route-provider').props.children).toBe('rule-based');
   });
 });
+
+// This composition test injects the new adapter; no Supabase client is constructed.
+jest.mock('@/services/supabase/repositories/SupabaseCalendarEventBufferRepository', () => ({
+  createSupabaseCalendarEventBufferRepository: (userId: string) => ({
+    type: 'event-buffers',
+    userId,
+  }),
+}));

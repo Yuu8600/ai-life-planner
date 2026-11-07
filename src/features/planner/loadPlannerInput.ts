@@ -2,6 +2,7 @@ import {
   loadCalendarPlanningEvents,
   type CalendarPermissionStatus,
   type CalendarRepository,
+  type CalendarEventBufferRepository,
 } from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
 import { getLocalDate, resolveTimeZone } from '@/features/today';
@@ -21,6 +22,7 @@ export type PlannerPreviewTaskRepository = {
 };
 
 export type PlannerInputDependencies = {
+  eventBufferRepository?: CalendarEventBufferRepository | null;
   calendarRepository: CalendarRepository;
   goalRepository: PlannerPreviewGoalRepository;
   now?: () => Date;
@@ -48,6 +50,7 @@ const getCurrentDate = () => new Date();
 
 /** Load the current Today input for both generation and approval, without executing a Provider. */
 export async function loadPlannerInput({
+  eventBufferRepository,
   calendarRepository,
   goalRepository,
   now = getCurrentDate,
@@ -72,6 +75,7 @@ export async function loadPlannerInput({
       timezone,
       settings.calendarBufferBeforeMinutes,
       settings.calendarBufferAfterMinutes,
+      eventBufferRepository,
     ),
     goalRepository.list(),
     taskRepository.list(),
@@ -80,6 +84,7 @@ export async function loadPlannerInput({
   if (getLocalDate(currentInstant, timezone) !== date) throw new PlannerInputDateChangedError();
   const freeTimeResult = calculateFreeTime({
     events: calendarResult.calculationEvents,
+    calendarEventBufferOverrides: calendarResult.overrides,
     calendarBufferBeforeMinutes: settings.calendarBufferBeforeMinutes,
     calendarBufferAfterMinutes: settings.calendarBufferAfterMinutes,
     minimumFreeMinutes: settings.minimumFreeMinutes,

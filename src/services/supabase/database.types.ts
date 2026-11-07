@@ -59,6 +59,47 @@ export type Database = {
           },
         ]
       }
+      calendar_event_buffer_overrides: {
+        Row: {
+          buffer_after_minutes: number
+          buffer_before_minutes: number
+          calendar_id: string
+          created_at: string
+          event_id: string
+          occurrence_start_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          buffer_after_minutes: number
+          buffer_before_minutes: number
+          calendar_id: string
+          created_at?: string
+          event_id: string
+          occurrence_start_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          buffer_after_minutes?: number
+          buffer_before_minutes?: number
+          calendar_id?: string
+          created_at?: string
+          event_id?: string
+          occurrence_start_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_buffer_overrides_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_plans: {
         Row: {
           created_at: string

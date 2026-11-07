@@ -1,5 +1,12 @@
+import {
+  bufferKey,
+  validateEventBuffer,
+  type CalendarEventBufferRepository,
+  type CalendarEventBufferOverride,
+  intersectsCalendarDay,
+  type CalendarRepository,
+} from '@/features/calendar';
 import type { ActivityLog, ActivityLogRepository } from '@/features/activity';
-import { intersectsCalendarDay, type CalendarRepository } from '@/features/calendar';
 import { GoalNotFoundError } from '@/features/goals/errors';
 import type { Goal, GoalRepository } from '@/features/goals/repositories/GoalRepository';
 import {
@@ -141,6 +148,18 @@ export class DemoRepositories {
       if (!validation.input) throw new Error('Invalid Demo Settings.');
       this.settings = validation.input;
       return { ...this.settings };
+    },
+  };
+
+  private eventBuffers = new Map<string, CalendarEventBufferOverride>();
+  readonly eventBufferRepository: CalendarEventBufferRepository = {
+    list: async () => [...this.eventBuffers.values()].map((value) => ({ ...value })),
+    upsert: async (value) => {
+      validateEventBuffer(value);
+      this.eventBuffers.set(bufferKey(value), { ...value });
+    },
+    remove: async (key) => {
+      this.eventBuffers.delete(bufferKey(key));
     },
   };
 

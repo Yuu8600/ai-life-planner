@@ -1,5 +1,7 @@
 import {
   occursOnCalendarDate,
+  effectiveEventBuffers,
+  validateEventBuffer,
   type CalendarAvailability,
   type CalendarEvent,
   type CalendarEventStatus,
@@ -137,6 +139,7 @@ function calculateFreeSlots(
 }
 
 export function calculateFreeTime({
+  calendarEventBufferOverrides = [],
   calendarBufferBeforeMinutes = 0,
   calendarBufferAfterMinutes = 0,
   events,
@@ -147,6 +150,7 @@ export function calculateFreeTime({
   timezone,
 }: FreeTimeCalculationInput): FreeTimeCalculationResult {
   validateMinimumFreeMinutes(minimumFreeMinutes);
+  calendarEventBufferOverrides.forEach(validateEventBuffer);
   for (const minutes of [calendarBufferBeforeMinutes, calendarBufferAfterMinutes]) {
     if (!Number.isInteger(minutes) || minutes < 0 || minutes > 240)
       throw new FreeTimeCalculationError(
@@ -172,14 +176,16 @@ export function calculateFreeTime({
     }
 
     const interval = toNumericInterval(event, 'Calendar event');
+    const { before, after } = effectiveEventBuffers(
+      event,
+      calendarBufferBeforeMinutes,
+      calendarBufferAfterMinutes,
+      calendarEventBufferOverrides,
+    );
     const clamped = clampIntervalToWindow(
       {
-        endAt: new Date(
-          interval.end + calendarBufferAfterMinutes * MILLISECONDS_PER_MINUTE,
-        ).toISOString(),
-        startAt: new Date(
-          interval.start - calendarBufferBeforeMinutes * MILLISECONDS_PER_MINUTE,
-        ).toISOString(),
+        endAt: new Date(interval.end + after * MILLISECONDS_PER_MINUTE).toISOString(),
+        startAt: new Date(interval.start - before * MILLISECONDS_PER_MINUTE).toISOString(),
       },
       planningWindow,
     );

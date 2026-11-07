@@ -56,3 +56,11 @@ describe('Calendar route composition', () => {
 });
 
 const userId = '11111111-1111-4111-8111-111111111111';
+
+// This composition test injects the new adapter; no Supabase client is constructed.
+jest.mock('@/services/supabase/repositories/SupabaseCalendarEventBufferRepository', () => ({
+  createSupabaseCalendarEventBufferRepository: (userId: string) => ({
+    type: 'event-buffers',
+    userId,
+  }),
+}));

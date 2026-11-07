@@ -1,3 +1,4 @@
+import { DemoRepositories } from '@/services/demo/DemoRepositories';
 import type { CalendarEvent } from '@/features/calendar';
 import {
   approvePlannerProposal,
@@ -492,5 +493,68 @@ it.each(['rule-based', 'openai'])(
     test.provider.generate.mockResolvedValueOnce(preview.proposal);
     const invalid = await generatePlannerPreview({ ...test.dependencies, provider: test.provider });
     expect(invalid.ok).toBe(false);
+  },
+);
+
+it.each(['rule-based', 'openai'])(
+  'revalidates latest individual buffers for %s and fails closed on override errors',
+  async (id) => {
+    const test = scenario(id);
+    const event: CalendarEvent = {
+      allDay: false,
+      allDayStartDate: null,
+      allDayEndDate: null,
+      availability: 'busy',
+      status: 'confirmed',
+      calendarId: 'cal',
+      calendarTitle: null,
+      id: 'recurring',
+      instanceId: null,
+      location: null,
+      timeZone: null,
+      title: 'meeting',
+      startAt: '2026-10-01T23:30:00Z',
+      endAt: '2026-10-02T00:00:00Z',
+    };
+    test.source.events = [event];
+    const store = new DemoRepositories().eventBufferRepository;
+    test.dependencies.eventBufferRepository = store;
+    const preview = await test.generate();
+    const original = JSON.stringify(preview);
+    await store.upsert({
+      calendarId: 'cal',
+      eventId: 'recurring',
+      occurrenceStartAt: event.startAt,
+      bufferBeforeMinutes: 15,
+      bufferAfterMinutes: 30,
+    });
+    await expect(
+      approvePlannerProposal(test.persistence, preview, test.dependencies),
+    ).rejects.toBeInstanceOf(PlannerPreviewStaleError);
+    expect(JSON.stringify(preview)).toBe(original);
+    expect(test.persistence.savePlan).not.toHaveBeenCalled();
+    const regenerated = await test.generate();
+    expect(regenerated.proposal.actions[0].startAt).toBe('2026-10-02T00:30:00.000Z');
+    const replanned = await generatePlannerPreview({
+      ...test.dependencies,
+      provider: test.provider,
+      replanRepository: { getSnapshot: async () => replanSnapshot, replaceIfCurrent: jest.fn() },
+    });
+    expect(replanned.ok && replanned.proposal.actions[0].startAt).toBe('2026-10-02T00:30:00.000Z');
+    test.provider.generate.mockResolvedValueOnce(preview.proposal);
+    expect(
+      (await generatePlannerPreview({ ...test.dependencies, provider: test.provider })).ok,
+    ).toBe(false);
+    test.dependencies.eventBufferRepository = {
+      ...store,
+      list: async () => {
+        throw new Error('override read failed');
+      },
+    };
+    await expect(test.generate()).rejects.toThrow('override read failed');
+    await expect(
+      approvePlannerProposal(test.persistence, regenerated, test.dependencies),
+    ).rejects.toThrow();
+    expect(test.persistence.savePlan).not.toHaveBeenCalled();
   },
 );

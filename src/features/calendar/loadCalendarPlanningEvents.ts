@@ -1,3 +1,9 @@
+import {
+  bufferKey,
+  eventBufferKey,
+  loadEventBuffers,
+  type CalendarEventBufferRepository,
+} from './eventBuffers';
 import { addLocalDays, getUtcDayBounds } from '@/features/today';
 import type { CalendarRepository } from './repositories/CalendarRepository';
 
@@ -8,11 +14,15 @@ export async function loadCalendarPlanningEvents(
   timezone: string,
   before: number,
   after: number,
+  overrideRepository?: CalendarEventBufferRepository | null,
 ) {
+  const overrides = await loadEventBuffers(overrideRepository);
+  const maxBefore = Math.max(before, ...overrides.map((value) => value.bufferBeforeMinutes));
+  const maxAfter = Math.max(after, ...overrides.map((value) => value.bufferAfterMinutes));
   const dates = [
     date,
-    ...(after > 0 ? [addLocalDays(date, -1)] : []),
-    ...(before > 0 ? [addLocalDays(date, 1)] : []),
+    ...(maxAfter > 0 ? [addLocalDays(date, -1)] : []),
+    ...(maxBefore > 0 ? [addLocalDays(date, 1)] : []),
   ];
   const results = await Promise.all(
     dates.map((day) => repository.listEvents(getUtcDayBounds(day, timezone), day)),
@@ -21,16 +31,10 @@ export async function loadCalendarPlanningEvents(
   const calculationEvents = results
     .flatMap((result, index) => result.events.filter((event) => index === 0 || !event.allDay))
     .filter((event) => {
-      const key = JSON.stringify([
-        event.calendarId,
-        event.id,
-        event.instanceId,
-        event.startAt,
-        event.endAt,
-      ]);
+      const key = bufferKey(eventBufferKey(event));
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-  return { ...results[0], calculationEvents };
+  return { ...results[0], calculationEvents, overrides };
 }
