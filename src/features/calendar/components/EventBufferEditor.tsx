@@ -1,5 +1,6 @@
+import { DurationSelectionRow } from '@/shared/components/timeSelection/DurationSelectionRow';
 import { useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { colors, spacing, radius } from '@/shared/theme';
 import {
@@ -88,23 +89,19 @@ export function EventBufferEditor({
       />
       {custom ? (
         <>
-          <Text>予定前の余白（分）</Text>
-          <TextInput
-            style={styles.input}
-            accessibilityLabel="この予定の前の余白（分）"
+          <DurationSelectionRow
+            label="この予定の前の余白"
             value={before}
-            onChangeText={setBefore}
-            keyboardType="number-pad"
-            editable={!saving}
+            buffer
+            onChange={setBefore}
+            disabled={saving}
           />
-          <Text>予定後の余白（分）</Text>
-          <TextInput
-            style={styles.input}
-            accessibilityLabel="この予定の後の余白（分）"
+          <DurationSelectionRow
+            label="この予定の後の余白"
             value={after}
-            onChangeText={setAfter}
-            keyboardType="number-pad"
-            editable={!saving}
+            buffer
+            onChange={setAfter}
+            disabled={saving}
           />
         </>
       ) : (
@@ -128,14 +125,5 @@ const styles = StyleSheet.create({
     marginVertical: spacing.lg,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
-  },
-  input: {
-    minHeight: 48,
-    padding: spacing.md,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    color: colors.text,
   },
 });

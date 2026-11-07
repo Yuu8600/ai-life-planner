@@ -1,7 +1,8 @@
 # 翌日深夜までの活動時間
 
 Settingsの活動終了時間に「当日／翌日」を追加した。
-`planningEndDayOffset`は0または1。HH:mmの入力・既存の分単位値を維持し、15分への丸めは行わない。
+`planningEndDayOffset`は0または1。HH:mmの保存形式・既存の分単位値を維持し、15分への丸めは行わない。
+Step 7の[時間入力UI](time-input-ui.md)では、終了時刻パネル内で当日／翌日を選ぶ。
 活動期間はローカル時計上で0分より長く24時間以内。
 例: 09:00〜翌日02:00、20:00〜翌日01:30。09:00〜翌日10:00は拒否する。
 00:00は有効、24:00は無効。同時刻でも翌日終了なら24時間として扱う。
@@ -62,7 +63,7 @@ DB型は最終migrationを適用した隔離ローカルDBから公式CLIで生�
 
 ## 適用・端末確認の順序
 
-1. diff・migrationをレビューし、ユーザーがpush / PRする。
+1. Codexがdiff・migrationをレビューしてpush / PRし、CI成功後にmergeする。
 2. 対象Supabase projectと未適用migrationを確認し、ユーザー判断でdry-run後に適用する。
    Step 4／5が未適用なら先に必要となる。Codexからremote操作は行わない。
 3. 新旧RPCの保存・深夜の計画日・window token拒否・別ユーザー隔離・再計画を確認する。

@@ -1,3 +1,4 @@
+import { selectDuration } from '@/testUtils/timeSelection';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import {
   eventBufferKey,
@@ -192,11 +193,11 @@ it('prevents double submission, preserves errors, supports zero and resetting to
   };
   const screen = await render(<EventBufferEditor {...props} />);
   await fireEvent.press(screen.getByText('この予定だけ変更する'));
-  await fireEvent.changeText(screen.getByLabelText('この予定の前の余白（分）'), '1.5');
-  await fireEvent.press(screen.getByText('余白設定を保存'));
+  await selectDuration(screen, 'この予定の前の余白', '1.5');
   expect(screen.getByRole('alert')).toBeTruthy();
   expect(upsert).not.toHaveBeenCalled();
-  await fireEvent.changeText(screen.getByLabelText('この予定の前の余白（分）'), '0');
+  await fireEvent.changeText(screen.getByLabelText('この予定の前の余白の詳細（分）'), '0');
+  await fireEvent.press(screen.getByRole('button', { name: '決定' }));
   await fireEvent.press(screen.getByText('余白設定を保存'));
   await fireEvent.press(screen.getByText('保存中…'));
   expect(upsert).toHaveBeenCalledTimes(1);
