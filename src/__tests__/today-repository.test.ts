@@ -53,7 +53,16 @@ function createChainBuilder(): TestBuilder {
 function createRepository(responses: Responses = {}) {
   const profile = createChainBuilder();
   profile.maybeSingle = jest.fn(
-    async () => responses.profile ?? { data: { timezone: 'Asia/Tokyo' }, error: null },
+    async () =>
+      responses.profile ?? {
+        data: {
+          timezone: 'Asia/Tokyo',
+          planning_start: '08:00:00',
+          planning_end: '23:00:00',
+          planning_end_day_offset: 0,
+        },
+        error: null,
+      },
   );
 
   const dailyPlan = createChainBuilder();
@@ -150,6 +159,7 @@ describe('SupabaseTodayRepository', () => {
       greeting: 'こんばんは',
       localDate: '2026-09-14',
       plan: null,
+      planningWindow: { startAt: '2026-09-13T23:00:00.000Z', endAt: '2026-09-14T14:00:00.000Z' },
       profileTimezone: 'Asia/Tokyo',
     });
     expect(dailyPlan.eq).toHaveBeenCalledWith('plan_date', '2026-09-14');
@@ -277,7 +287,15 @@ describe('SupabaseTodayRepository', () => {
 
   it('fails safely for an invalid profile or Plan timezone without falling back', async () => {
     const invalidProfile = createRepository({
-      profile: { data: { timezone: 'Mars/Olympus' }, error: null },
+      profile: {
+        data: {
+          timezone: 'Mars/Olympus',
+          planning_start: '08:00:00',
+          planning_end: '23:00:00',
+          planning_end_day_offset: 0,
+        },
+        error: null,
+      },
     });
     await expect(invalidProfile.repository.getToday()).rejects.toMatchObject({
       code: 'INVALID_TIME_ZONE',
@@ -297,4 +315,54 @@ describe('SupabaseTodayRepository', () => {
 
     await expect(repository.getToday()).rejects.toBe(error);
   });
+});
+
+it('reads previous planning date after midnight using saved bounds even after profile hours change', async () => {
+  const snapshot = { startAt: '2026-09-13T00:00:00.000Z', endAt: '2026-09-13T17:00:00.000Z' };
+  const test = createRepository({
+    profile: {
+      data: {
+        timezone: 'Asia/Tokyo',
+        planning_start: '09:00:00',
+        planning_end: '01:00:00',
+        planning_end_day_offset: 1,
+      },
+      error: null,
+    },
+    dailyPlan: {
+      data: {
+        id: dailyPlanId,
+        user_id: userId,
+        plan_date: '2026-09-13',
+        timezone: 'Asia/Tokyo',
+        summary: 'night',
+        window_start_at: snapshot.startAt,
+        window_end_at: snapshot.endAt,
+      },
+      error: null,
+    },
+    actions: {
+      data: [
+        {
+          id: firstActionId,
+          user_id: userId,
+          daily_plan_id: dailyPlanId,
+          task_id: null,
+          title: 'night',
+          reason: null,
+          status: 'scheduled',
+          start_at: '2026-09-13T16:00:00Z',
+          end_at: '2026-09-13T16:30:00Z',
+        },
+      ],
+      error: null,
+    },
+  });
+  const today = await test.repository.getToday();
+  expect(today.localDate).toBe('2026-09-13');
+  expect(today.plan?.window).toEqual(snapshot);
+  expect(today.plan?.actions[0].startAt).toBe('2026-09-13T16:00:00.000Z');
+  expect(test.actions.gte).toHaveBeenCalledWith('start_at', snapshot.startAt);
+  expect(test.actions.lt).toHaveBeenCalledWith('start_at', snapshot.endAt);
+  expect(today.planningWindow?.endAt).toBe('2026-09-13T16:00:00.000Z');
 });

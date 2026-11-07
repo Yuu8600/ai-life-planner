@@ -144,6 +144,7 @@ export function useDeviceCalendar(
       planningSettings.calendarBufferBeforeMinutes,
       planningSettings.calendarBufferAfterMinutes,
       eventBufferRepository,
+      planningSettings.planningEndDayOffset,
     )
       .then((result) => {
         if (!isActive) return;

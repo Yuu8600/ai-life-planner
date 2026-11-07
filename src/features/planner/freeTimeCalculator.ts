@@ -1,12 +1,11 @@
 import {
-  occursOnCalendarDate,
   effectiveEventBuffers,
   validateEventBuffer,
   type CalendarAvailability,
   type CalendarEvent,
   type CalendarEventStatus,
 } from '@/features/calendar';
-import { getUtcInstantForLocalTime } from '@/features/today';
+import { getPlanningWindow, getUtcDayBounds } from '@/features/today';
 
 import type {
   FreeTimeCalculationInput,
@@ -139,6 +138,7 @@ function calculateFreeSlots(
 }
 
 export function calculateFreeTime({
+  planningEndDayOffset = 0,
   calendarEventBufferOverrides = [],
   calendarBufferBeforeMinutes = 0,
   calendarBufferAfterMinutes = 0,
@@ -158,10 +158,12 @@ export function calculateFreeTime({
       );
   }
 
-  const planningWindow: TimeInterval = {
-    endAt: getUtcInstantForLocalTime(selectedDate, planningEnd, timezone),
-    startAt: getUtcInstantForLocalTime(selectedDate, planningStart, timezone),
-  };
+  const planningWindow = getPlanningWindow(selectedDate, {
+    planningStart,
+    planningEnd,
+    planningEndDayOffset,
+    timezone,
+  });
   toNumericInterval(planningWindow, 'Planning window');
 
   const blockingIntervals: TimeInterval[] = [];
@@ -171,7 +173,14 @@ export function calculateFreeTime({
 
     if (event.allDay) {
       validateAllDayRange(event);
-      if (occursOnCalendarDate(event, selectedDate)) blockingIntervals.push(planningWindow);
+      const allDay = clampIntervalToWindow(
+        {
+          startAt: getUtcDayBounds(event.allDayStartDate!, timezone).startAt,
+          endAt: getUtcDayBounds(event.allDayEndDate!, timezone).startAt,
+        },
+        planningWindow,
+      );
+      if (allDay) blockingIntervals.push(allDay);
       continue;
     }
 

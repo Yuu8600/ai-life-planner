@@ -61,6 +61,7 @@ export function CalendarScreen({
         error: null,
         result: calculateFreeTime({
           events: calendar.calculationEvents,
+          planningEndDayOffset: calendar.planningSettings.planningEndDayOffset,
           calendarEventBufferOverrides: calendar.overrides,
           calendarBufferBeforeMinutes: calendar.planningSettings.calendarBufferBeforeMinutes,
           calendarBufferAfterMinutes: calendar.planningSettings.calendarBufferAfterMinutes,

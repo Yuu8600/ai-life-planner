@@ -77,6 +77,7 @@ function preview(overrides: Partial<PlannerPreviewData> = {}): PlannerPreviewDat
 describe('Planner persistence mapping', () => {
   it('maps only validated Proposal plan and action fields without changing UTC instants', () => {
     expect(toSavePlannerProposalInput(preview())).toEqual({
+      planningWindow: input.planningWindow,
       actions: [
         {
           endAt: '2026-09-18T00:30:00.000Z',
@@ -130,6 +131,7 @@ describe('Planner persistence mapping', () => {
           minimumFreeMinutes: 20,
           planningStart: '09:00',
           planningEnd: '10:00',
+          planningEndDayOffset: 0 as const,
           timezone: 'Asia/Tokyo',
         }),
         updateProfilePlanningSettings: async (settings) => settings,

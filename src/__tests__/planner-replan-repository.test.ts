@@ -77,6 +77,7 @@ describe('SupabasePlannerReplanRepository', () => {
       planDate: snapshot.planDate,
     });
     expect(test.rpc).toHaveBeenCalledWith('replace_daily_plan_if_current', {
+      p_planning_window: null,
       p_plan_date: input.planDate,
       p_timezone: input.timezone,
       p_summary: input.summary,

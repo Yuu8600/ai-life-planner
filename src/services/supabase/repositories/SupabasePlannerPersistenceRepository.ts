@@ -49,6 +49,7 @@ export class SupabasePlannerPersistenceRepository implements PlannerPersistenceR
   async savePlan(input: SavePlannerProposalInput): Promise<SavedDailyPlan> {
     const { data, error } = await this.client.rpc('replace_daily_plan', {
       p_actions: toRpcActions(input),
+      p_planning_window: input.planningWindow ?? null,
       p_plan_date: input.planDate,
       p_summary: input.summary,
       p_timezone: input.timezone,

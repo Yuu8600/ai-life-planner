@@ -16,6 +16,7 @@ const settings: ProfilePlanningSettings = {
   calendarBufferAfterMinutes: 0,
   minimumFreeMinutes: 20,
   planningEnd: '23:00',
+  planningEndDayOffset: 0 as const,
   planningStart: '08:00',
   timezone: 'Asia/Tokyo',
 };
@@ -68,6 +69,7 @@ describe('SettingsScreen', () => {
       calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 45,
       planningEnd: '21:30',
+      planningEndDayOffset: 0 as const,
       planningStart: '09:00',
     };
     const getProfilePlanningSettings = jest
@@ -122,6 +124,7 @@ describe('SettingsScreen', () => {
       calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 46,
       planningEnd: '21:30',
+      planningEndDayOffset: 0 as const,
       planningStart: '09:00',
       timezone: 'America/New_York',
     };
@@ -143,6 +146,7 @@ describe('SettingsScreen', () => {
       calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 45,
       planningEnd: '21:30',
+      planningEndDayOffset: 0 as const,
       planningStart: '09:00',
       timezone: 'America/New_York',
     });
@@ -257,4 +261,28 @@ it('saves independent hour/minute buffer values and restores them on reopen', as
   expect((await reopened.findByLabelText('予定前の余白時間（時間）')).props.value).toBe('1');
   expect(reopened.getByLabelText('予定前の余白時間（分）').props.value).toBe('30');
   expect(reopened.getByLabelText('予定後の余白時間（分）').props.value).toBe('15');
+});
+
+it('saves and reloads next-day end without rounding HH:mm values', async () => {
+  let current = settings;
+  const repository = createRepository({
+    getProfilePlanningSettings: jest.fn(async () => current),
+    updateProfilePlanningSettings: jest.fn(async (input) => {
+      current = input;
+      return input;
+    }),
+  });
+  const screen = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
+  await screen.findByLabelText('活動終了時間');
+  await fireEvent.changeText(screen.getByLabelText('活動開始時間'), '09:17');
+  await fireEvent.changeText(screen.getByLabelText('活動終了時間'), '02:00');
+  await fireEvent.press(screen.getByText('翌日'));
+  await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
+  await screen.findByText('設定を保存しました。');
+  expect(current.planningEndDayOffset).toBe(1);
+  expect(current.planningStart).toBe('09:17');
+  expect(current.planningEnd).toBe('02:00');
+  await screen.unmount();
+  const reopened = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
+  expect((await reopened.findByLabelText('活動終了時間')).props.value).toBe('02:00');
 });

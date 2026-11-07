@@ -179,3 +179,5 @@ iPhone Releaseのbuild・上書きinstallは[Personal Team Release](ios-personal
 
 Expo/native dependencyを追加する場合は`npx expo install`でSDK互換性を確認する。
 package.jsonのpeer overridesはSDK 57互換範囲を保つための固定値で、更新時にlockfileと共に確認する。
+
+翌日終了・計画日・DB互換性・更新手順は[翌日深夜までの活動時間](overnight-planning.md)を参照。

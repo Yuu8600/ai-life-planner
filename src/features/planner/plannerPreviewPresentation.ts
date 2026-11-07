@@ -1,5 +1,5 @@
 import type { CalendarTimelineEvent } from '@/features/calendar';
-import { formatLocalDateJa, formatLocalTimeJa, getUtcDayBounds } from '@/features/today';
+import { formatLocalDateJa, formatPlanningTime, getUtcDayBounds } from '@/features/today';
 
 import type { PlannerValidationIssue } from './contracts';
 import type { PlannerPreviewData } from './plannerPreview';
@@ -56,8 +56,8 @@ export function toPlannerPreviewViewModel({
           },
     ),
     actions: proposal.actions.map((action, index) => {
-      const startTime = formatLocalTimeJa(action.startAt, timezone);
-      const endTime = formatLocalTimeJa(action.endAt, timezone);
+      const startTime = formatPlanningTime(action.startAt, input.date, timezone);
+      const endTime = formatPlanningTime(action.endAt, input.date, timezone);
 
       return {
         startAt: action.startAt,

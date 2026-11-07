@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
-  getLocalDate,
+  getPlanningDate,
+  getPlanningWindow,
   getUtcDayBounds,
   resolveTimeZone,
   type PlannedActionStatus,
@@ -25,7 +26,7 @@ type TaskRow = Database['public']['Tables']['tasks']['Row'];
 
 type DailyPlanQueryRow = Pick<
   DailyPlanRow,
-  'id' | 'plan_date' | 'summary' | 'timezone' | 'user_id'
+  'id' | 'plan_date' | 'summary' | 'timezone' | 'user_id' | 'window_start_at' | 'window_end_at'
 >;
 type GoalQueryRow = Pick<GoalRow, 'id' | 'title' | 'user_id'>;
 type PlannedActionQueryRow = Pick<
@@ -47,6 +48,7 @@ type DeadlineTaskQueryRow = Pick<
 >;
 
 type DailyPlanRecord = {
+  window?: { startAt: string; endAt: string };
   date: string;
   id: string;
   summary: string | null;
@@ -92,7 +94,19 @@ function readDailyPlan(
     throw new Error('Unexpected daily plan data');
   }
 
+  if (
+    (value.window_start_at || value.window_end_at) &&
+    (!value.window_start_at ||
+      !value.window_end_at ||
+      !Number.isFinite(Date.parse(value.window_start_at)) ||
+      !Number.isFinite(Date.parse(value.window_end_at)) ||
+      Date.parse(value.window_start_at) >= Date.parse(value.window_end_at))
+  )
+    throw new Error('Unexpected saved Plan window');
   return {
+    ...(value.window_start_at && value.window_end_at
+      ? { window: { startAt: value.window_start_at, endAt: value.window_end_at } }
+      : {}),
     date: value.plan_date,
     id: value.id,
     summary: value.summary?.trim() || null,
@@ -199,7 +213,7 @@ export class SupabaseTodayRepository implements TodayRepository {
   async getToday(): Promise<TodayProjection> {
     const { data: profile, error: profileError } = await this.client
       .from('profiles')
-      .select('timezone')
+      .select('timezone, planning_start, planning_end, planning_end_day_offset')
       .eq('id', this.userId)
       .maybeSingle();
 
@@ -210,12 +224,19 @@ export class SupabaseTodayRepository implements TodayRepository {
 
     const profileTimezone = resolveTimeZone(profile.timezone);
     const currentInstant = this.now();
-    const localDate = getLocalDate(currentInstant, profileTimezone);
+    const planningSettings = {
+      timezone: profileTimezone,
+      planningStart: profile.planning_start.slice(0, 5),
+      planningEnd: profile.planning_end.slice(0, 5),
+      planningEndDayOffset: profile.planning_end_day_offset,
+    };
+    const localDate = getPlanningDate(currentInstant, planningSettings);
+    const planningWindow = getPlanningWindow(localDate, planningSettings);
     const profileDayBounds = getUtcDayBounds(localDate, profileTimezone);
     const [dailyPlanResult, deadlineTaskResult] = await Promise.all([
       this.client
         .from('daily_plans')
-        .select('id, user_id, plan_date, timezone, summary')
+        .select('id, user_id, plan_date, timezone, summary, window_start_at, window_end_at')
         .eq('user_id', this.userId)
         .eq('plan_date', localDate)
         .maybeSingle(),
@@ -270,6 +291,7 @@ export class SupabaseTodayRepository implements TodayRepository {
       : null;
 
     return {
+      planningWindow,
       deadlineTasks,
       greeting: createGreeting(currentInstant, profileTimezone),
       localDate,
@@ -279,7 +301,7 @@ export class SupabaseTodayRepository implements TodayRepository {
   }
 
   private async loadActions(dailyPlan: DailyPlanRecord): Promise<PlannedActionRecord[]> {
-    const bounds = getUtcDayBounds(dailyPlan.date, dailyPlan.timezone);
+    const bounds = dailyPlan.window ?? getUtcDayBounds(dailyPlan.date, dailyPlan.timezone);
     const { data, error } = await this.client
       .from('planned_actions')
       .select('id, user_id, daily_plan_id, task_id, title, start_at, end_at, reason, status')
@@ -380,6 +402,7 @@ export class SupabaseTodayRepository implements TodayRepository {
 
     return {
       actions,
+      ...(dailyPlan.window ? { window: dailyPlan.window } : {}),
       date: dailyPlan.date,
       id: dailyPlan.id,
       summary: dailyPlan.summary,

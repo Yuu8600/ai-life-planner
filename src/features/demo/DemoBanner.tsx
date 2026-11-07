@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { formatLocalTimeJa } from '@/features/today';
+import { formatLocalTimeJa, getLocalDate } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { appAlert } from '@/shared/feedback/appAlert';
 import { colors, spacing } from '@/shared/theme';
@@ -9,7 +9,7 @@ import { DEMO_AFTERNOON, DEMO_TIMEZONE } from '@/services/demo/sampleData';
 import { useDemo } from './DemoProvider';
 
 export function DemoBanner() {
-  const { repositories, reset, advance } = useDemo();
+  const { repositories, reset, advance, overnight } = useDemo();
   const afternoon = repositories.now().toISOString() === DEMO_AFTERNOON;
   return (
     <View style={styles.banner}>
@@ -17,7 +17,8 @@ export function DemoBanner() {
         <Text style={styles.title}>AI Life Planner · Demo Mode</Text>
         <Text style={styles.detail}>サンプル予定・API不要・再読み込みでリセット</Text>
         <Text style={styles.detail}>
-          サンプル時計: 2026/11/06 {formatLocalTimeJa(repositories.now(), DEMO_TIMEZONE)}（東京）
+          サンプル時計: {getLocalDate(repositories.now(), DEMO_TIMEZONE)}{' '}
+          {formatLocalTimeJa(repositories.now(), DEMO_TIMEZONE)}（東京）
         </Text>
       </View>
       <View style={styles.actions}>
@@ -27,6 +28,7 @@ export function DemoBanner() {
           onPress={advance}
           variant="ghost"
         />
+        <ActionButton label="時計を翌日01:00に進める" onPress={overnight} variant="ghost" />
         <ActionButton
           label="デモをリセット"
           variant="secondary"
@@ -60,5 +62,11 @@ const styles = StyleSheet.create({
   copy: { flexShrink: 1, gap: 2 },
   title: { color: colors.accent, fontWeight: '700', fontSize: 15 },
   detail: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    maxWidth: '100%',
+    flexShrink: 1,
+  },
 });

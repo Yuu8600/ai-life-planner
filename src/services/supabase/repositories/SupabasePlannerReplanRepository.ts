@@ -84,6 +84,7 @@ export class SupabasePlannerReplanRepository implements PlannerReplanRepository 
     };
     const { data, error } = await this.client.rpc('replace_daily_plan_if_current', {
       p_actions: actions,
+      p_planning_window: input.planningWindow ?? null,
       p_expected_snapshot: snapshot,
       p_plan_date: input.planDate,
       p_summary: input.summary,

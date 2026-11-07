@@ -10,6 +10,7 @@ export type FreeTimeSlot = TimeInterval & {
 };
 
 export type FreeTimeCalculationInput = {
+  planningEndDayOffset?: 0 | 1;
   calendarEventBufferOverrides?: readonly CalendarEventBufferOverride[];
   calendarBufferBeforeMinutes?: number;
   calendarBufferAfterMinutes?: number;

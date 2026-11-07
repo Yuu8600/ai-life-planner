@@ -19,6 +19,7 @@ type ProfilePlanningSettingsRow = Pick<
   | 'calendar_buffer_after_minutes'
   | 'id'
   | 'minimum_free_minutes'
+  | 'planning_end_day_offset'
   | 'planning_end'
   | 'planning_start'
   | 'timezone'
@@ -39,6 +40,7 @@ function toProfilePlanningSettings(
 ): ProfilePlanningSettings {
   if (
     row.id !== expectedUserId ||
+    (row.planning_end_day_offset !== 0 && row.planning_end_day_offset !== 1) ||
     !Number.isInteger(row.calendar_buffer_before_minutes) ||
     row.calendar_buffer_before_minutes < 0 ||
     row.calendar_buffer_before_minutes > 240 ||
@@ -57,6 +59,7 @@ function toProfilePlanningSettings(
     calendarBufferAfterMinutes: row.calendar_buffer_after_minutes,
     minimumFreeMinutes: row.minimum_free_minutes,
     planningEnd: toMinutePrecision(row.planning_end),
+    planningEndDayOffset: row.planning_end_day_offset as 0 | 1,
     planningStart: toMinutePrecision(row.planning_start),
     timezone: row.timezone,
   };
@@ -68,6 +71,7 @@ function toProfileUpdate(input: UpdateProfilePlanningSettingsInput): ProfileUpda
     calendar_buffer_after_minutes: input.calendarBufferAfterMinutes,
     minimum_free_minutes: input.minimumFreeMinutes,
     planning_end: `${input.planningEnd}:00`,
+    planning_end_day_offset: input.planningEndDayOffset,
     planning_start: `${input.planningStart}:00`,
     timezone: input.timezone,
   };
@@ -83,7 +87,7 @@ export class SupabaseSettingsRepository implements SettingsRepository {
     const { data, error } = await this.client
       .from('profiles')
       .select(
-        'id, timezone, planning_start, planning_end, minimum_free_minutes, calendar_buffer_before_minutes, calendar_buffer_after_minutes',
+        'id, timezone, planning_start, planning_end, minimum_free_minutes, planning_end_day_offset, calendar_buffer_before_minutes, calendar_buffer_after_minutes',
       )
       .eq('id', this.userId)
       .maybeSingle();
@@ -103,7 +107,7 @@ export class SupabaseSettingsRepository implements SettingsRepository {
       .update(toProfileUpdate(validated.input))
       .eq('id', this.userId)
       .select(
-        'id, timezone, planning_start, planning_end, minimum_free_minutes, calendar_buffer_before_minutes, calendar_buffer_after_minutes',
+        'id, timezone, planning_start, planning_end, minimum_free_minutes, planning_end_day_offset, calendar_buffer_before_minutes, calendar_buffer_after_minutes',
       )
       .maybeSingle();
 

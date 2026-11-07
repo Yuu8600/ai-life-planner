@@ -11,6 +11,7 @@ const validValues: SettingsFormValues = {
   calendarBufferAfterMinutes: '0',
   minimumFreeMinutes: '30',
   planningEnd: '22:30',
+  planningEndDayOffset: '0',
   planningStart: '08:15',
   timezone: ' Asia/Tokyo ',
 };
@@ -24,6 +25,7 @@ describe('Settings validation', () => {
         calendarBufferAfterMinutes: 0,
         minimumFreeMinutes: 30,
         planningEnd: '22:30',
+        planningEndDayOffset: 0 as const,
         planningStart: '08:15',
         timezone: 'Asia/Tokyo',
       },
@@ -37,6 +39,7 @@ describe('Settings validation', () => {
         calendarBufferAfterMinutes: 0,
         minimumFreeMinutes: 20,
         planningEnd: '23:00',
+        planningEndDayOffset: 0 as const,
         planningStart: '08:00',
         timezone: 'Asia/Tokyo',
       }),
@@ -47,6 +50,7 @@ describe('Settings validation', () => {
       calendarBufferAfterMinutes: '0',
       minimumFreeMinutes: '20',
       planningEnd: '23:00',
+      planningEndDayOffset: '0',
       planningStart: '08:00',
       timezone: 'Asia/Tokyo',
     });

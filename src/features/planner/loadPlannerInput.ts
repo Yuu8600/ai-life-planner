@@ -5,7 +5,7 @@ import {
   type CalendarEventBufferRepository,
 } from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
-import { getLocalDate, resolveTimeZone } from '@/features/today';
+import { getPlanningDate, resolveTimeZone } from '@/features/today';
 
 import { buildPlannerInput } from './buildPlannerInput';
 import { clipPlannerFreeSlots } from './clipPlannerFreeSlots';
@@ -62,7 +62,7 @@ export async function loadPlannerInput({
     calendarRepository.getPermission(),
   ]);
   const timezone = resolveTimeZone(settings.timezone);
-  const date = getLocalDate(now(), timezone);
+  const date = getPlanningDate(now(), settings);
 
   if (permission.status !== 'granted') {
     throw new PlannerPreviewCalendarPermissionError(permission.status);
@@ -76,14 +76,16 @@ export async function loadPlannerInput({
       settings.calendarBufferBeforeMinutes,
       settings.calendarBufferAfterMinutes,
       eventBufferRepository,
+      settings.planningEndDayOffset,
     ),
     goalRepository.list(),
     taskRepository.list(),
   ]);
   const currentInstant = now();
-  if (getLocalDate(currentInstant, timezone) !== date) throw new PlannerInputDateChangedError();
+  if (getPlanningDate(currentInstant, settings) !== date) throw new PlannerInputDateChangedError();
   const freeTimeResult = calculateFreeTime({
     events: calendarResult.calculationEvents,
+    planningEndDayOffset: settings.planningEndDayOffset,
     calendarEventBufferOverrides: calendarResult.overrides,
     calendarBufferBeforeMinutes: settings.calendarBufferBeforeMinutes,
     calendarBufferAfterMinutes: settings.calendarBufferAfterMinutes,
@@ -95,11 +97,12 @@ export async function loadPlannerInput({
   });
 
   return buildPlannerInput({
-    calendarEvents: calendarResult.events,
+    calendarEvents: calendarResult.calculationEvents,
     date,
     freeTimeResult: {
       ...freeTimeResult,
       freeSlots: clipPlannerFreeSlots({
+        allowOvernight: settings.planningEndDayOffset === 1,
         date,
         freeSlots: freeTimeResult.freeSlots,
         minimumFreeMinutes: settings.minimumFreeMinutes,

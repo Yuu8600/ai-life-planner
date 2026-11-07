@@ -5,6 +5,7 @@ import type { FreeTimeSlot } from './types';
 const MILLISECONDS_PER_MINUTE = 60_000;
 
 export type ClipPlannerFreeSlotsInput = {
+  allowOvernight?: boolean;
   date: LocalDate;
   freeSlots: readonly FreeTimeSlot[];
   minimumFreeMinutes: number;
@@ -14,6 +15,7 @@ export type ClipPlannerFreeSlotsInput = {
 
 /** Restrict Planner availability without changing the Calendar's full-day free-time result. */
 export function clipPlannerFreeSlots({
+  allowOvernight = false,
   date,
   freeSlots,
   minimumFreeMinutes,
@@ -21,7 +23,7 @@ export function clipPlannerFreeSlots({
   timezone,
 }: ClipPlannerFreeSlotsInput): FreeTimeSlot[] {
   const currentDate = getLocalDate(now, timezone);
-  if (date < currentDate) return [];
+  if (date < currentDate && !allowOvernight) return [];
   if (date > currentDate) return [...freeSlots];
 
   const cutoff = Math.ceil(now.getTime() / MILLISECONDS_PER_MINUTE) * MILLISECONDS_PER_MINUTE;

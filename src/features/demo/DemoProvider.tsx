@@ -7,6 +7,7 @@ type DemoContextValue = {
   revision: number;
   reset: () => void;
   advance: () => void;
+  overnight: () => void;
 };
 const DemoContext = createContext<DemoContextValue | null>(null);
 
@@ -20,6 +21,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         revision,
         reset: () => {
           setRepositories(new DemoRepositories());
+          setRevision((value) => value + 1);
+        },
+        overnight: () => {
+          repositories.advanceToOvernight();
           setRevision((value) => value + 1);
         },
         advance: () => {

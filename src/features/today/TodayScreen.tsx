@@ -1,3 +1,4 @@
+import { getLocalDate, formatLocalTimeJa } from './timezone';
 import { useDailyCalendar, type CalendarRepository } from '@/features/calendar';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
@@ -54,6 +55,7 @@ export function TodayScreen({
     today?.localDate ?? null,
     today?.profileTimezone ?? null,
     dataRevision,
+    today?.plan?.window ?? today?.planningWindow,
   );
   const displayTimezone = today?.plan?.timezone ?? today?.profileTimezone ?? 'UTC';
   const activity = useActivityLogs(activityLogRepository, today?.localDate ?? null, dataRevision);
@@ -79,7 +81,14 @@ export function TodayScreen({
           </Pressable>
         }
         eyebrow={today ? formatTodayDateLabel(today.localDate) : undefined}
-        subtitle="予定の合間に、一つずつ進めましょう。"
+        subtitle={
+          today &&
+          (today.plan?.window ?? today.planningWindow) &&
+          getLocalDate((today.plan?.window ?? today.planningWindow)!.endAt, displayTimezone) >
+            today.localDate
+            ? `${today.localDate}の計画（翌日${formatLocalTimeJa((today.plan?.window ?? today.planningWindow)!.endAt, displayTimezone)}まで）`
+            : '予定の合間に、一つずつ進めましょう。'
+        }
         title="今日の予定"
       />
 

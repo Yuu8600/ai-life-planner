@@ -13,6 +13,7 @@ export type TodayPlannedAction = {
 };
 
 export type TodayDailyPlan = {
+  window?: { startAt: string; endAt: string };
   actions: TodayPlannedAction[];
   date: string;
   id: string;
@@ -31,6 +32,7 @@ export type TodayDeadlineTask = {
 };
 
 export type TodayProjection = {
+  planningWindow?: { startAt: string; endAt: string };
   deadlineTasks: TodayDeadlineTask[];
   greeting: string;
   localDate: string;
