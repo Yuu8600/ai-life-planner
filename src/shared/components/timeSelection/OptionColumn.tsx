@@ -9,6 +9,11 @@ export type OptionColumnProps = {
 };
 export function OptionColumn({ label, options, value, onChange }: OptionColumnProps) {
   const ref = useRef<ScrollView>(null);
+  const revealSelection = () =>
+    ref.current?.scrollTo({
+      y: Math.max(0, options.indexOf(value) - 2) * 48,
+      animated: false,
+    });
   return (
     <View style={{ flex: 1, minWidth: 72 }}>
       <Text>{label}</Text>
@@ -16,12 +21,8 @@ export function OptionColumn({ label, options, value, onChange }: OptionColumnPr
         ref={ref}
         nestedScrollEnabled
         style={{ maxHeight: 240 }}
-        onLayout={() =>
-          ref.current?.scrollTo({
-            y: Math.max(0, options.indexOf(value) - 2) * 48,
-            animated: false,
-          })
-        }
+        onLayout={revealSelection}
+        onContentSizeChange={revealSelection}
       >
         {options.map((option) => (
           <Pressable
