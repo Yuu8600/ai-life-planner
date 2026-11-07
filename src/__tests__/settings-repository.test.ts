@@ -21,6 +21,8 @@ const profileRow: ProfileRow = {
   created_at: '2026-09-11T00:00:00+00:00',
   display_name: null,
   id: userId,
+  calendar_buffer_before_minutes: 0,
+  calendar_buffer_after_minutes: 0,
   minimum_free_minutes: 20,
   planning_end: '23:00:00',
   planning_start: '08:00:00',
@@ -29,6 +31,8 @@ const profileRow: ProfileRow = {
 };
 
 const updateInput: UpdateProfilePlanningSettingsInput = {
+  calendarBufferBeforeMinutes: 0,
+  calendarBufferAfterMinutes: 0,
   minimumFreeMinutes: 30,
   planningEnd: '21:45',
   planningStart: '09:15',
@@ -65,6 +69,8 @@ describe('SupabaseSettingsRepository', () => {
     );
 
     await expect(repository.getProfilePlanningSettings()).resolves.toEqual({
+      calendarBufferBeforeMinutes: 0,
+      calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 20,
       planningEnd: '23:00',
       planningStart: '08:00',
@@ -74,9 +80,11 @@ describe('SupabaseSettingsRepository', () => {
     expect(builder.eq).toHaveBeenCalledWith('id', userId);
   });
 
-  it('updates only the four planning fields on the signed-in user profile', async () => {
+  it('updates only the planning fields on the signed-in user profile', async () => {
     const updatedRow = {
       ...profileRow,
+      calendar_buffer_before_minutes: 0,
+      calendar_buffer_after_minutes: 0,
       minimum_free_minutes: 30,
       planning_end: '21:45:00',
       planning_start: '09:15:00',
@@ -90,6 +98,8 @@ describe('SupabaseSettingsRepository', () => {
       updateInput,
     );
     expect(builder.update).toHaveBeenCalledWith({
+      calendar_buffer_before_minutes: 0,
+      calendar_buffer_after_minutes: 0,
       minimum_free_minutes: 30,
       planning_end: '21:45:00',
       planning_start: '09:15:00',
@@ -124,4 +134,41 @@ describe('SupabaseSettingsRepository', () => {
 
     await expect(repository.getProfilePlanningSettings()).rejects.toBe(error);
   });
+});
+
+it('saves and reloads nonzero buffer fields with the owner filter', async () => {
+  const row = {
+    ...profileRow,
+    calendar_buffer_before_minutes: 90,
+    calendar_buffer_after_minutes: 240,
+  };
+  const { repository, builder } = createRepository(createBuilder({ data: row, error: null }));
+  const input = {
+    ...updateInput,
+    calendarBufferBeforeMinutes: 90,
+    calendarBufferAfterMinutes: 240,
+  };
+  const updated = await repository.updateProfilePlanningSettings(input);
+  expect(updated.calendarBufferBeforeMinutes).toBe(90);
+  expect(updated.calendarBufferAfterMinutes).toBe(240);
+  expect(builder.update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      calendar_buffer_before_minutes: 90,
+      calendar_buffer_after_minutes: 240,
+    }),
+  );
+  expect(builder.eq).toHaveBeenCalledWith('id', userId);
+  expect((await repository.getProfilePlanningSettings()).calendarBufferAfterMinutes).toBe(240);
+});
+it.each([-1, 241, 0.5, NaN])('rejects invalid buffers before a DB write: %s', async (minutes) => {
+  const { repository, builder } = createRepository(
+    createBuilder({ data: profileRow, error: null }),
+  );
+  await expect(
+    repository.updateProfilePlanningSettings({
+      ...updateInput,
+      calendarBufferBeforeMinutes: minutes,
+    }),
+  ).rejects.toThrow();
+  expect(builder.update).not.toHaveBeenCalled();
 });

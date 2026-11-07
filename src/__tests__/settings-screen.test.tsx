@@ -12,6 +12,8 @@ jest.mock('@/features/auth', () => ({
 }));
 
 const settings: ProfilePlanningSettings = {
+  calendarBufferBeforeMinutes: 0,
+  calendarBufferAfterMinutes: 0,
   minimumFreeMinutes: 20,
   planningEnd: '23:00',
   planningStart: '08:00',
@@ -62,6 +64,8 @@ describe('SettingsScreen', () => {
   it('loads the saved profile values again when Settings is reopened', async () => {
     const savedSettings = {
       ...settings,
+      calendarBufferBeforeMinutes: 0,
+      calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 45,
       planningEnd: '21:30',
       planningStart: '09:00',
@@ -114,6 +118,8 @@ describe('SettingsScreen', () => {
 
   it('edits, saves, and synchronizes the form with the returned profile row', async () => {
     const returnedSettings = {
+      calendarBufferBeforeMinutes: 0,
+      calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 46,
       planningEnd: '21:30',
       planningStart: '09:00',
@@ -133,6 +139,8 @@ describe('SettingsScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
 
     expect(updateProfilePlanningSettings).toHaveBeenCalledWith({
+      calendarBufferBeforeMinutes: 0,
+      calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 45,
       planningEnd: '21:30',
       planningStart: '09:00',
@@ -224,4 +232,29 @@ describe('SettingsScreen', () => {
     await fireEvent.changeText(screen.getByLabelText('最小空き時間'), '21');
     await waitFor(() => expect(screen.queryByText('設定を保存しました。')).toBeNull());
   });
+});
+
+it('saves independent hour/minute buffer values and restores them on reopen', async () => {
+  let current = settings;
+  const repository = createRepository({
+    getProfilePlanningSettings: jest.fn(async () => current),
+    updateProfilePlanningSettings: jest.fn(async (input) => {
+      current = input;
+      return input;
+    }),
+  });
+  const screen = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
+  await screen.findByLabelText('予定前の余白時間（時間）');
+  await fireEvent.changeText(screen.getByLabelText('予定前の余白時間（時間）'), '1');
+  await fireEvent.changeText(screen.getByLabelText('予定前の余白時間（分）'), '30');
+  await fireEvent.changeText(screen.getByLabelText('予定後の余白時間（分）'), '15');
+  await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
+  await screen.findByText('設定を保存しました。');
+  expect(current.calendarBufferBeforeMinutes).toBe(90);
+  expect(current.calendarBufferAfterMinutes).toBe(15);
+  await screen.unmount();
+  const reopened = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
+  expect((await reopened.findByLabelText('予定前の余白時間（時間）')).props.value).toBe('1');
+  expect(reopened.getByLabelText('予定前の余白時間（分）').props.value).toBe('30');
+  expect(reopened.getByLabelText('予定後の余白時間（分）').props.value).toBe('15');
 });

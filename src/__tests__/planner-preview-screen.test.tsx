@@ -21,6 +21,8 @@ const oversizedTaskId = '11111111-1111-4111-8111-111111111111';
 const shortTaskId = '22222222-2222-4222-8222-222222222222';
 const now = () => new Date('2026-09-16T15:30:00.000Z');
 const settings = {
+  calendarBufferBeforeMinutes: 0,
+  calendarBufferAfterMinutes: 0,
   minimumFreeMinutes: 20,
   planningEnd: '10:00',
   planningStart: '08:00',

@@ -138,6 +138,48 @@ export function PlanningSettingsForm({
         />
       </FormField>
 
+      {(['Before', 'After'] as const).map((side) => {
+        const label = side === 'Before' ? '予定前の余白時間' : '予定後の余白時間';
+        const hoursKey = `calendarBuffer${side}Hours` as const;
+        const minutesKey = `calendarBuffer${side}Minutes` as const;
+        return (
+          <FormField
+            key={side}
+            label={label}
+            helper="合計0〜4時間。Calendar予定の時刻は変更しません。"
+            error={fieldErrors[minutesKey]}
+          >
+            <View style={styles.timeRow}>
+              <View style={styles.timeField}>
+                <TextInput
+                  accessibilityLabel={`${label}（時間）`}
+                  value={values[hoursKey]}
+                  onChangeText={(value) => updateValue(hoursKey, value)}
+                  keyboardType="number-pad"
+                  editable={!isSaving}
+                  style={styles.input}
+                />
+                <Text style={styles.helper}>時間</Text>
+              </View>
+              <View style={styles.timeField}>
+                <TextInput
+                  accessibilityLabel={`${label}（分）`}
+                  value={values[minutesKey]}
+                  onChangeText={(value) => updateValue(minutesKey, value)}
+                  keyboardType="number-pad"
+                  editable={!isSaving}
+                  style={styles.input}
+                />
+                <Text style={styles.helper}>分</Text>
+              </View>
+            </View>
+          </FormField>
+        );
+      })}
+      <Text style={styles.helper}>
+        保存済みの計画は変わりません。新しい余白を反映するには、明示的に再計画してください。
+      </Text>
+
       {saveError ? (
         <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.errorBox}>
           {saveError}

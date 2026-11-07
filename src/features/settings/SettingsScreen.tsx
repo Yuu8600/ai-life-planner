@@ -81,7 +81,7 @@ export function SettingsScreen({
             <PlanningSettingsForm
               clearSaveFeedback={clearSaveFeedback}
               isSaving={isSaving}
-              key={`${settings.timezone}:${settings.planningStart}:${settings.planningEnd}:${settings.minimumFreeMinutes}`}
+              key={`${settings.timezone}:${settings.planningStart}:${settings.planningEnd}:${settings.minimumFreeMinutes}:${settings.calendarBufferBeforeMinutes}:${settings.calendarBufferAfterMinutes}`}
               onSubmit={save}
               saveError={saveError}
               saveSucceeded={saveSucceeded}

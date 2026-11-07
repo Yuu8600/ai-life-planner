@@ -5,6 +5,10 @@ import {
 } from '@/features/settings/validation';
 
 const validValues: SettingsFormValues = {
+  calendarBufferBeforeHours: '0',
+  calendarBufferBeforeMinutes: '0',
+  calendarBufferAfterHours: '0',
+  calendarBufferAfterMinutes: '0',
   minimumFreeMinutes: '30',
   planningEnd: '22:30',
   planningStart: '08:15',
@@ -16,6 +20,8 @@ describe('Settings validation', () => {
     expect(validateSettingsForm(validValues)).toEqual({
       errors: null,
       input: {
+        calendarBufferBeforeMinutes: 0,
+        calendarBufferAfterMinutes: 0,
         minimumFreeMinutes: 30,
         planningEnd: '22:30',
         planningStart: '08:15',
@@ -27,12 +33,18 @@ describe('Settings validation', () => {
   it('converts loaded profile settings into editable strings', () => {
     expect(
       createSettingsFormValues({
+        calendarBufferBeforeMinutes: 0,
+        calendarBufferAfterMinutes: 0,
         minimumFreeMinutes: 20,
         planningEnd: '23:00',
         planningStart: '08:00',
         timezone: 'Asia/Tokyo',
       }),
     ).toEqual({
+      calendarBufferBeforeHours: '0',
+      calendarBufferBeforeMinutes: '0',
+      calendarBufferAfterHours: '0',
+      calendarBufferAfterMinutes: '0',
       minimumFreeMinutes: '20',
       planningEnd: '23:00',
       planningStart: '08:00',
@@ -82,4 +94,46 @@ describe('Settings validation', () => {
       expect(result.errors?.minimumFreeMinutes).toBe('1以上の整数で入力してください。');
     },
   );
+});
+
+it.each([
+  [0, 0, 0],
+  [0, 15, 15],
+  [1, 30, 90],
+  [2, 0, 120],
+  [4, 0, 240],
+])('converts %ih %im into %i minutes', (hours, minutes, total) => {
+  const result = validateSettingsForm({
+    ...validValues,
+    calendarBufferBeforeHours: String(hours),
+    calendarBufferBeforeMinutes: String(minutes),
+    calendarBufferAfterHours: String(hours),
+    calendarBufferAfterMinutes: String(minutes),
+  });
+  expect(result.input?.calendarBufferBeforeMinutes).toBe(total);
+  expect(result.input?.calendarBufferAfterMinutes).toBe(total);
+});
+it.each([
+  ['-1', '0'],
+  ['0', '-1'],
+  ['0', '1.5'],
+  ['1.5', '0'],
+  ['5', '0'],
+  ['4', '1'],
+  ['0', '60'],
+  ['', '0'],
+  ['0', ''],
+  ['x', '0'],
+  ['0', '15分'],
+])('rejects invalid buffer hours=%s minutes=%s', (hours, minutes) => {
+  const result = validateSettingsForm({
+    ...validValues,
+    calendarBufferBeforeHours: hours,
+    calendarBufferBeforeMinutes: minutes,
+    calendarBufferAfterHours: hours,
+    calendarBufferAfterMinutes: minutes,
+  });
+  expect(result.input).toBeNull();
+  expect(result.errors?.calendarBufferBeforeMinutes).toBeTruthy();
+  expect(result.errors?.calendarBufferAfterMinutes).toBeTruthy();
 });

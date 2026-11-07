@@ -66,7 +66,8 @@ Personal Team署名のRelease buildで、Metro停止・USB解除後のiPhone単�
 
 ## Calendar / planning settings
 
-Settingsはtimezone、活動開始・終了、最小空き時間を編集する。
+Settingsはtimezone、活動開始・終了、最小空き時間、Calendar予定前後の共通余白を編集する。
+余白の計算仕様とDB反映・更新順序は[Calendar予定前後の余白](calendar-buffers.md)を参照。
 Calendarの権限はアプリ内の許可操作で要求し、通常予定・終日予定を読み取り専用で正規化する。
 端末予定をSupabaseへ複製せず、予定の追加・変更・削除も行わない。
 

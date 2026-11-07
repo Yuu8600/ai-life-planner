@@ -1,13 +1,8 @@
+import { loadCalendarPlanningEvents } from './loadCalendarPlanningEvents';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ProfilePlanningSettings, SettingsRepository } from '@/features/settings';
-import {
-  addLocalDays,
-  getLocalDate,
-  getUtcDayBounds,
-  resolveTimeZone,
-  type LocalDate,
-} from '@/features/today';
+import { addLocalDays, getLocalDate, resolveTimeZone, type LocalDate } from '@/features/today';
 
 import { CalendarUnavailableError, getCalendarErrorMessage } from './errors';
 import type { CalendarRepository } from './repositories/CalendarRepository';
@@ -21,6 +16,7 @@ export type UseDeviceCalendarResult = {
   calendarCount: number | null;
   canAskAgain: boolean;
   events: CalendarEvent[];
+  calculationEvents: CalendarEvent[];
   goToNextDay: () => void;
   goToPreviousDay: () => void;
   goToToday: () => void;
@@ -49,6 +45,7 @@ export function useDeviceCalendar(
   const [accessState, setAccessState] = useState<CalendarAccessState>('checking');
   const [calendarCount, setCalendarCount] = useState<number | null>(null);
   const [canAskAgain, setCanAskAgain] = useState(false);
+  const [calculationEvents, setCalculationEvents] = useState<CalendarEvent[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [initializationAttempt, setInitializationAttempt] = useState(0);
   const [eventLoadAttempt, setEventLoadAttempt] = useState(0);
@@ -69,6 +66,7 @@ export function useDeviceCalendar(
       setCalendarCount(null);
       setCanAskAgain(false);
       setEvents([]);
+      setCalculationEvents([]);
       setIsLoadingEvents(false);
       setLoadError(null);
       setPlanningSettings(null);
@@ -113,7 +111,13 @@ export function useDeviceCalendar(
   }, [calendarRepository, initializationAttempt, now, refreshToken, settingsRepository]);
 
   useEffect(() => {
-    if (accessState !== 'granted' || !calendarRepository || !selectedDate || !timeZone) {
+    if (
+      accessState !== 'granted' ||
+      !calendarRepository ||
+      !selectedDate ||
+      !timeZone ||
+      !planningSettings
+    ) {
       return;
     }
 
@@ -122,16 +126,23 @@ export function useDeviceCalendar(
       if (!isActive) return;
       setCalendarCount(null);
       setEvents([]);
+      setCalculationEvents([]);
       setIsLoadingEvents(true);
       setLoadError(null);
     });
 
-    calendarRepository
-      .listEvents(getUtcDayBounds(selectedDate, timeZone), selectedDate)
+    loadCalendarPlanningEvents(
+      calendarRepository,
+      selectedDate,
+      timeZone,
+      planningSettings.calendarBufferBeforeMinutes,
+      planningSettings.calendarBufferAfterMinutes,
+    )
       .then((result) => {
         if (!isActive) return;
         setCalendarCount(result.calendarCount);
         setEvents(result.events);
+        setCalculationEvents(result.calculationEvents);
       })
       .catch((error: unknown) => {
         if (!isActive) return;
@@ -145,7 +156,7 @@ export function useDeviceCalendar(
     return () => {
       isActive = false;
     };
-  }, [accessState, calendarRepository, eventLoadAttempt, selectedDate, timeZone]);
+  }, [accessState, calendarRepository, eventLoadAttempt, selectedDate, timeZone, planningSettings]);
 
   const requestPermission = useCallback(async () => {
     if (!calendarRepository || isRequestingRef.current) return;
@@ -189,6 +200,7 @@ export function useDeviceCalendar(
     calendarCount,
     canAskAgain,
     events,
+    calculationEvents,
     goToNextDay,
     goToPreviousDay,
     goToToday,

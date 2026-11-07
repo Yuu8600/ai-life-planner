@@ -24,6 +24,8 @@ function scenario(providerId = 'openai') {
   const source = {
     now: new Date('2026-10-01T22:00:00.000Z'),
     settings: {
+      calendarBufferBeforeMinutes: 0,
+      calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 20,
       planningStart: '08:00',
       planningEnd: '10:00',
@@ -441,3 +443,54 @@ describe('Planner approval against current data', () => {
     expect(test.provider.generate).toHaveBeenCalledTimes(1);
   });
 });
+
+it.each(['rule-based', 'openai'])(
+  'uses latest buffers for %s validation, stale approval and regeneration',
+  async (id) => {
+    const test = scenario(id);
+    test.source.events = [
+      {
+        allDay: false,
+        allDayStartDate: null,
+        allDayEndDate: null,
+        availability: 'busy',
+        status: 'confirmed',
+        calendarId: 'cal',
+        calendarTitle: null,
+        id: 'event',
+        instanceId: null,
+        location: null,
+        timeZone: null,
+        title: 'meeting',
+        startAt: '2026-10-01T23:30:00Z',
+        endAt: '2026-10-02T00:00:00Z',
+      },
+    ];
+    const preview = await test.generate();
+    expect(preview.proposal.actions[0].startAt).toBe('2026-10-01T23:00:00.000Z');
+    test.source.settings.calendarBufferBeforeMinutes = 15;
+    test.source.settings.calendarBufferAfterMinutes = 30;
+    await expect(
+      approvePlannerProposal(test.persistence, preview, test.dependencies),
+    ).rejects.toBeInstanceOf(PlannerPreviewStaleError);
+    expect(test.persistence.savePlan).not.toHaveBeenCalled();
+    expect(preview.proposal.actions[0].startAt).toBe('2026-10-01T23:00:00.000Z');
+    const fresh = await test.generate();
+    expect(fresh.proposal.actions[0].startAt).toBe('2026-10-02T00:30:00.000Z');
+    await approvePlannerProposal(test.persistence, fresh, test.dependencies);
+    expect(test.persistence.savePlan).toHaveBeenCalledTimes(1);
+    const replanned = await generatePlannerPreview({
+      ...test.dependencies,
+      provider: test.provider,
+      replanRepository: {
+        getSnapshot: jest.fn(async () => replanSnapshot),
+        replaceIfCurrent: jest.fn(),
+      },
+    });
+    expect(replanned.ok && replanned.proposal.actions[0].startAt).toBe('2026-10-02T00:30:00.000Z');
+    // A provider returning the old, unbuffered placement must fail common validation.
+    test.provider.generate.mockResolvedValueOnce(preview.proposal);
+    const invalid = await generatePlannerPreview({ ...test.dependencies, provider: test.provider });
+    expect(invalid.ok).toBe(false);
+  },
+);

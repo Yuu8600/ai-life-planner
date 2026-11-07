@@ -137,6 +137,8 @@ function calculateFreeSlots(
 }
 
 export function calculateFreeTime({
+  calendarBufferBeforeMinutes = 0,
+  calendarBufferAfterMinutes = 0,
   events,
   minimumFreeMinutes,
   planningEnd,
@@ -145,6 +147,12 @@ export function calculateFreeTime({
   timezone,
 }: FreeTimeCalculationInput): FreeTimeCalculationResult {
   validateMinimumFreeMinutes(minimumFreeMinutes);
+  for (const minutes of [calendarBufferBeforeMinutes, calendarBufferAfterMinutes]) {
+    if (!Number.isInteger(minutes) || minutes < 0 || minutes > 240)
+      throw new FreeTimeCalculationError(
+        'Calendar buffers must be integers from 0 to 240 minutes.',
+      );
+  }
 
   const planningWindow: TimeInterval = {
     endAt: getUtcInstantForLocalTime(selectedDate, planningEnd, timezone),
@@ -163,8 +171,16 @@ export function calculateFreeTime({
       continue;
     }
 
+    const interval = toNumericInterval(event, 'Calendar event');
     const clamped = clampIntervalToWindow(
-      { endAt: event.endAt, startAt: event.startAt },
+      {
+        endAt: new Date(
+          interval.end + calendarBufferAfterMinutes * MILLISECONDS_PER_MINUTE,
+        ).toISOString(),
+        startAt: new Date(
+          interval.start - calendarBufferBeforeMinutes * MILLISECONDS_PER_MINUTE,
+        ).toISOString(),
+      },
       planningWindow,
     );
     if (clamped) blockingIntervals.push(clamped);

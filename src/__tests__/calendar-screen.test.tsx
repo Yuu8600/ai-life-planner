@@ -24,6 +24,8 @@ function createDeferred<T>(): Deferred<T> {
 
 const now = () => new Date('2026-09-15T03:00:00.000Z');
 const settings = {
+  calendarBufferBeforeMinutes: 0,
+  calendarBufferAfterMinutes: 0,
   minimumFreeMinutes: 30,
   planningEnd: '22:00',
   planningStart: '08:00',
@@ -410,4 +412,30 @@ describe('CalendarScreen', () => {
     expect(await screen.findByTestId('calendar-error-state')).toBeTruthy();
     expect(repository.listEvents).not.toHaveBeenCalled();
   });
+});
+
+it('shows buffer-adjusted free time without changing the displayed event times', async () => {
+  const repository = createCalendarRepository({
+    listEvents: jest.fn(async () => ({
+      calendarCount: 1,
+      discardedEventCount: 0,
+      events: [busyEvent],
+    })),
+  });
+  const screen = await renderCalendar(
+    repository,
+    createSettingsRepository({
+      getProfilePlanningSettings: jest.fn(async () => ({
+        ...settings,
+        calendarBufferBeforeMinutes: 15,
+        calendarBufferAfterMinutes: 30,
+      })),
+    }),
+  );
+  expect(await screen.findByTestId('calendar-free-time')).toBeTruthy();
+  expect(screen.getByText('08:00–08:45')).toBeTruthy();
+  expect(screen.getByText('10:30–22:00')).toBeTruthy();
+  expect(screen.getByText('09:00–10:00')).toBeTruthy();
+  expect(screen.getByText('予定前後の余白時間を除いて計算しています。')).toBeTruthy();
+  expect(repository.listEvents).toHaveBeenCalledTimes(3);
 });

@@ -113,7 +113,8 @@ rewrite it; requirement changes need explicit user authorization and should be v
   from `profiles.timezone`, query by `planned_actions.start_at`, and reject invalid timezones rather
   than silently falling back. Do not use `tasks.deadline` as an execution date.
 - Keep Settings UI and state management dependent on `SettingsRepository`. Read and update only
-  `timezone`, `planning_start`, `planning_end`, and `minimum_free_minutes`; scope every adapter
+  `timezone`, `planning_start`, `planning_end`, `minimum_free_minutes`,
+  `calendar_buffer_before_minutes`, and `calendar_buffer_after_minutes`; scope every adapter
   operation to the authenticated profile id and validate inputs before writing.
 - Keep Calendar UI and state management dependent on `CalendarRepository`; only the adapter under
   `src/services/calendar` may import `expo-calendar`. Keep integration read-only, retain all-day and
