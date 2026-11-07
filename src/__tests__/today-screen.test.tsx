@@ -1,6 +1,6 @@
 import type { CalendarRepository, CalendarEvent } from '@/features/calendar';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { Alert, StyleSheet } from 'react-native';
 
 import { TodayScreen } from '@/features/today/TodayScreen';
 import type {
@@ -203,7 +203,7 @@ describe('TodayScreen', () => {
     expect(getToday).toHaveBeenCalledTimes(2);
   });
 
-  it('renders summary, plan-timezone times, reasons, all statuses, and deadline Tasks separately', async () => {
+  it('renders summary, profile-timezone times without changing instants, reasons, all statuses, and deadline Tasks separately', async () => {
     const onPressAi = jest.fn();
     const onPressSettings = jest.fn();
     const screen = await render(
@@ -216,8 +216,8 @@ describe('TodayScreen', () => {
 
     expect(await screen.findByText('朝と夕方に英語学習を進めます。')).toBeTruthy();
     expect(screen.getByText('金フレ')).toBeTruthy();
-    expect(screen.getByText('08:30')).toBeTruthy();
-    expect(screen.getByText('08:50')).toBeTruthy();
+    expect(screen.getByText('2026-09-10 19:30')).toBeTruthy();
+    expect(screen.getByText('2026-09-10 19:50')).toBeTruthy();
     expect(screen.getByLabelText(/朝の集中しやすい時間だからです。/)).toBeTruthy();
     expect(screen.getByText('Task: 英単語を20分学習')).toBeTruthy();
     expect(screen.getAllByText('Goal: TOEIC 730')).toHaveLength(2);
@@ -613,7 +613,7 @@ function calendarReader(): jest.Mocked<CalendarRepository> {
   };
 }
 describe('Today calendar integration', () => {
-  it('queries the profile day while displaying Calendar and Actions in the saved Plan timezone', async () => {
+  it('queries the profile day while displaying saved Plan instants in the current profile timezone', async () => {
     const calendar = calendarReader();
     const screen = await render(
       <TodayScreen
@@ -624,14 +624,20 @@ describe('Today calendar integration', () => {
       />,
     );
     expect(await screen.findByText('Calendar meeting')).toBeTruthy();
-    expect(screen.getByText('13:00–14:00')).toBeTruthy();
-    expect(screen.getByText('時刻表示: Asia/Tokyo')).toBeTruthy();
+    expect(screen.getByText('00:00–01:00')).toBeTruthy();
+    expect(screen.getByText('時刻表示: America/New_York')).toBeTruthy();
+    // The legacy Plan still uses its saved Tokyo day window: 23:30Z is 510 elapsed minutes after 15:00Z.
+    expect(
+      StyleSheet.flatten(screen.getByTestId('today-axis-action:action-words').props.style).top,
+    ).toBe(816);
     expect(calendar.listEvents).toHaveBeenCalledWith(
       { startAt: '2026-09-11T04:00:00.000Z', endAt: '2026-09-12T04:00:00.000Z' },
       '2026-09-11',
     );
-    const titles = screen.toJSON();
-    const json = JSON.stringify(titles);
+    const json = within(screen.getByTestId('today-details-list'))
+      .getAllByText(/金フレ|Calendar meeting|TOEIC Listening/)
+      .map((node) => node.props.children)
+      .join(',');
     expect(json.indexOf('金フレ')).toBeLessThan(json.indexOf('Calendar meeting'));
     expect(json.indexOf('Calendar meeting')).toBeLessThan(json.indexOf('TOEIC Listening'));
     expect(calendar.requestPermission).not.toHaveBeenCalled();

@@ -1,5 +1,9 @@
+import type { SettingsRepository } from '@/features/settings';
+import { useTodayCalendar } from './useTodayCalendar';
+import { currentInstant, useTimelineClock } from './useTimelineClock';
+import { resolveAxisWindow, unallocatedSlots } from './timeAxis';
 import { getLocalDate, formatLocalTimeJa } from './timezone';
-import { useDailyCalendar, type CalendarRepository } from '@/features/calendar';
+import { type CalendarRepository, type CalendarEventBufferRepository } from '@/features/calendar';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import {
@@ -26,6 +30,9 @@ import { TodayStatePanel } from './components/TodayStatePanel';
 import { DeadlineTaskList } from './components/DeadlineTaskList';
 
 type TodayScreenProps = {
+  settingsRepository?: SettingsRepository | null;
+  eventBufferRepository?: CalendarEventBufferRepository | null;
+  now?: () => Date;
   calendarRepository?: CalendarRepository | null;
   onPressReplan?: () => void;
   onPressAi: () => void;
@@ -38,6 +45,9 @@ type TodayScreenProps = {
 
 export function TodayScreen({
   calendarRepository = null,
+  settingsRepository = null,
+  eventBufferRepository = null,
+  now = currentInstant,
   onPressReplan,
   onPressAi,
   onPressSettings,
@@ -50,17 +60,38 @@ export function TodayScreen({
     repository,
     refreshToken,
   );
-  const calendar = useDailyCalendar(
+  const displayTimezone = today?.profileTimezone ?? 'UTC';
+  const axisWindow = today
+    ? resolveAxisWindow(
+        today.localDate,
+        today.plan?.timezone ?? displayTimezone,
+        today.plan?.window,
+        today.plan ? undefined : today.planningWindow,
+      )
+    : undefined;
+  const instant = useTimelineClock(now, refreshToken);
+  const calendar = useTodayCalendar(
     calendarRepository,
+    settingsRepository,
+    eventBufferRepository,
     today?.localDate ?? null,
     today?.profileTimezone ?? null,
+    axisWindow,
     dataRevision,
-    today?.plan?.window ?? today?.planningWindow,
+    now,
   );
-  const displayTimezone = today?.plan?.timezone ?? today?.profileTimezone ?? 'UTC';
+  const freeSlots =
+    !isLoading && !loadError && calendar.availability
+      ? unallocatedSlots(
+          calendar.availability.result.freeSlots,
+          today?.plan?.actions ?? [],
+          calendar.availability.minimum,
+          instant,
+        )
+      : [];
   const activity = useActivityLogs(activityLogRepository, today?.localDate ?? null, dataRevision);
   const { execute, mutations } = usePlannedActionExecution(executionRepository, refresh);
-  const timelineItems = today?.plan ? toTimelineItems(today.plan) : [];
+  const timelineItems = today?.plan ? toTimelineItems(today.plan, displayTimezone) : [];
   const deadlineTaskItems = today ? toDeadlineTaskItems(today.deadlineTasks) : [];
   const completedActions = today?.plan?.actions.filter(
     (action) => action.status === 'completed',
@@ -121,6 +152,14 @@ export function TodayScreen({
           {today.plan && today.plan.timezone !== today.profileTimezone ? (
             <Text style={{ color: colors.textMuted }}>時刻表示: {displayTimezone}</Text>
           ) : null}
+          {today.plan &&
+          (today.plan.window?.startAt !== today.planningWindow?.startAt ||
+            today.plan.window?.endAt !== today.planningWindow?.endAt ||
+            today.plan.timezone !== today.profileTimezone) ? (
+            <Text style={{ color: colors.textMuted }}>
+              時間軸は保存時の活動時間です。空き時間は現在の設定で計算します。
+            </Text>
+          ) : null}
           {calendar.message ? (
             <Text style={{ color: colors.textMuted }}>{calendar.message}</Text>
           ) : null}
@@ -147,51 +186,54 @@ export function TodayScreen({
               {today.plan.actions.length === 0 && calendar.events.length > 0 ? (
                 <Text>予定されたアクションはありません</Text>
               ) : null}
-              {today.plan.actions.length > 0 || calendar.events.length > 0 ? (
-                <Timeline
-                  items={timelineItems}
-                  calendarEvents={calendar.events.map((event) => ({
-                    ...event,
-                    canceled: event.status === 'canceled',
-                  }))}
-                  actionStarts={Object.fromEntries(
-                    today.plan.actions.map((action) => [action.id, action.startAt]),
-                  )}
-                  localDate={today.localDate}
-                  timezone={displayTimezone}
-                  mutations={mutations}
-                  executionDisabled={isLoading || Boolean(loadError)}
-                  onExecute={
-                    executionRepository
-                      ? (id, targetStatus) => {
-                          const action = today.plan?.actions.find((item) => item.id === id);
-                          if (!action || action.status !== 'scheduled') return;
-                          if (targetStatus === 'completed') {
-                            void execute(action, targetStatus);
-                          } else {
-                            appAlert.alert(
-                              'この予定をスキップしますか？',
-                              '関連するTaskは未完了のまま残ります。',
-                              [
-                                { text: 'キャンセル', style: 'cancel' },
-                                {
-                                  text: 'スキップ',
-                                  onPress: () => void execute(action, targetStatus),
-                                },
-                              ],
-                            );
-                          }
+              <Timeline
+                window={axisWindow}
+                now={instant}
+                freeSlots={freeSlots}
+                availabilityMessage={calendar.availabilityMessage}
+                items={timelineItems}
+                calendarEvents={calendar.events.map((event) => ({
+                  ...event,
+                  canceled: event.status === 'canceled',
+                }))}
+                actionStarts={Object.fromEntries(
+                  today.plan.actions.map((action) => [action.id, action.startAt]),
+                )}
+                localDate={today.localDate}
+                timezone={displayTimezone}
+                mutations={mutations}
+                executionDisabled={isLoading || Boolean(loadError)}
+                onExecute={
+                  executionRepository
+                    ? (id, targetStatus) => {
+                        const action = today.plan?.actions.find((item) => item.id === id);
+                        if (!action || action.status !== 'scheduled') return;
+                        if (targetStatus === 'completed') {
+                          void execute(action, targetStatus);
+                        } else {
+                          appAlert.alert(
+                            'この予定をスキップしますか？',
+                            '関連するTaskは未完了のまま残ります。',
+                            [
+                              { text: 'キャンセル', style: 'cancel' },
+                              {
+                                text: 'スキップ',
+                                onPress: () => void execute(action, targetStatus),
+                              },
+                            ],
+                          );
                         }
-                      : undefined
-                  }
-                />
-              ) : (
+                      }
+                    : undefined
+                }
+              />
+              {today.plan.actions.length === 0 && calendar.events.length === 0 ? (
                 <TodayStatePanel
                   message="計画は保存されていますが、予定されたActionはありません。"
                   testID="today-plan-actions-empty"
                   title="予定されたアクションはありません"
                 />
-              )}
+              ) : null}
             </>
           ) : (
             <>
@@ -206,8 +248,12 @@ export function TodayScreen({
             </>
           )}
 
-          {!today.plan && calendar.events.length > 0 ? (
+          {!today.plan ? (
             <Timeline
+              window={axisWindow}
+              now={instant}
+              freeSlots={freeSlots}
+              availabilityMessage={calendar.availabilityMessage}
               items={[]}
               calendarEvents={calendar.events.map((event) => ({
                 ...event,

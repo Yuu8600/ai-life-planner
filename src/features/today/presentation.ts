@@ -22,6 +22,8 @@ const TASK_STATUS_LABELS: Record<TodayDeadlineTask['status'], string> = {
 
 function toTimelineItem(action: TodayPlannedAction, timezone: string, date: string): TimelineItem {
   return {
+    startAt: action.startAt,
+    endAt: action.endAt,
     end: formatPlanningTime(action.endAt, date, timezone),
     goalTitle: action.goalTitle,
     id: action.id,
@@ -34,8 +36,11 @@ function toTimelineItem(action: TodayPlannedAction, timezone: string, date: stri
   };
 }
 
-export function toTimelineItems(plan: TodayDailyPlan): TimelineItem[] {
-  return plan.actions.map((action) => toTimelineItem(action, plan.timezone, plan.date));
+export function toTimelineItems(
+  plan: TodayDailyPlan,
+  displayTimezone = plan.timezone,
+): TimelineItem[] {
+  return plan.actions.map((action) => toTimelineItem(action, displayTimezone, plan.date));
 }
 
 export function toDeadlineTaskItems(tasks: readonly TodayDeadlineTask[]): DeadlineTaskItem[] {

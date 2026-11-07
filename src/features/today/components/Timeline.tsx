@@ -1,225 +1,373 @@
-import { StyleSheet, Text, View } from 'react-native';
-
-import { CalendarTimelineCard, type CalendarTimelineEvent } from '@/features/calendar';
-import { orderDailyTimeline } from '@/shared/types/dailyTimeline';
-
-import { Badge } from '@/shared/components/Badge';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { CalendarTimelineCard } from '@/features/calendar';
+import { SelectionPanel, type PanelAnchor } from '@/shared/components/timeSelection/SelectionPanel';
 import { ActionButton } from '@/shared/components/ActionButton';
-import { colors, radius, spacing } from '@/shared/theme';
+import { colors, spacing, radius } from '@/shared/theme';
+import { formatPlanningTime } from '../planningTime';
+import {
+  axisPosition,
+  axisTicks,
+  AXIS_TAP_HEIGHT,
+  layoutTimeAxis,
+  resolveAxisWindow,
+  type AxisWindow,
+} from '../timeAxis';
+import { TimelineDetails, type TimelineProps } from './TimelineDetails';
 
-import type { TimelineItem } from '../types';
-import type { ActionExecutionStatus } from '../repositories/PlannedActionExecutionRepository';
-import type { ActionMutationState } from '../usePlannedActionExecution';
-
-type TimelineProps = {
-  items: TimelineItem[];
-  calendarEvents?: CalendarTimelineEvent[];
-  actionStarts?: Record<string, string>;
-  localDate?: string;
-  timezone?: string;
-  executionDisabled?: boolean;
-  mutations?: Record<string, ActionMutationState>;
-  onExecute?: (id: string, status: ActionExecutionStatus) => void;
-};
-
-export function Timeline({
-  items,
-  calendarEvents = [],
-  actionStarts = {},
-  localDate = '',
-  timezone = 'UTC',
-  executionDisabled = false,
-  mutations = {},
-  onExecute,
-}: TimelineProps) {
-  const nextActionId = items.find((item) => item.status === 'scheduled')?.id;
-  const rows = orderDailyTimeline<
-    { kind: 'action'; item: TimelineItem } | { kind: 'calendar'; event: CalendarTimelineEvent }
-  >([
-    ...items.map((item) => ({
-      allDay: false,
-      startAt: actionStarts[item.id] ?? `2000-01-01T${item.start}:00Z`,
-      value: { kind: 'action' as const, item },
-    })),
-    ...calendarEvents.map((event) => ({
-      allDay: event.allDay,
-      startAt: event.startAt,
-      value: { kind: 'calendar' as const, event },
-    })),
-  ]);
+export function Timeline(
+  props: TimelineProps & {
+    window?: AxisWindow;
+    now?: Date;
+    freeSlots?: readonly AxisWindow[];
+    availabilityMessage?: string;
+  },
+) {
+  const {
+    items,
+    calendarEvents = [],
+    localDate = '2000-01-01',
+    timezone = 'UTC',
+    now = new Date(),
+    freeSlots = [],
+    availabilityMessage,
+  } = props;
+  const { fontScale } = useWindowDimensions();
+  const tapHeight = Math.max(AXIS_TAP_HEIGHT, Math.ceil(38 * fontScale + 8));
+  const startAt = props.window?.startAt,
+    endAt = props.window?.endAt;
+  const window = useMemo(
+    () => (startAt && endAt ? { startAt, endAt } : resolveAxisWindow(localDate, timezone)),
+    [startAt, endAt, localDate, timezone],
+  );
+  const entries = useMemo(
+    () => [
+      ...items.map((item) => ({
+        id: `action:${item.id}`,
+        startAt: item.startAt,
+        endAt: item.endAt,
+        title: item.title,
+        kind: 'action' as const,
+        item,
+      })),
+      ...calendarEvents
+        .filter((event) => !event.allDay)
+        .map((event, index) => ({ id: `calendar:${index}`, ...event, kind: 'calendar' as const })),
+    ],
+    [items, calendarEvents],
+  );
+  const layout = useMemo(
+    () => layoutTimeAxis(window, entries, tapHeight),
+    [window, entries, tapHeight],
+  );
+  const ticks = useMemo(
+    () => axisTicks(window, localDate, timezone),
+    [window, localDate, timezone],
+  );
+  const [width, setWidth] = useState(320);
+  const [selected, setSelected] = useState<{ id: string; anchor: PanelAnchor } | null>(null);
+  const closeSelection = useCallback(() => setSelected(null), []);
+  const scroll = useRef<ScrollView>(null);
+  const entry = entries.find((item) => item.id === selected?.id);
+  const next = items.find((item) => item.status === 'scheduled');
+  const chartWidth = Math.max(width, 82 + layout.laneCount * 156);
+  const laneWidth = (chartWidth - 82) / layout.laneCount;
+  const currentY = axisPosition(now.getTime(), window);
+  const showNow = currentY >= 0 && currentY < layout.height;
+  const open = (id: string) =>
+    setSelected({ id, anchor: { x: 24, y: 40, width: 300, height: 44 } });
   return (
-    <View style={styles.list}>
-      {rows.map((row, index) => {
-        if (row.kind === 'calendar')
-          return (
-            <CalendarTimelineCard
-              key={`calendar-${index}`}
-              event={row.event}
-              localDate={localDate}
-              timezone={timezone}
-            />
-          );
-        const item = row.item;
-        const mutation = mutations[item.id];
-        const updating = mutation?.status === 'updating';
-        return (
-          <View
-            accessibilityLabel={[
-              item.id === nextActionId ? '次に取り組む' : null,
-              item.start + 'から' + item.end,
-              item.title,
-              '予定アクション',
-              item.taskTitle ? 'タスク ' + item.taskTitle : null,
-              item.goalTitle ? 'Goal ' + item.goalTitle : null,
-              item.reason ? '理由 ' + item.reason : null,
-              item.statusLabel,
-            ]
-              .filter(Boolean)
-              .join('、')}
-            key={item.id}
-            style={[styles.row, index === rows.length - 1 ? styles.lastRow : null]}
-          >
-            <View style={styles.timeColumn}>
-              <Text style={styles.startTime}>{item.start}</Text>
-              <Text style={styles.endTime}>{item.end}</Text>
-            </View>
-            <View style={styles.rail}>
-              <View style={[styles.dot, styles.plannedDot]} />
-              {index < rows.length - 1 ? <View style={styles.line} /> : null}
-            </View>
+    <View style={styles.root}>
+      <Text style={styles.legend}>Calendar＝グレー　Action＝グリーン</Text>
+      <Text style={styles.helper}>
+        {formatPlanningTime(window.startAt, localDate, timezone)}〜
+        {formatPlanningTime(window.endAt, localDate, timezone)}（{timezone}）
+      </Text>
+      {availabilityMessage ? (
+        <Text testID="today-capacity-status" style={styles.helper}>
+          {availabilityMessage}
+        </Text>
+      ) : null}
+      {next ? (
+        <ActionButton
+          label={`次のActionを確認: ${next.title}`}
+          onPress={() => open(`action:${next.id}`)}
+          variant="secondary"
+        />
+      ) : null}
+      {calendarEvents.some((event) => event.allDay) ? (
+        <View testID="today-all-day">
+          <Text accessibilityRole="header">終日予定</Text>
+          {calendarEvents
+            .filter((event) => event.allDay)
+            .map((event, index) => (
+              <CalendarTimelineCard
+                key={index}
+                event={event}
+                localDate={localDate}
+                timezone={timezone}
+              />
+            ))}
+        </View>
+      ) : null}
+      <View style={styles.axisHeading}>
+        <Text accessibilityRole="header" style={styles.heading}>
+          一日の時間軸
+        </Text>
+        {showNow ? (
+          <ActionButton
+            label="現在時刻へ"
+            variant="ghost"
+            onPress={() =>
+              scroll.current?.scrollTo({ y: Math.max(0, currentY - 120), animated: true })
+            }
+          />
+        ) : null}
+      </View>
+      {chartWidth > width + 1 ? (
+        <Text style={styles.helper}>重なる予定は横にスクロールできます。</Text>
+      ) : null}
+      <View
+        testID="today-axis-container"
+        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      >
+        <ScrollView
+          ref={scroll}
+          nestedScrollEnabled
+          style={styles.viewport}
+          contentContainerStyle={{ minHeight: 320 }}
+          testID="today-axis-scroll"
+        >
+          <ScrollView horizontal showsHorizontalScrollIndicator testID="today-axis-horizontal">
             <View
-              testID={item.id === nextActionId ? 'today-next-action' : undefined}
-              style={[styles.details, item.id === nextActionId ? styles.nextAction : null]}
+              testID="today-time-axis"
+              style={{
+                width: chartWidth,
+                height: layout.height + tapHeight + 8,
+                marginTop: 12,
+              }}
             >
-              {item.id === nextActionId ? <Badge label="次に取り組む" tone="accent" /> : null}
-              <Text style={styles.title}>{item.title}</Text>
-              {item.taskTitle && item.taskTitle !== item.title ? (
-                <Text style={styles.relation}>Task: {item.taskTitle}</Text>
-              ) : null}
-              {item.goalTitle ? <Text style={styles.relation}>Goal: {item.goalTitle}</Text> : null}
-              <View style={styles.meta}>
-                <Badge
-                  label={item.statusLabel}
-                  tone={
-                    item.status === 'completed'
-                      ? 'accent'
-                      : item.status === 'skipped'
-                        ? 'warning'
-                        : 'neutral'
-                  }
-                />
-              </View>
-              {item.status === 'scheduled' && onExecute ? (
-                <View style={styles.operations}>
-                  <ActionButton
-                    accessibilityLabel={`${item.title}を完了する`}
-                    disabled={executionDisabled || updating}
-                    label={updating ? '更新中…' : '完了'}
-                    onPress={() => onExecute(item.id, 'completed')}
-                    variant="secondary"
-                  />
-                  <ActionButton
-                    accessibilityLabel={`${item.title}をスキップする`}
-                    disabled={executionDisabled || updating}
-                    label="スキップ"
-                    onPress={() => onExecute(item.id, 'skipped')}
-                    variant="ghost"
-                  />
+              {ticks.map((tick) => (
+                <View
+                  key={tick.instant}
+                  testID="today-hour-tick"
+                  style={[styles.tick, { top: tick.top }]}
+                >
+                  <Text style={styles.tickLabel}>{tick.label}</Text>
+                  <View style={styles.tickLine} />
+                </View>
+              ))}
+              {freeSlots.map((slot, index) => {
+                const start = Math.max(Date.parse(slot.startAt), Date.parse(window.startAt)),
+                  end = Math.min(Date.parse(slot.endAt), Date.parse(window.endAt));
+                if (start >= end) return null;
+                const height = ((end - start) / 60_000) * 1.6;
+                return (
+                  <View
+                    key={index}
+                    testID="today-available-slot"
+                    accessibilityLabel={`配置可能な空き時間 ${formatPlanningTime(new Date(start).toISOString(), localDate, timezone)}から${formatPlanningTime(new Date(end).toISOString(), localDate, timezone)}`}
+                    style={[
+                      styles.free,
+                      {
+                        left: 82,
+                        top: axisPosition(start, window),
+                        height,
+                        width: chartWidth - 86,
+                      },
+                    ]}
+                  >
+                    <Text numberOfLines={1} style={styles.freeLabel}>
+                      配置可能 {Math.floor((end - start) / 60_000)}分
+                    </Text>
+                  </View>
+                );
+              })}
+              {layout.blocks.map((block, index) => {
+                const source = entries.find((item) => item.id === block.id)!;
+                const action = source.kind === 'action';
+                const time = `${formatPlanningTime(source.startAt, localDate, timezone)}–${formatPlanningTime(source.endAt, localDate, timezone)}`;
+                return (
+                  <Pressable
+                    key={block.id}
+                    testID={`today-axis-${block.id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${source.title}、${time}、${action ? 'Action・' + source.item.statusLabel : 'Calendar'}の詳細を開く`}
+                    onPress={() => open(block.id)}
+                    style={[
+                      styles.block,
+                      {
+                        top: block.top,
+                        left: 82 + block.lane * laneWidth,
+                        width: laneWidth - 4,
+                        height: Math.max(tapHeight, block.height),
+                      },
+                    ]}
+                  >
+                    <View
+                      pointerEvents="none"
+                      testID={`today-axis-duration-${block.id}`}
+                      style={[
+                        styles.duration,
+                        {
+                          height: block.height,
+                          backgroundColor: action ? colors.accentSoft : colors.calendarSoft,
+                          borderColor: action ? colors.accent : colors.calendar,
+                        },
+                      ]}
+                    />
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.blockTitle,
+                        { color: action ? colors.accent : colors.calendar },
+                      ]}
+                    >
+                      {index + 1}. {source.title}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.blockTime}>
+                      {time} · {action ? `Action・${source.item.statusLabel}` : 'Calendar'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {showNow ? (
+                <View
+                  pointerEvents="none"
+                  testID="today-current-time"
+                  accessibilityLabel={`現在時刻 ${formatPlanningTime(now.toISOString(), localDate, timezone)}`}
+                  style={[styles.now, { top: currentY }]}
+                >
+                  <Text style={styles.nowLabel}>
+                    {formatPlanningTime(now.toISOString(), localDate, timezone)}
+                  </Text>
+                  <View style={styles.nowLine} />
                 </View>
               ) : null}
-              {mutation?.status === 'error' && item.status === 'scheduled' ? (
-                <Text accessibilityRole="alert" style={styles.error}>
-                  {mutation.message}
-                </Text>
-              ) : null}
             </View>
-          </View>
-        );
-      })}
+          </ScrollView>
+        </ScrollView>
+      </View>
+      <Text style={styles.helper}>
+        カードをタップすると短い予定の全文・時刻・操作を確認できます。色の帯の高さが実際の長さです。
+      </Text>
+      <View testID="today-details-list">
+        <Text accessibilityRole="header" style={styles.heading}>
+          予定の詳細・操作
+        </Text>
+        <TimelineDetails
+          {...props}
+          calendarEvents={calendarEvents.filter((event) => !event.allDay)}
+        />
+      </View>
+      {entry && selected ? (
+        <SelectionPanel title="予定の詳細" anchor={selected.anchor} onCancel={closeSelection}>
+          {entry.kind === 'action' ? (
+            <TimelineDetails
+              {...props}
+              items={[entry.item]}
+              calendarEvents={[]}
+              nextActionId={next?.id ?? null}
+            />
+          ) : (
+            <CalendarTimelineCard event={entry} localDate={localDate} timezone={timezone} />
+          )}
+          <ActionButton label="閉じる" onPress={closeSelection} variant="ghost" />
+        </SelectionPanel>
+      ) : null}
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  list: {
-    marginTop: spacing.sm,
-  },
-  row: {
-    minHeight: 88,
+  root: { gap: spacing.md, marginTop: spacing.md },
+  legend: { color: colors.textMuted, fontSize: 13 },
+  helper: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
+  heading: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  axisHeading: {
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
-  lastRow: {
-    borderBottomWidth: 0,
+  viewport: {
+    maxHeight: 560,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
   },
-  timeColumn: {
-    width: 58,
-    paddingTop: spacing.md,
-  },
-  startTime: {
-    fontVariant: ['tabular-nums'],
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  endTime: {
-    marginTop: 3,
-    color: colors.textSubtle,
-    fontSize: 12,
-  },
-  rail: {
-    width: 24,
+  tick: {
+    height: 0,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  dot: {
-    zIndex: 1,
-    width: 10,
-    height: 10,
-    marginTop: 17,
-    borderRadius: 5,
-  },
-  plannedDot: {
-    backgroundColor: colors.accent,
-  },
-  line: {
+  tickLabel: {
     position: 'absolute',
-    top: 24,
-    bottom: -17,
-    width: 1,
+    left: 0,
+    top: -8,
+    width: 78,
+    fontSize: 11,
+    color: colors.textMuted,
+    paddingLeft: 4,
+    fontVariant: ['tabular-nums'],
+  },
+  tickLine: {
+    position: 'absolute',
+    left: 82,
+    right: 0,
+    top: 0,
+    height: 1,
     backgroundColor: colors.border,
   },
-  details: {
-    flex: 1,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+  block: { position: 'absolute', paddingHorizontal: 6, paddingTop: 4 },
+  duration: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    borderLeftWidth: 3,
+    borderRadius: 4,
   },
-  nextAction: {
-    marginVertical: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentSoft,
-    gap: spacing.xs,
+  blockTitle: { fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  blockTime: { fontSize: 11, lineHeight: 16, color: colors.textMuted },
+  free: {
+    position: 'absolute',
+    backgroundColor: '#F0F8F3',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.accentMuted,
+    overflow: 'hidden',
   },
-  title: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  relation: {
-    marginTop: spacing.xs,
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-
-  meta: {
+  freeLabel: { fontSize: 11, color: colors.accent, padding: 4 },
+  now: {
+    height: 0,
+    position: 'absolute',
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+    zIndex: 5,
   },
-
-  operations: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
-  error: { color: colors.warning, fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
+  nowLabel: {
+    position: 'absolute',
+    left: 0,
+    top: -8,
+    width: 78,
+    fontSize: 11,
+    color: '#B33A3A',
+    backgroundColor: colors.surface,
+    fontWeight: '700',
+    paddingLeft: 4,
+  },
+  nowLine: {
+    position: 'absolute',
+    left: 82,
+    right: 0,
+    top: 0,
+    height: 2,
+    backgroundColor: '#B33A3A',
+  },
 });
