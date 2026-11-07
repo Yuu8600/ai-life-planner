@@ -67,6 +67,7 @@ export function toSavePlannerProposalInput({
       taskId: action.taskId,
       title: action.title,
     })),
+    planningWindow: input.planningWindow,
     planDate: validatedProposal.date,
     summary: validatedProposal.summary,
     timezone: normalizedTimezone,
@@ -102,6 +103,15 @@ export async function approvePlannerProposal(
       path: 'input.timezone',
     });
   }
+  if (
+    Date.parse(preview.input.planningWindow.startAt) !== Date.parse(input.planningWindow.startAt) ||
+    Date.parse(preview.input.planningWindow.endAt) !== Date.parse(input.planningWindow.endAt)
+  )
+    issues.push({
+      code: 'INVALID_INPUT',
+      path: 'input.planningWindow',
+      message: 'Planning window changed since generation.',
+    });
   if (issues.length > 0) throw new PlannerPreviewStaleError(issues);
 
   // A retired confirmation must not save after regeneration, sign-out, or dependency changes.

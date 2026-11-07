@@ -30,6 +30,7 @@ function scenario(providerId = 'openai') {
       minimumFreeMinutes: 20,
       planningStart: '08:00',
       planningEnd: '10:00',
+      planningEndDayOffset: 0 as const,
       timezone: 'Asia/Tokyo',
     },
     events: [] as CalendarEvent[],

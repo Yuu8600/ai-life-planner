@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getUtcDayBounds } from '@/features/today';
+import { getUtcDayBounds, getLocalDate, addLocalDays } from '@/features/today';
 import type { CalendarRepository } from './repositories/CalendarRepository';
 import type { CalendarEvent } from './types';
 
@@ -9,7 +9,9 @@ export function useDailyCalendar(
   localDate: string | null,
   timezone: string | null,
   revision: number,
+  window?: { startAt: string; endAt: string },
 ) {
+  const windowEndAt = window?.endAt;
   const [result, setResult] = useState<{
     repository: CalendarRepository | null;
     localDate: string;
@@ -32,7 +34,24 @@ export function useDailyCalendar(
           publish([], 'Calendar予定は表示できません。カレンダー画面で権限を確認してください。');
           return;
         }
-        const loaded = await repository.listEvents(getUtcDayBounds(localDate, timezone), localDate);
+        const endDate = windowEndAt
+          ? getLocalDate(new Date(Date.parse(windowEndAt) - 1), timezone)
+          : localDate;
+        const dates = [localDate];
+        while (dates[dates.length - 1] < endDate)
+          dates.push(addLocalDays(dates[dates.length - 1], 1));
+        const loadedDays = await Promise.all(
+          dates.map((date) => repository.listEvents(getUtcDayBounds(date, timezone), date)),
+        );
+        const unique = new Map(
+          loadedDays
+            .flatMap((loaded) => loaded.events)
+            .map((event) => [JSON.stringify([event.calendarId, event.id, event.startAt]), event]),
+        );
+        const loaded = {
+          events: [...unique.values()],
+          calendarCount: Math.max(...loadedDays.map((value) => value.calendarCount)),
+        };
         publish(
           loaded.events,
           loaded.calendarCount === 0 ? '読み取り可能なCalendarがありません。' : null,
@@ -44,7 +63,7 @@ export function useDailyCalendar(
     return () => {
       active = false;
     };
-  }, [repository, localDate, timezone, revision]);
+  }, [repository, localDate, timezone, revision, windowEndAt]);
   if (!repository || !localDate || !timezone)
     return {
       events: [],

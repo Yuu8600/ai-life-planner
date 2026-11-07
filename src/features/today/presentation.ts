@@ -1,3 +1,4 @@
+import { formatPlanningTime } from './planningTime';
 import type {
   PlannedActionStatus,
   TodayDailyPlan,
@@ -19,29 +20,13 @@ const TASK_STATUS_LABELS: Record<TodayDeadlineTask['status'], string> = {
   skipped: 'スキップ',
 };
 
-function formatTime(isoDate: string, timezone: string): string {
-  const parsed = new Date(isoDate);
-  if (Number.isNaN(parsed.getTime())) return '--:--';
-
-  try {
-    return new Intl.DateTimeFormat('ja-JP', {
-      hour: '2-digit',
-      hour12: false,
-      minute: '2-digit',
-      timeZone: timezone,
-    }).format(parsed);
-  } catch {
-    return '--:--';
-  }
-}
-
-function toTimelineItem(action: TodayPlannedAction, timezone: string): TimelineItem {
+function toTimelineItem(action: TodayPlannedAction, timezone: string, date: string): TimelineItem {
   return {
-    end: formatTime(action.endAt, timezone),
+    end: formatPlanningTime(action.endAt, date, timezone),
     goalTitle: action.goalTitle,
     id: action.id,
     reason: action.reason,
-    start: formatTime(action.startAt, timezone),
+    start: formatPlanningTime(action.startAt, date, timezone),
     status: action.status,
     statusLabel: STATUS_LABELS[action.status],
     taskTitle: action.taskTitle,
@@ -50,7 +35,7 @@ function toTimelineItem(action: TodayPlannedAction, timezone: string): TimelineI
 }
 
 export function toTimelineItems(plan: TodayDailyPlan): TimelineItem[] {
-  return plan.actions.map((action) => toTimelineItem(action, plan.timezone));
+  return plan.actions.map((action) => toTimelineItem(action, plan.timezone, plan.date));
 }
 
 export function toDeadlineTaskItems(tasks: readonly TodayDeadlineTask[]): DeadlineTaskItem[] {

@@ -57,6 +57,15 @@ export function useToday(repository: TodayRepository | null, refreshToken = 0) {
     };
   }, [refresh, refreshToken, repository]);
 
+  // Refresh across a planning-date boundary while the screen stays open.
+  useEffect(() => {
+    if (!repository) return;
+    const timer = setInterval(() => {
+      void refresh();
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [repository, refresh]);
+
   const retry = useCallback(() => {
     void refresh();
   }, [refresh]);

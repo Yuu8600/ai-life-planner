@@ -109,6 +109,8 @@ export type Database = {
           timezone: string
           updated_at: string
           user_id: string
+          window_end_at: string | null
+          window_start_at: string | null
         }
         Insert: {
           created_at?: string
@@ -118,6 +120,8 @@ export type Database = {
           timezone: string
           updated_at?: string
           user_id: string
+          window_end_at?: string | null
+          window_start_at?: string | null
         }
         Update: {
           created_at?: string
@@ -127,6 +131,8 @@ export type Database = {
           timezone?: string
           updated_at?: string
           user_id?: string
+          window_end_at?: string | null
+          window_start_at?: string | null
         }
         Relationships: [
           {
@@ -264,6 +270,7 @@ export type Database = {
           id: string
           minimum_free_minutes: number
           planning_end: string
+          planning_end_day_offset: number
           planning_start: string
           timezone: string
           updated_at: string
@@ -276,6 +283,7 @@ export type Database = {
           id: string
           minimum_free_minutes?: number
           planning_end?: string
+          planning_end_day_offset?: number
           planning_start?: string
           timezone?: string
           updated_at?: string
@@ -288,6 +296,7 @@ export type Database = {
           id?: string
           minimum_free_minutes?: number
           planning_end?: string
+          planning_end_day_offset?: number
           planning_start?: string
           timezone?: string
           updated_at?: string
@@ -354,31 +363,74 @@ export type Database = {
     }
     Functions: {
       get_daily_plan_snapshot: { Args: { p_plan_date: string }; Returns: Json }
-      replace_daily_plan: {
+      planning_date: {
         Args: {
-          p_actions: Json
-          p_plan_date: string
-          p_summary: string
+          p_end: string
+          p_now: string
+          p_offset: number
+          p_start: string
           p_timezone: string
         }
-        Returns: {
-          daily_plan_id: string
-          saved_action_count: number
-        }[]
+        Returns: string
       }
-      replace_daily_plan_if_current: {
-        Args: {
-          p_actions: Json
-          p_expected_snapshot: Json
-          p_plan_date: string
-          p_summary: string
-          p_timezone: string
-        }
-        Returns: {
-          daily_plan_id: string
-          saved_action_count: number
-        }[]
+      planning_instant: {
+        Args: { p_local: string; p_timezone: string }
+        Returns: string
       }
+      replace_daily_plan:
+        | {
+            Args: {
+              p_actions: Json
+              p_plan_date: string
+              p_summary: string
+              p_timezone: string
+            }
+            Returns: {
+              daily_plan_id: string
+              saved_action_count: number
+            }[]
+          }
+        | {
+            Args: {
+              p_actions: Json
+              p_plan_date: string
+              p_planning_window: Json
+              p_summary: string
+              p_timezone: string
+            }
+            Returns: {
+              daily_plan_id: string
+              saved_action_count: number
+            }[]
+          }
+      replace_daily_plan_if_current:
+        | {
+            Args: {
+              p_actions: Json
+              p_expected_snapshot: Json
+              p_plan_date: string
+              p_summary: string
+              p_timezone: string
+            }
+            Returns: {
+              daily_plan_id: string
+              saved_action_count: number
+            }[]
+          }
+        | {
+            Args: {
+              p_actions: Json
+              p_expected_snapshot: Json
+              p_plan_date: string
+              p_planning_window: Json
+              p_summary: string
+              p_timezone: string
+            }
+            Returns: {
+              daily_plan_id: string
+              saved_action_count: number
+            }[]
+          }
       update_planned_action_status: {
         Args: { p_action_id: string; p_target_status: string }
         Returns: {

@@ -25,6 +25,7 @@ const profileRow: ProfileRow = {
   calendar_buffer_after_minutes: 0,
   minimum_free_minutes: 20,
   planning_end: '23:00:00',
+  planning_end_day_offset: 0,
   planning_start: '08:00:00',
   timezone: 'Asia/Tokyo',
   updated_at: '2026-09-11T00:00:00+00:00',
@@ -35,6 +36,7 @@ const updateInput: UpdateProfilePlanningSettingsInput = {
   calendarBufferAfterMinutes: 0,
   minimumFreeMinutes: 30,
   planningEnd: '21:45',
+  planningEndDayOffset: 0 as const,
   planningStart: '09:15',
   timezone: 'America/New_York',
 };
@@ -73,6 +75,7 @@ describe('SupabaseSettingsRepository', () => {
       calendarBufferAfterMinutes: 0,
       minimumFreeMinutes: 20,
       planningEnd: '23:00',
+      planningEndDayOffset: 0 as const,
       planningStart: '08:00',
       timezone: 'Asia/Tokyo',
     });
@@ -87,6 +90,7 @@ describe('SupabaseSettingsRepository', () => {
       calendar_buffer_after_minutes: 0,
       minimum_free_minutes: 30,
       planning_end: '21:45:00',
+      planning_end_day_offset: 0,
       planning_start: '09:15:00',
       timezone: 'America/New_York',
     };
@@ -102,6 +106,7 @@ describe('SupabaseSettingsRepository', () => {
       calendar_buffer_after_minutes: 0,
       minimum_free_minutes: 30,
       planning_end: '21:45:00',
+      planning_end_day_offset: 0,
       planning_start: '09:15:00',
       timezone: 'America/New_York',
     });

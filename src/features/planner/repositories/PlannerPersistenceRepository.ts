@@ -9,6 +9,7 @@ export type SavePlannerActionInput = {
 };
 
 export type SavePlannerProposalInput = {
+  planningWindow?: { startAt: string; endAt: string };
   actions: readonly SavePlannerActionInput[];
   planDate: LocalDate;
   summary: string;

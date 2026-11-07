@@ -8,6 +8,11 @@ import { addLocalDays, getUtcInstantForLocalTime } from '@/features/today';
 export const DEMO_DATE = '2026-11-06';
 export const DEMO_TIMEZONE = 'Asia/Tokyo';
 export const DEMO_START = getUtcInstantForLocalTime(DEMO_DATE, '08:00', DEMO_TIMEZONE);
+export const DEMO_OVERNIGHT = getUtcInstantForLocalTime(
+  addLocalDays(DEMO_DATE, 1),
+  '01:00',
+  DEMO_TIMEZONE,
+);
 export const DEMO_AFTERNOON = getUtcInstantForLocalTime(DEMO_DATE, '15:00', DEMO_TIMEZONE);
 
 export const DEMO_SETTINGS: ProfilePlanningSettings = {
@@ -15,6 +20,7 @@ export const DEMO_SETTINGS: ProfilePlanningSettings = {
   calendarBufferAfterMinutes: 0,
   minimumFreeMinutes: 20,
   planningEnd: '23:00',
+  planningEndDayOffset: 0,
   planningStart: '08:00',
   timezone: DEMO_TIMEZONE,
 };

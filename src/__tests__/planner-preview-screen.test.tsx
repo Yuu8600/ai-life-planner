@@ -25,6 +25,7 @@ const settings = {
   calendarBufferAfterMinutes: 0,
   minimumFreeMinutes: 20,
   planningEnd: '10:00',
+  planningEndDayOffset: 0 as const,
   planningStart: '08:00',
   timezone: 'Asia/Tokyo',
 };

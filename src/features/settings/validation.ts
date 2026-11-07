@@ -10,6 +10,7 @@ export type SettingsFormValues = {
   calendarBufferAfterMinutes: string;
   minimumFreeMinutes: string;
   planningEnd: string;
+  planningEndDayOffset: string;
   planningStart: string;
   timezone: string;
 };
@@ -45,6 +46,7 @@ export function createSettingsFormValues(settings: ProfilePlanningSettings): Set
     calendarBufferAfterMinutes: String(settings.calendarBufferAfterMinutes % 60),
     minimumFreeMinutes: String(settings.minimumFreeMinutes),
     planningEnd: settings.planningEnd,
+    planningEndDayOffset: String(settings.planningEndDayOffset),
     planningStart: settings.planningStart,
     timezone: settings.timezone,
   };
@@ -74,6 +76,9 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
   const timezone = values.timezone.trim();
   const planningStart = values.planningStart.trim();
   const planningEnd = values.planningEnd.trim();
+  const planningEndDayOffset = values.planningEndDayOffset;
+  if (planningEndDayOffset !== '0' && planningEndDayOffset !== '1')
+    errors.planningEndDayOffset = '終了日は当日または翌日を選択してください。';
   const minimumFreeMinutesValue = values.minimumFreeMinutes.trim();
   const resolvedTimeZone = timezone ? resolveIanaTimeZone(timezone) : null;
   const minimumFreeMinutes = Number(minimumFreeMinutesValue);
@@ -95,9 +100,14 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
   if (
     TIME_PATTERN.test(planningStart) &&
     TIME_PATTERN.test(planningEnd) &&
-    toMinutes(planningStart) >= toMinutes(planningEnd)
+    (Number(planningEndDayOffset) * 1440 + toMinutes(planningEnd) - toMinutes(planningStart) <= 0 ||
+      Number(planningEndDayOffset) * 1440 + toMinutes(planningEnd) - toMinutes(planningStart) >
+        1440)
   ) {
-    errors.planningEnd = '終了時刻は開始時刻より後にしてください。';
+    errors.planningEnd =
+      planningEndDayOffset === '0'
+        ? '終了時刻は開始時刻より後にしてください。'
+        : '活動時間は0分より長く、24時間以内にしてください。';
   }
 
   if (
@@ -120,6 +130,7 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
       calendarBufferAfterMinutes,
       minimumFreeMinutes,
       planningEnd,
+      planningEndDayOffset: Number(planningEndDayOffset) as 0 | 1,
       planningStart,
       timezone: resolvedTimeZone,
     },

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { FreeTimeCalculationResult } from '@/features/planner';
-import { formatLocalTimeJa } from '@/features/today';
+import { formatPlanningTime, getLocalDate } from '@/features/today';
 import { colors, radius, spacing } from '@/shared/theme';
 
 type FreeTimeSummaryProps = {
@@ -36,8 +36,9 @@ export function FreeTimeSummary({ result, timezone }: FreeTimeSummaryProps) {
       ) : (
         <View style={styles.list}>
           {result.freeSlots.map((slot) => {
-            const timeLabel = `${formatLocalTimeJa(slot.startAt, timezone)}–${formatLocalTimeJa(
+            const timeLabel = `${formatPlanningTime(slot.startAt, getLocalDate(result.planningWindow.startAt, timezone), timezone)}–${formatPlanningTime(
               slot.endAt,
+              getLocalDate(result.planningWindow.startAt, timezone),
               timezone,
             )}`;
             const durationLabel = `${formatDuration(slot.durationMinutes)}分`;

@@ -44,6 +44,7 @@ describe('SupabasePlannerPersistenceRepository', () => {
       planDate: '2026-09-18',
     });
     expect(rpc).toHaveBeenCalledWith('replace_daily_plan', {
+      p_planning_window: null,
       p_actions: [
         {
           end_at: '2026-09-18T00:30:00.000Z',

@@ -109,11 +109,11 @@ rewrite it; requirement changes need explicit user authorization and should be v
   composition boundary.
 - Keep Tasks UI and state management dependent on `TaskRepository`; load Goal association options
   through that feature contract without importing Goal feature internals.
-- Keep Today UI and state management dependent on `TodayRepository`. Resolve its local-day bounds
-  from `profiles.timezone`, query by `planned_actions.start_at`, and reject invalid timezones rather
+- Keep Today UI and state management dependent on `TodayRepository`. Resolve its planning date
+  from profile planning settings, and query Actions by the saved Plan window and `planned_actions.start_at`, and reject invalid timezones rather
   than silently falling back. Do not use `tasks.deadline` as an execution date.
 - Keep Settings UI and state management dependent on `SettingsRepository`. Read and update only
-  `timezone`, `planning_start`, `planning_end`, `minimum_free_minutes`,
+  `timezone`, `planning_start`, `planning_end`, `planning_end_day_offset`, `minimum_free_minutes`,
   `calendar_buffer_before_minutes`, and `calendar_buffer_after_minutes`; scope every adapter
   operation to the authenticated profile id and validate inputs before writing.
 - Keep Calendar UI and state management dependent on `CalendarRepository`; only the adapter under

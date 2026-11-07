@@ -120,6 +120,22 @@ export function PlanningSettingsForm({
         </View>
       </View>
 
+      <FormField label="終了日" error={fieldErrors.planningEndDayOffset}>
+        <View style={styles.timeRow}>
+          <ActionButton
+            label="当日"
+            disabled={isSaving}
+            variant={values.planningEndDayOffset === '0' ? 'primary' : 'secondary'}
+            onPress={() => updateValue('planningEndDayOffset', '0')}
+          />
+          <ActionButton
+            label="翌日"
+            disabled={isSaving}
+            variant={values.planningEndDayOffset === '1' ? 'primary' : 'secondary'}
+            onPress={() => updateValue('planningEndDayOffset', '1')}
+          />
+        </View>
+      </FormField>
       <FormField
         error={fieldErrors.minimumFreeMinutes}
         helper="AIが行動を配置できる空き時間の最小値です。"

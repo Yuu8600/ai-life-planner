@@ -3,6 +3,7 @@ export type ProfilePlanningSettings = {
   calendarBufferAfterMinutes: number;
   minimumFreeMinutes: number;
   planningEnd: string;
+  planningEndDayOffset: 0 | 1;
   planningStart: string;
   timezone: string;
 };
