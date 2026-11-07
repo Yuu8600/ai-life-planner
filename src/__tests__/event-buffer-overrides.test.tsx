@@ -18,6 +18,11 @@ import { SupabaseCalendarEventBufferRepository } from '@/services/supabase/repos
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/services/supabase/database.types';
 
+// Keep the repository's client import from installing SQLite localStorage in Jest.
+jest.mock('@/services/supabase/client', () => ({
+  getSupabaseClient: jest.fn(),
+}));
+
 const event: CalendarEvent = {
   allDay: false,
   allDayStartDate: null,
