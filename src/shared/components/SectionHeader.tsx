@@ -4,12 +4,13 @@ import { colors, spacing, typography } from '@/shared/theme';
 
 type SectionHeaderProps = {
   detail?: string;
+  compact?: boolean;
   title: string;
 };
 
-export function SectionHeader({ detail, title }: SectionHeaderProps) {
+export function SectionHeader({ detail, title, compact = false }: SectionHeaderProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, compact ? { marginTop: 0, marginBottom: 0 } : null]}>
       <Text accessibilityRole="header" style={styles.title}>
         {title}
       </Text>

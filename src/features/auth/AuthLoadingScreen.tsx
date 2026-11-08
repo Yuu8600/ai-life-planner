@@ -1,12 +1,17 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing } from '@/shared/theme';
+import { colors, spacing, typography } from '@/shared/theme';
 
 export function AuthLoadingScreen() {
   return (
     <SafeAreaView style={styles.safeArea} testID="auth-loading-screen">
-      <View style={styles.content}>
+      <View
+        accessibilityLiveRegion="polite"
+        accessibilityState={{ busy: true }}
+        {...(Platform.OS === 'web' ? { 'aria-busy': true } : {})}
+        style={styles.content}
+      >
         <ActivityIndicator
           accessibilityLabel="認証状態を確認中"
           color={colors.accent}
@@ -28,9 +33,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.md,
+    padding: spacing.lg,
   },
   message: {
     color: colors.textMuted,
-    fontSize: 14,
+    ...typography.body,
   },
 });

@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { Text } from 'react-native';
+import { Alert, type AlertButton } from 'react-native';
 import { selectTime, selectDuration } from '@/testUtils/timeSelection';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
@@ -283,4 +286,151 @@ it('saves and reloads next-day end without rounding HH:mm values', async () => {
   await screen.unmount();
   const reopened = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
   expect(await reopened.findByRole('button', { name: '活動終了時間、翌日 02:00' })).toBeTruthy();
+});
+
+describe('Clear Settings save and close controls', () => {
+  afterEach(() => jest.restoreAllMocks());
+  it('groups existing settings by purpose and keeps one save action', async () => {
+    const repository = createRepository();
+    const screen = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
+    await screen.findByTestId('settings-save-area');
+    for (const title of ['活動時間', '空き時間・予定の余白', '地域・時間帯'])
+      expect(screen.getByRole('header', { name: title })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'プロフィール設定を保存する' })).toHaveLength(1);
+    expect(repository.updateProfilePlanningSettings).not.toHaveBeenCalled();
+  });
+  it('asks before discarding a draft, supports cancellation and discards only on explicit confirmation', async () => {
+    const close = jest.fn(),
+      repository = createRepository();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const screen = await render(<SettingsScreen repository={repository} onPressBack={close} />);
+    await screen.findByTestId('settings-save-area');
+    await selectTime(screen, '活動開始時間', '08:10');
+    await fireEvent.press(screen.getByRole('button', { name: '設定を閉じる' }));
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    const buttons = alert.mock.calls[0][2] as AlertButton[];
+    buttons.find((b) => b.style === 'cancel')?.onPress?.();
+    expect(screen.getByRole('button', { name: '活動開始時間、08:10' })).toBeTruthy();
+    expect(repository.updateProfilePlanningSettings).not.toHaveBeenCalled();
+    buttons.find((b) => b.style === 'destructive')?.onPress?.();
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+  it('closes without a warning after reverting the draft or successfully saving unchanged normalized values', async () => {
+    const close = jest.fn(),
+      alert = jest.spyOn(Alert, 'alert'),
+      repository = createRepository();
+    const screen = await render(<SettingsScreen repository={repository} onPressBack={close} />);
+    await screen.findByDisplayValue('Asia/Tokyo');
+    await selectTime(screen, '活動開始時間', '08:10');
+    await selectTime(screen, '活動開始時間', '08:00');
+    await fireEvent.press(screen.getByRole('button', { name: '設定を閉じる' }));
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(alert).not.toHaveBeenCalled();
+    await fireEvent.changeText(screen.getByLabelText('タイムゾーン'), ' Asia/Tokyo ');
+    await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
+    await screen.findByText('設定を保存しました。');
+    await fireEvent.press(screen.getByRole('button', { name: '設定を閉じる' }));
+    expect(close).toHaveBeenCalledTimes(2);
+    expect(alert).not.toHaveBeenCalled();
+  });
+  it('blocks close while saving and completes the save before showing success', async () => {
+    const pending = createDeferred<ProfilePlanningSettings>();
+    const close = jest.fn();
+    const repository = createRepository({
+      updateProfilePlanningSettings: jest.fn(
+        (_input: UpdateProfilePlanningSettingsInput) => pending.promise,
+      ),
+    });
+    const screen = await render(<SettingsScreen repository={repository} onPressBack={close} />);
+    await screen.findByDisplayValue('Asia/Tokyo');
+    await selectTime(screen, '活動開始時間', '08:10');
+    await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
+    const back = screen.getByRole('button', { name: '設定を閉じる' });
+    expect(back.props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(back);
+    expect(close).not.toHaveBeenCalled();
+    await act(async () => {
+      pending.resolve({ ...settings, planningStart: '08:10' });
+      await pending.promise;
+    });
+    await screen.findByText('設定を保存しました。');
+  });
+  it('keeps precise pre-existing values and a draft when saving fails', async () => {
+    const exact = {
+      ...settings,
+      planningStart: '08:10',
+      planningEnd: '23:59',
+      calendarBufferBeforeMinutes: 17,
+    };
+    const repository = createRepository({
+      getProfilePlanningSettings: jest.fn(async () => exact),
+      updateProfilePlanningSettings: jest.fn(async (_input: UpdateProfilePlanningSettingsInput) => {
+        throw new Error('Network request failed');
+      }),
+    });
+    const screen = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
+    await screen.findByRole('button', { name: '活動終了時間、23:59' });
+    await selectDuration(screen, '予定後の余白時間', '33');
+    await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
+    await screen.findByText(
+      'プロフィール設定に接続できません。通信状況を確認して再度お試しください。',
+    );
+    for (const name of [
+      '活動開始時間、08:10',
+      '活動終了時間、23:59',
+      '予定前の余白時間、17分',
+      '予定後の余白時間、33分',
+    ])
+      expect(screen.getByRole('button', { name })).toBeTruthy();
+    expect(repository.updateProfilePlanningSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        planningStart: '08:10',
+        planningEnd: '23:59',
+        calendarBufferBeforeMinutes: 17,
+        calendarBufferAfterMinutes: 33,
+      }),
+    );
+  });
+});
+
+it('shows validation feedback beside save without writing an invalid planning window', async () => {
+  const repository = createRepository();
+  const screen = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
+  await screen.findByTestId('settings-save-area');
+  await selectTime(screen, '活動終了時間', '09:00', '1');
+  await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
+  expect(await screen.findByText('入力内容を確認してください。')).toBeTruthy();
+  expect(repository.updateProfilePlanningSettings).not.toHaveBeenCalled();
+});
+
+it('synchronizes the returned profile without remounting account operations', async () => {
+  const mounted = jest.fn();
+  function AccountProbe() {
+    useEffect(() => {
+      mounted();
+    }, []);
+    return <Text>Account state</Text>;
+  }
+  const repository = createRepository({
+    updateProfilePlanningSettings: jest.fn(async (input: UpdateProfilePlanningSettingsInput) => ({
+      ...input,
+      minimumFreeMinutes: 46,
+    })),
+  });
+  const screen = await render(
+    <SettingsScreen
+      repository={repository}
+      onPressBack={jest.fn()}
+      accountSection={<AccountProbe />}
+    />,
+  );
+  await screen.findByTestId('settings-save-area');
+  const before = mounted.mock.calls.length;
+  await selectTime(screen, '活動開始時間', '09:17');
+  await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
+  await screen.findByText('設定を保存しました。');
+  expect(screen.getByRole('button', { name: '最小空き時間、46分' })).toBeTruthy();
+  expect(mounted).toHaveBeenCalledTimes(before);
+  expect(screen.queryByText('未保存の変更があります')).toBeNull();
 });

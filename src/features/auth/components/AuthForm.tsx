@@ -1,7 +1,16 @@
+import { Card } from '@/shared/components/Card';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { Notice } from '@/shared/components/Notice';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState, type RefObject } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import type { AuthCredentials, SignUpResult } from '@/services/supabase/auth';
 import { ActionButton } from '@/shared/components/ActionButton';
@@ -29,6 +38,15 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const isLogin = mode === 'login';
+  const passwordInput = useRef<TextInput>(null);
+  const loginTab = useRef<View>(null),
+    signupTab = useRef<View>(null);
+  const navigateMode = (key: string) => {
+    if (isSubmitting || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return;
+    const next = key === 'Home' ? 'login' : key === 'End' ? 'signup' : isLogin ? 'signup' : 'login';
+    changeMode(next);
+    requestAnimationFrame(() => (next === 'login' ? loginTab : signupTab).current?.focus());
+  };
 
   const changeMode = (nextMode: AuthMode) => {
     if (isSubmitting || nextMode === mode) return;
@@ -83,77 +101,95 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
     >
       <AppScreen contentContainerStyle={styles.content} testID="auth-screen">
         <View style={styles.intro}>
-          <Text style={styles.eyebrow}>AI LIFE PLANNER</Text>
-          <Text style={styles.title}>{isLogin ? 'おかえりなさい' : 'はじめましょう'}</Text>
-          <Text style={styles.subtitle}>
-            {isLogin
-              ? '目標・タスクとカレンダーの空き時間から、今日の計画を作成します。'
-              : '目標をタスクに分け、予定の合間に取り組める一日へ。'}
+          <Text accessibilityRole="header" style={styles.title}>
+            AI Life Planner
           </Text>
+          <Text style={styles.subtitle}>予定の合間に、目標を進める。</Text>
         </View>
 
-        <View accessibilityRole="tablist" style={styles.modeSwitch}>
-          <ModeButton
-            disabled={isSubmitting}
-            label="ログイン"
-            onPress={() => changeMode('login')}
-            selected={isLogin}
-          />
-          <ModeButton
-            disabled={isSubmitting}
-            label="新規登録"
-            onPress={() => changeMode('signup')}
-            selected={!isLogin}
-          />
-        </View>
-
-        <View style={styles.form}>
-          <FormField label="メールアドレス">
-            <FormInput
-              accessibilityLabel="メールアドレス"
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect={false}
-              editable={!isSubmitting}
-              keyboardType="email-address"
-              onChangeText={setEmail}
-              placeholder="name@example.com"
-              returnKeyType="next"
-              textContentType="emailAddress"
-              value={email}
+        <Card>
+          <View
+            accessibilityRole="tablist"
+            accessibilityLabel="ログインと新規登録"
+            style={styles.modeSwitch}
+          >
+            <ModeButton
+              disabled={isSubmitting}
+              label="ログイン"
+              id="auth-login-tab"
+              buttonRef={loginTab}
+              onNavigate={navigateMode}
+              onPress={() => changeMode('login')}
+              selected={isLogin}
             />
-          </FormField>
-
-          <FormField label="パスワード">
-            <FormInput
-              accessibilityLabel="パスワード"
-              autoCapitalize="none"
-              autoComplete={isLogin ? 'current-password' : 'new-password'}
-              editable={!isSubmitting}
-              onChangeText={setPassword}
-              onSubmitEditing={() => void submit()}
-              placeholder={isLogin ? 'パスワードを入力' : '6文字以上で入力'}
-              returnKeyType="done"
-              secureTextEntry
-              textContentType={isLogin ? 'password' : 'newPassword'}
-              value={password}
+            <ModeButton
+              disabled={isSubmitting}
+              label="新規登録"
+              id="auth-signup-tab"
+              buttonRef={signupTab}
+              onNavigate={navigateMode}
+              onPress={() => changeMode('signup')}
+              selected={!isLogin}
             />
-          </FormField>
+          </View>
 
-          {displayedError ? <Notice tone="error" message={displayedError} /> : null}
+          <View
+            style={styles.form}
+            {...(Platform.OS === 'web'
+              ? {
+                  role: 'tabpanel' as const,
+                  id: 'auth-fields',
+                  'aria-labelledby': isLogin ? 'auth-login-tab' : 'auth-signup-tab',
+                }
+              : {})}
+          >
+            <FormField label="メールアドレス">
+              <FormInput
+                accessibilityLabel="メールアドレス"
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect={false}
+                editable={!isSubmitting}
+                keyboardType="email-address"
+                onChangeText={setEmail}
+                placeholder="name@example.com"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordInput.current?.focus()}
+                textContentType="emailAddress"
+                value={email}
+              />
+            </FormField>
 
-          {successMessage ? <Notice tone="success" message={successMessage} /> : null}
+            <FormField label="パスワード">
+              <FormInput
+                accessibilityLabel="パスワード"
+                ref={passwordInput}
+                autoCapitalize="none"
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
+                editable={!isSubmitting}
+                onChangeText={setPassword}
+                onSubmitEditing={() => void submit()}
+                placeholder={isLogin ? 'パスワードを入力' : '6文字以上で入力'}
+                returnKeyType="done"
+                secureTextEntry
+                textContentType={isLogin ? 'password' : 'newPassword'}
+                value={password}
+              />
+            </FormField>
 
-          <ActionButton
-            accessibilityLabel={isSubmitting ? loadingLabel : `${submitLabel}する`}
-            disabled={isSubmitting}
-            loading={isSubmitting}
-            label={isSubmitting ? loadingLabel : submitLabel}
-            onPress={() => void submit()}
-            style={styles.submitButton}
-          />
-        </View>
+            <ActionButton
+              accessibilityLabel={isSubmitting ? loadingLabel : `${submitLabel}する`}
+              disabled={isSubmitting}
+              loading={isSubmitting}
+              label={isSubmitting ? loadingLabel : submitLabel}
+              onPress={() => void submit()}
+              style={styles.submitButton}
+            />
+            {displayedError ? <Notice tone="error" message={displayedError} /> : null}
 
+            {successMessage ? <Notice tone="success" message={successMessage} /> : null}
+          </View>
+        </Card>
         <Text style={styles.footnote}>
           {isLogin
             ? '登録したメールアドレスとパスワードを使用します。'
@@ -165,21 +201,64 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
 }
 
 type ModeButtonProps = {
+  id: string;
+  buttonRef: RefObject<View | null>;
+  onNavigate: (key: string) => void;
   disabled: boolean;
   label: string;
   onPress: () => void;
   selected: boolean;
 };
 
-function ModeButton({ disabled, label, onPress, selected }: ModeButtonProps) {
+function ModeButton({
+  disabled,
+  label,
+  onPress,
+  selected,
+  id,
+  buttonRef,
+  onNavigate,
+}: ModeButtonProps) {
+  const [focused, setFocused] = useState(false);
   return (
     <Pressable
+      ref={buttonRef}
+      nativeID={id}
+      {...(Platform.OS === 'web'
+        ? {
+            'aria-selected': selected,
+            'aria-controls': 'auth-fields',
+            tabIndex: selected ? 0 : -1,
+            onKeyDown: (event: { key: string; preventDefault: () => void }) => {
+              if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                event.preventDefault();
+                onNavigate(event.key);
+              }
+            },
+          }
+        : {})}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       accessibilityLabel={`${label}に切り替える`}
       accessibilityRole="tab"
       accessibilityState={{ disabled, selected }}
       disabled={disabled}
       onPress={onPress}
-      style={[styles.modeButton, selected ? styles.selectedModeButton : null]}
+      style={[
+        styles.modeButton,
+        selected ? styles.selectedModeButton : null,
+        focused
+          ? Platform.select({
+              web: {
+                outlineColor: colors.focusRing,
+                outlineWidth: 2,
+                outlineStyle: 'solid',
+                outlineOffset: 2,
+              },
+              default: { borderColor: colors.focusRing, borderWidth: 2 },
+            })
+          : null,
+      ]}
     >
       <Text style={[styles.modeLabel, selected ? styles.selectedModeLabel : null]}>{label}</Text>
     </Pressable>
@@ -195,17 +274,12 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
-    justifyContent: 'center',
-    paddingTop: spacing.xxl,
+    justifyContent: 'flex-start',
+    gap: spacing.lg,
+    paddingTop: spacing.xl,
   },
   intro: {
     gap: spacing.sm,
-  },
-  eyebrow: {
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.5,
   },
   title: {
     color: colors.text,
@@ -214,13 +288,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: colors.textMuted,
-    fontSize: 15,
-    lineHeight: 23,
+    ...typography.body,
   },
   modeSwitch: {
     flexDirection: 'row',
     gap: spacing.xs,
-    marginTop: spacing.xxl,
+    marginTop: 0,
     padding: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
@@ -233,31 +306,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   selectedModeButton: {
     backgroundColor: colors.accentSoft,
   },
   modeLabel: {
     color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.button,
   },
   selectedModeLabel: {
     color: colors.accent,
   },
   form: {
     gap: spacing.lg,
-    marginTop: spacing.xl,
+    marginTop: 0,
   },
   submitButton: {
     minHeight: 50,
     marginTop: spacing.xs,
   },
   footnote: {
-    marginTop: spacing.xl,
+    marginTop: 0,
     color: colors.textSubtle,
-    fontSize: 12,
-    lineHeight: 18,
+    ...typography.secondary,
     textAlign: 'center',
   },
 });
