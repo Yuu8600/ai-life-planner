@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { formatLocalTimeJa, getLocalDate } from '@/features/today';
@@ -9,19 +10,25 @@ import { DEMO_AFTERNOON, DEMO_TIMEZONE } from '@/services/demo/sampleData';
 import { useDemo } from './DemoProvider';
 
 export function DemoBanner() {
+  const [expanded, setExpanded] = useState(false);
   const { repositories, reset, advance, overnight } = useDemo();
   const afternoon = repositories.now().toISOString() === DEMO_AFTERNOON;
   return (
     <View style={styles.banner}>
       <View style={styles.copy}>
         <Text style={styles.title}>AI Life Planner · Demo Mode</Text>
-        <Text style={styles.detail}>サンプル予定・API不要・再読み込みでリセット</Text>
+
         <Text style={styles.detail}>
           サンプル時計: {getLocalDate(repositories.now(), DEMO_TIMEZONE)}{' '}
           {formatLocalTimeJa(repositories.now(), DEMO_TIMEZONE)}（東京）
         </Text>
       </View>
-      <View style={styles.actions}>
+      <ActionButton
+        label={expanded ? 'デモ操作を閉じる' : 'デモ操作'}
+        onPress={() => setExpanded(!expanded)}
+        variant="ghost"
+      />
+      <View style={[styles.actions, !expanded ? { display: 'none' } : null]}>
         <ActionButton
           label={afternoon ? '15:00に進めました' : '時計を15:00に進める'}
           disabled={afternoon}
