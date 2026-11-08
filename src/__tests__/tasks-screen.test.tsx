@@ -1,6 +1,6 @@
 import type { AlertButton } from 'react-native';
 import { Alert } from 'react-native';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import type {
   CreateTaskInput,
@@ -201,6 +201,7 @@ describe('TasksScreen', () => {
     const screen = await render(<TasksScreen repository={repository} />);
 
     await screen.findByText('TOEIC Listening');
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEIC Listeningのその他の操作' }));
     await fireEvent.press(screen.getByRole('button', { name: 'TOEIC Listeningを削除する' }));
 
     await waitFor(() => expect(screen.queryByText('TOEIC Listening')).toBeNull());
@@ -239,5 +240,48 @@ describe('TasksScreen', () => {
     expect(await screen.findByText('タイトルを入力してください。')).toBeTruthy();
     expect(screen.getByText('所要時間は1以上の整数で入力してください。')).toBeTruthy();
     expect(repository.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('Clear deletion controls', () => {
+  afterEach(() => jest.restoreAllMocks());
+  it('preserves confirmation cancellation without calling remove', async () => {
+    const alert = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((_title, _message, buttons) =>
+        buttons?.find((button) => button.style === 'cancel')?.onPress?.(),
+      );
+    const repository = createRepository();
+    const screen = await render(<TasksScreen repository={repository} />);
+    await screen.findByText('TOEIC Listening');
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEIC Listeningのその他の操作' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEIC Listeningを削除する' }));
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(repository.remove).not.toHaveBeenCalled();
+    expect(screen.getByText('TOEIC Listening')).toBeTruthy();
+  });
+  it('prevents duplicate delete and edit until the pending removal finishes', async () => {
+    const pending = createDeferred<void>();
+    const repository = createRepository({ remove: jest.fn((_id: string) => pending.promise) });
+    jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((_title, _message, buttons) =>
+        buttons?.find((button) => button.style === 'destructive')?.onPress?.(),
+      );
+    const screen = await render(<TasksScreen repository={repository} />);
+    await screen.findByText('TOEIC Listening');
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEIC Listeningのその他の操作' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEIC Listeningを削除する' }));
+    const deletion = screen.getByRole('button', { name: 'TOEIC Listeningを削除する' });
+    expect(deletion.props.accessibilityState).toMatchObject({ disabled: true, busy: true });
+    await fireEvent.press(deletion);
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEIC Listeningを編集する' }));
+    expect(repository.remove).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('task-form-modal')).toBeNull();
+    await act(async () => {
+      pending.resolve(undefined);
+      await pending.promise;
+    });
+    await waitFor(() => expect(screen.queryByText('TOEIC Listening')).toBeNull());
   });
 });

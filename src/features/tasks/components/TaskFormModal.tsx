@@ -234,8 +234,8 @@ function GoalOption({ disabled, label, onPress, selected }: GoalOptionProps) {
 const styles = StyleSheet.create({
   field: { flex: 1, gap: spacing.sm },
   label: { color: colors.text, fontSize: 13, fontWeight: '700' },
-  valueRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  valueField: { flex: 1 },
+  valueRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: spacing.md },
+  valueField: { flexGrow: 1, flexBasis: 160, minWidth: 0 },
   goalOptions: { gap: spacing.sm },
   goalOption: {
     minHeight: 46,

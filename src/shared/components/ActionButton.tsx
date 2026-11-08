@@ -12,6 +12,7 @@ import { useTheme } from '@/shared/theme';
 export type ActionButtonProps = {
   accessibilityLabel?: string;
   disabled?: boolean;
+  expanded?: boolean;
   loading?: boolean;
   label: string;
   onPress?: () => void;
@@ -21,6 +22,7 @@ export type ActionButtonProps = {
 export function ActionButton({
   accessibilityLabel,
   disabled = false,
+  expanded,
   loading = false,
   label,
   onPress,
@@ -40,9 +42,16 @@ export function ActionButton({
       : c.primary;
   return (
     <Pressable
+      {...(Platform.OS === 'web'
+        ? { 'aria-busy': loading, ...(expanded === undefined ? {} : { 'aria-expanded': expanded }) }
+        : {})}
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
-      accessibilityState={{ disabled: blocked, busy: loading }}
+      accessibilityState={{
+        disabled: blocked,
+        busy: loading,
+        ...(expanded === undefined ? {} : { expanded }),
+      }}
       disabled={blocked}
       onPress={onPress}
       onFocus={() => setFocused(true)}
