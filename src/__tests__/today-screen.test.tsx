@@ -114,7 +114,7 @@ describe('TodayScreen', () => {
           repository={createRepository({ getToday: jest.fn(async () => today) })}
         />,
       );
-      await screen.findByText('今日の計画');
+      await screen.findByText('一日の時間軸');
       if (kind === 'none') expect(screen.queryByText('再計画する')).toBeNull();
       else {
         await fireEvent.press(screen.getByText('再計画する'));
@@ -148,11 +148,7 @@ describe('TodayScreen', () => {
 
     expect(await screen.findByTestId('today-plan-empty-state')).toBeTruthy();
     expect(screen.getByText('今日の計画はまだありません')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Tasksに行動を登録し、Calendarで空き時間を確認したら、Plannerで今日の計画を作りましょう。',
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText('Calendarと空き時間を確認して、計画を作成できます。')).toBeTruthy();
     expect(screen.getByTestId('today-deadline-tasks-empty')).toBeTruthy();
     expect(screen.getByText('2026年9月11日 金曜日')).toBeTruthy();
     expect(screen.getByText('今日の予定')).toBeTruthy();
@@ -215,7 +211,7 @@ describe('TodayScreen', () => {
     );
 
     expect(await screen.findByText('朝と夕方に英語学習を進めます。')).toBeTruthy();
-    expect(screen.getByText('金フレ')).toBeTruthy();
+    expect(within(screen.getByTestId('today-details-list')).getByText('金フレ')).toBeTruthy();
     expect(screen.getByText('2026-09-10 19:30')).toBeTruthy();
     expect(screen.getByText('2026-09-10 19:50')).toBeTruthy();
     expect(screen.getByLabelText(/朝の集中しやすい時間だからです。/)).toBeTruthy();
@@ -480,7 +476,7 @@ describe('Today Action execution', () => {
         expect(screen.getByRole('button', { name: label }).props.accessibilityState.disabled).toBe(
           false,
         );
-        expect(screen.getByText('金フレ')).toBeTruthy();
+        expect(within(screen.getByTestId('today-details-list')).getByText('金フレ')).toBeTruthy();
         expect(getToday).toHaveBeenCalledTimes(1);
         await press();
         await waitFor(() => expect(screen.queryByRole('button', { name: label })).toBeNull());

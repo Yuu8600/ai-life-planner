@@ -156,7 +156,7 @@ it('does not assume capacity before Calendar loading completes', async () => {
   const { props, calendar } = setup();
   calendar.listEvents.mockReturnValue(new Promise(() => {}));
   const screen = await render(<TodayScreen {...props} />);
-  await screen.findByText('既存Action');
+  await screen.findByTestId('today-action-focus');
   expect(screen.queryByTestId('today-available-slot')).toBeNull();
 });
 it('loads overnight and adjacent buffer dates once each and blocks only the next day for an all-day event', async () => {

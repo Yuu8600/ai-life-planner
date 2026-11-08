@@ -24,7 +24,7 @@ import type { TodayRepository } from './repositories/TodayRepository';
 import type { PlannedActionExecutionRepository } from './repositories/PlannedActionExecutionRepository';
 import { useToday } from './useToday';
 import { usePlannedActionExecution } from './usePlannedActionExecution';
-import { PlanSummary } from './components/PlanSummary';
+
 import { Timeline } from './components/Timeline';
 import { TodayStatePanel } from './components/TodayStatePanel';
 import { DeadlineTaskList } from './components/DeadlineTaskList';
@@ -118,7 +118,7 @@ export function TodayScreen({
           getLocalDate((today.plan?.window ?? today.planningWindow)!.endAt, displayTimezone) >
             today.localDate
             ? `${today.localDate}の計画（翌日${formatLocalTimeJa((today.plan?.window ?? today.planningWindow)!.endAt, displayTimezone)}まで）`
-            : '予定の合間に、一つずつ進めましょう。'
+            : undefined
         }
         title="今日の予定"
       />
@@ -165,28 +165,39 @@ export function TodayScreen({
           ) : null}
           {today.plan ? (
             <>
-              <PlanSummary
-                completedActions={completedActions ?? 0}
-                summary={today.plan.summary ?? '今日の実行予定を確認しましょう。'}
-                totalActions={today.plan.actions.length}
-              />
-              <SectionHeader detail={`${today.plan.actions.length}件`} title="今日の計画" />
-              {onPressReplan ? (
-                <ActionButton
-                  label="再計画する"
-                  onPress={onPressReplan}
-                  disabled={
-                    isLoading ||
-                    Boolean(loadError) ||
-                    Object.values(mutations).some((mutation) => mutation.status === 'updating')
-                  }
-                  variant="secondary"
-                />
-              ) : null}
               {today.plan.actions.length === 0 && calendar.events.length > 0 ? (
                 <Text>予定されたアクションはありません</Text>
               ) : null}
               <Timeline
+                completedActions={completedActions ?? 0}
+                totalActions={today.plan.actions.length}
+                supplement={
+                  <>
+                    <Text style={{ color: colors.textMuted }}>
+                      {today.plan.summary ?? '今日の実行予定を確認しましょう。'}
+                    </Text>
+                    {onPressReplan ? (
+                      <ActionButton
+                        label="再計画する"
+                        onPress={onPressReplan}
+                        disabled={
+                          isLoading ||
+                          Boolean(loadError) ||
+                          Object.values(mutations).some(
+                            (mutation) => mutation.status === 'updating',
+                          )
+                        }
+                        variant="ghost"
+                      />
+                    ) : null}
+
+                    <SectionHeader
+                      detail={`${deadlineTaskItems.length}件`}
+                      title="今日が期限のタスク"
+                    />
+                    <DeadlineTaskList items={deadlineTaskItems} />
+                  </>
+                }
                 window={axisWindow}
                 now={instant}
                 freeSlots={freeSlots}
@@ -237,11 +248,10 @@ export function TodayScreen({
             </>
           ) : (
             <>
-              <SectionHeader title="今日の計画" />
               <TodayStatePanel
                 actionLabel="今日の計画を作成"
                 onPressAction={onPressAi}
-                message="Tasksに行動を登録し、Calendarで空き時間を確認したら、Plannerで今日の計画を作りましょう。"
+                message="Calendarと空き時間を確認して、計画を作成できます。"
                 testID="today-plan-empty-state"
                 title="今日の計画はまだありません"
               />
@@ -263,8 +273,12 @@ export function TodayScreen({
               timezone={displayTimezone}
             />
           ) : null}
-          <SectionHeader detail={`${deadlineTaskItems.length}件`} title="今日が期限のタスク" />
-          <DeadlineTaskList items={deadlineTaskItems} />
+          {!today.plan ? (
+            <>
+              <SectionHeader detail={`${deadlineTaskItems.length}件`} title="今日が期限のタスク" />
+              <DeadlineTaskList items={deadlineTaskItems} />
+            </>
+          ) : null}
           <ActivityLogSection state={activity.state} onRetry={activity.retry} />
         </>
       ) : null}

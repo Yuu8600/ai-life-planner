@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react';
+import { selectNextAction } from '../nextAction';
+import { Card } from '@/shared/components/Card';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { CalendarTimelineCard } from '@/features/calendar';
@@ -17,6 +20,9 @@ import { TimelineDetails, type TimelineProps } from './TimelineDetails';
 
 export function Timeline(
   props: TimelineProps & {
+    completedActions?: number;
+    totalActions?: number;
+    supplement?: ReactNode;
     window?: AxisWindow;
     now?: Date;
     freeSlots?: readonly AxisWindow[];
@@ -69,7 +75,8 @@ export function Timeline(
   const closeSelection = useCallback(() => setSelected(null), []);
   const scroll = useRef<ScrollView>(null);
   const entry = entries.find((item) => item.id === selected?.id);
-  const next = items.find((item) => item.status === 'scheduled');
+  const selection = selectNextAction(items, now);
+  const next = selection?.item;
   const chartWidth = Math.max(width, 82 + layout.laneCount * 156);
   const laneWidth = (chartWidth - 82) / layout.laneCount;
   const currentY = axisPosition(now.getTime(), window);
@@ -78,22 +85,36 @@ export function Timeline(
     setSelected({ id, anchor: { x: 24, y: 40, width: 300, height: 44 } });
   return (
     <View style={styles.root}>
-      <Text style={styles.legend}>Calendar＝グレー　Action＝ブルー</Text>
-      <Text style={styles.helper}>
-        {formatPlanningTime(window.startAt, localDate, timezone)}〜
-        {formatPlanningTime(window.endAt, localDate, timezone)}（{timezone}）
-      </Text>
-      {availabilityMessage ? (
-        <Text testID="today-capacity-status" style={styles.helper}>
-          {availabilityMessage}
+      {props.totalActions !== undefined ? (
+        <Text
+          accessibilityLabel={`この計画の完了数 ${props.completedActions ?? 0}件、全${props.totalActions}件`}
+          style={styles.helper}
+        >
+          完了 {props.completedActions ?? 0}/{props.totalActions}
+          {!next && props.totalActions > 0
+            ? ' ・ 未実行のActionはありません'
+            : props.totalActions === 0
+              ? ' ・ Actionはありません'
+              : ''}
         </Text>
       ) : null}
       {next ? (
-        <ActionButton
-          label={`次のActionを確認: ${next.title}`}
-          onPress={() => open(`action:${next.id}`)}
-          variant="secondary"
-        />
+        <Card testID="today-action-focus" style={{ padding: 12, gap: 4 }}>
+          <Text style={styles.helper}>
+            {selection?.label} · {next.statusLabel}
+          </Text>
+          <Text style={styles.heading}>{next.title}</Text>
+          <Text style={styles.helper}>
+            {formatPlanningTime(next.startAt, localDate, timezone)}–
+            {formatPlanningTime(next.endAt, localDate, timezone)}
+          </Text>
+          <ActionButton
+            accessibilityLabel={`次のActionを確認: ${next.title}`}
+            label="詳細を開く"
+            onPress={() => open(`action:${next.id}`)}
+            variant="ghost"
+          />
+        </Card>
       ) : null}
       {calendarEvents.some((event) => event.allDay) ? (
         <View testID="today-all-day">
@@ -248,6 +269,17 @@ export function Timeline(
           </ScrollView>
         </ScrollView>
       </View>
+      <Text style={styles.legend}>Calendar＝グレー　Action＝ブルー　配置可能＝グリーン</Text>
+      <Text style={styles.helper}>
+        {formatPlanningTime(window.startAt, localDate, timezone)}〜
+        {formatPlanningTime(window.endAt, localDate, timezone)}（{timezone}）
+      </Text>
+      {availabilityMessage ? (
+        <Text testID="today-capacity-status" style={styles.helper}>
+          {availabilityMessage}
+        </Text>
+      ) : null}
+      {props.supplement}
       <Text style={styles.helper}>
         カードをタップすると短い予定の全文・時刻・操作を確認できます。色の帯の高さが実際の長さです。
       </Text>
@@ -257,6 +289,7 @@ export function Timeline(
         </Text>
         <TimelineDetails
           {...props}
+          nextActionId={next?.id ?? null}
           calendarEvents={calendarEvents.filter((event) => !event.allDay)}
         />
       </View>
