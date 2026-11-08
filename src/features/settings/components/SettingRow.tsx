@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing } from '@/shared/theme';
+import { colors, spacing, typography } from '@/shared/theme';
 
 import type { SettingItem } from '../data';
 
@@ -12,6 +12,7 @@ type SettingRowProps = {
 export function SettingRow({ isLast, item }: SettingRowProps) {
   return (
     <View
+      accessible
       accessibilityLabel={`${item.label}、${item.value}${item.detail ? `、${item.detail}` : ''}`}
       style={[styles.row, isLast ? styles.lastRow : null]}
     >
@@ -28,6 +29,7 @@ const styles = StyleSheet.create({
   row: {
     minHeight: 64,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.lg,
     paddingVertical: spacing.md,
@@ -38,25 +40,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   copy: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 180,
+    minWidth: 0,
   },
   label: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: '600',
+    ...typography.bodyStrong,
   },
   detail: {
     marginTop: spacing.xs,
     color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
+    ...typography.secondary,
   },
   value: {
     flexShrink: 1,
-    maxWidth: '40%',
-    textAlign: 'right',
+    maxWidth: '100%',
     color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.secondary,
   },
 });

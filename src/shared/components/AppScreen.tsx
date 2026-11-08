@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import {
   Platform,
   ScrollView,
@@ -13,6 +13,8 @@ import { colors, spacing } from '@/shared/theme';
 
 type AppScreenProps = {
   children: ReactNode;
+  footer?: ReactNode;
+  scrollRef?: Ref<ScrollView>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   scroll?: boolean;
   testID?: string;
@@ -20,21 +22,34 @@ type AppScreenProps = {
 
 export function AppScreen({
   children,
+  footer,
+  scrollRef,
   contentContainerStyle,
   scroll = true,
   testID,
 }: AppScreenProps) {
   if (!scroll) {
     return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea} testID={testID}>
+      <SafeAreaView
+        edges={footer ? ['top', 'left', 'right', 'bottom'] : ['top', 'left', 'right']}
+        style={styles.safeArea}
+        testID={testID}
+      >
         <View style={[styles.staticContent, contentContainerStyle]}>{children}</View>
+        {footer}
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea} testID={testID}>
+    <SafeAreaView
+      edges={footer ? ['top', 'left', 'right', 'bottom'] : ['top', 'left', 'right']}
+      style={styles.safeArea}
+      testID={testID}
+    >
       <ScrollView
+        ref={scrollRef}
+        style={footer ? { flex: 1 } : undefined}
         contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -42,6 +57,7 @@ export function AppScreen({
       >
         {children}
       </ScrollView>
+      {footer}
     </SafeAreaView>
   );
 }
