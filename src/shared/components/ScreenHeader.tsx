@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     marginBottom: spacing.xs,
     color: colors.textMuted,
-    fontSize: 13,
+    ...typography.secondary,
     fontWeight: '600',
   },
   title: {

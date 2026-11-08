@@ -1,5 +1,5 @@
-import { Pressable, Text } from 'react-native';
-import { colors, spacing } from '@/shared/theme';
+import { Pressable, Text, useWindowDimensions } from 'react-native';
+import { useTheme } from '@/shared/theme';
 import type { PanelAnchor } from './SelectionPanel';
 export function SelectionRow({
   label,
@@ -12,6 +12,8 @@ export function SelectionRow({
   disabled?: boolean;
   onOpen: (anchor: PanelAnchor) => void;
 }) {
+  const { colors: c, spacing, typography } = useTheme();
+  const large = useWindowDimensions().fontScale > 1.4;
   return (
     <Pressable
       accessibilityRole="button"
@@ -23,24 +25,39 @@ export function SelectionRow({
       style={({ pressed }) => ({
         minHeight: 56,
         paddingVertical: spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: large ? 'column' : 'row',
+        alignItems: large ? 'stretch' : 'center',
         gap: spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-        opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
+        borderBottomColor: c.borderSubtle,
+        backgroundColor: pressed ? c.primarySoft : 'transparent',
       })}
     >
-      <Text style={{ flex: 1, color: colors.text, fontSize: 15 }}>{label}</Text>
-      <Text style={{ color: colors.accent, fontSize: 16, fontWeight: '600', flexShrink: 1 }}>
-        {value}
+      <Text
+        style={{
+          ...typography.body,
+          flex: large ? undefined : 1,
+          color: disabled ? c.disabledText : c.textPrimary,
+        }}
+      >
+        {label}
       </Text>
       <Text
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-        style={{ color: colors.textMuted }}
+        style={{
+          ...typography.bodyStrong,
+          color: disabled ? c.disabledText : c.primary,
+          flexShrink: 1,
+          textAlign: large ? 'right' : undefined,
+        }}
       >
-        ›
+        {value}{' '}
+        <Text
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          style={{ color: c.textSecondary }}
+        >
+          ›
+        </Text>
       </Text>
     </Pressable>
   );

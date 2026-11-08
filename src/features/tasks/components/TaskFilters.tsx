@@ -38,13 +38,16 @@ export function TaskFilters({ activeFilter, filters, onChange }: TaskFiltersProp
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.xl,
   },
   filter: {
-    minHeight: 38,
+    minHeight: 44,
+    maxWidth: '100%',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.pill,

@@ -44,7 +44,6 @@ export function TimeSelectionRow({
       />
       {anchor ? (
         <SelectionPanel title={label} anchor={anchor} onCancel={close}>
-          <Text accessibilityRole="header">{label}</Text>
           <Text>
             {offset === '1' && dayOffset !== undefined ? '翌日 ' : ''}
             {hour}:{minute}

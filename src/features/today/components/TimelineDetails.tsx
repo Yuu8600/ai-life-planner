@@ -107,7 +107,7 @@ export function TimelineDetails({
                   label={item.statusLabel}
                   tone={
                     item.status === 'completed'
-                      ? 'accent'
+                      ? 'success'
                       : item.status === 'skipped'
                         ? 'warning'
                         : 'neutral'

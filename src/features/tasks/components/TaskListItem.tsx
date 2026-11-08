@@ -23,7 +23,7 @@ export function TaskListItem({
   task,
 }: TaskListItemProps) {
   const tone =
-    task.status === 'completed' ? 'accent' : task.status === 'pending' ? 'warning' : 'neutral';
+    task.status === 'completed' ? 'success' : task.status === 'pending' ? 'warning' : 'neutral';
 
   return (
     <View style={[styles.container, isLast ? styles.lastItem : null]}>

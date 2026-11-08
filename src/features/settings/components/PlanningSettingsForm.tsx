@@ -1,10 +1,12 @@
+import { FormField, FormInput } from '@/shared/components/FormField';
+import { Notice } from '@/shared/components/Notice';
 import { TimeSelectionRow } from '@/shared/components/timeSelection/TimeSelectionRow';
 import { DurationSelectionRow } from '@/shared/components/timeSelection/DurationSelectionRow';
-import { useRef, useState, type ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
-import { colors, radius, spacing } from '@/shared/theme';
+import { colors, radius, spacing, typography } from '@/shared/theme';
 
 import type {
   ProfilePlanningSettings,
@@ -73,7 +75,7 @@ export function PlanningSettingsForm({
         helper="IANA形式で入力します。例: Asia/Tokyo"
         label="タイムゾーン"
       >
-        <TextInput
+        <FormInput
           accessibilityLabel="タイムゾーン"
           autoCapitalize="none"
           autoCorrect={false}
@@ -81,8 +83,6 @@ export function PlanningSettingsForm({
           maxLength={100}
           onChangeText={(value) => updateValue('timezone', value)}
           placeholder="Asia/Tokyo"
-          placeholderTextColor={colors.textSubtle}
-          style={styles.input}
           value={values.timezone}
         />
       </FormField>
@@ -146,47 +146,18 @@ export function PlanningSettingsForm({
           />
         );
       })}
-      {saveError ? (
-        <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.errorBox}>
-          {saveError}
-        </Text>
-      ) : null}
+      {saveError ? <Notice tone="error" message={saveError} /> : null}
 
-      {saveSucceeded ? (
-        <Text accessibilityLiveRegion="polite" style={styles.successBox}>
-          設定を保存しました。
-        </Text>
-      ) : null}
+      {saveSucceeded ? <Notice tone="success" message="設定を保存しました。" /> : null}
 
       <ActionButton
         accessibilityLabel={isSaving ? 'プロフィール設定を保存中' : 'プロフィール設定を保存する'}
         disabled={isSaving}
+        loading={isSaving}
         label={isSaving ? '保存中…' : '変更を保存'}
         onPress={() => void submit()}
         style={styles.submitButton}
       />
-    </View>
-  );
-}
-
-type FormFieldProps = {
-  children: ReactNode;
-  error?: string;
-  helper?: string;
-  label: string;
-};
-
-function FormField({ children, error, helper, label }: FormFieldProps) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      {children}
-      {helper ? <Text style={styles.helper}>{helper}</Text> : null}
-      {error ? (
-        <Text accessibilityLiveRegion="polite" style={styles.fieldError}>
-          {error}
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -201,51 +172,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
   },
-  field: {
-    flex: 1,
-    gap: spacing.sm,
-  },
-  label: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  input: {
-    minHeight: 50,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    color: colors.text,
-    fontSize: 16,
-  },
   helper: {
     color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
+    ...typography.secondary,
   },
   fieldError: {
-    color: colors.warning,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  errorBox: {
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    backgroundColor: colors.warningSoft,
-    color: colors.warning,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  successBox: {
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    backgroundColor: colors.accentSoft,
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 19,
+    color: colors.error,
+    ...typography.secondary,
   },
   submitButton: {
     minHeight: 50,

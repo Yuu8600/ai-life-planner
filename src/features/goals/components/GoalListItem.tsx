@@ -35,7 +35,7 @@ export function GoalListItem({
           />
           <Badge
             label={goal.statusLabel}
-            tone={goal.status === 'completed' ? 'accent' : 'neutral'}
+            tone={goal.status === 'completed' ? 'success' : 'neutral'}
           />
         </View>
       </View>

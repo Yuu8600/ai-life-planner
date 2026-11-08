@@ -44,7 +44,7 @@ describe('AccountSection', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'ログアウトする' }));
 
     const pendingButton = await screen.findByRole('button', { name: 'ログアウト処理中' });
-    expect(pendingButton.props.accessibilityState).toEqual({ disabled: true });
+    expect(pendingButton.props.accessibilityState).toMatchObject({ disabled: true, busy: true });
     await fireEvent.press(pendingButton);
     expect(signOut).toHaveBeenCalledTimes(1);
 

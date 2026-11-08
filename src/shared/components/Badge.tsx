@@ -1,53 +1,29 @@
-import { StyleSheet, Text, View } from 'react-native';
-
-import { colors, radius, spacing } from '@/shared/theme';
-
-type BadgeProps = {
-  label: string;
-  tone?: 'accent' | 'neutral' | 'warning';
-};
-
-export function Badge({ label, tone = 'neutral' }: BadgeProps) {
-  const labelStyle = {
-    accent: styles.accentLabel,
-    neutral: styles.neutralLabel,
-    warning: styles.warningLabel,
+import { Text, View } from 'react-native';
+import { useTheme } from '@/shared/theme';
+export type BadgeTone = 'accent' | 'info' | 'neutral' | 'success' | 'warning' | 'error';
+export function Badge({ label, tone = 'neutral' }: { label: string; tone?: BadgeTone }) {
+  const { colors: c, spacing, radius, typography } = useTheme();
+  const [foreground, background] = {
+    accent: [c.primary, c.primarySoft],
+    info: [c.primary, c.primarySoft],
+    neutral: [c.calendar, c.calendarSoft],
+    success: [c.success, c.successSoft],
+    warning: [c.warning, c.warningSoft],
+    error: [c.error, c.errorSoft],
   }[tone];
-
   return (
-    <View style={[styles.badge, styles[tone]]}>
-      <Text style={[styles.label, labelStyle]}>{label}</Text>
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        maxWidth: '100%',
+        flexShrink: 1,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: radius.sm,
+        backgroundColor: background,
+      }}
+    >
+      <Text style={{ ...typography.label, color: foreground, flexShrink: 1 }}>{label}</Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-  },
-  accent: {
-    backgroundColor: colors.accentSoft,
-  },
-  neutral: {
-    backgroundColor: colors.calendarSoft,
-  },
-  warning: {
-    backgroundColor: colors.warningSoft,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  accentLabel: {
-    color: colors.accent,
-  },
-  neutralLabel: {
-    color: colors.calendar,
-  },
-  warningLabel: {
-    color: colors.warning,
-  },
-});

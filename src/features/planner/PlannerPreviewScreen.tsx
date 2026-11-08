@@ -122,7 +122,7 @@ export function PlannerPreviewScreen({
           label="2 プレビュー"
           tone={state.status === 'success' && saveState.status !== 'success' ? 'accent' : 'neutral'}
         />
-        <Badge label="3 保存" tone={saveState.status === 'success' ? 'accent' : 'neutral'} />
+        <Badge label="3 保存" tone={saveState.status === 'success' ? 'success' : 'neutral'} />
       </View>
 
       {onSelectProvider ? (

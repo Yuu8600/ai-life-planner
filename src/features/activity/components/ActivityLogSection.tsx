@@ -45,7 +45,7 @@ export function ActivityLogSection({
               <Text style={styles.title}>{log.actionTitle}</Text>
               <Badge
                 label={completed ? '完了' : 'スキップ'}
-                tone={completed ? 'accent' : 'warning'}
+                tone={completed ? 'success' : 'warning'}
               />
             </View>
           );

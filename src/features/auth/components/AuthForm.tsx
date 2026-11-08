@@ -1,18 +1,12 @@
+import { FormField, FormInput } from '@/shared/components/FormField';
+import { Notice } from '@/shared/components/Notice';
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { AuthCredentials, SignUpResult } from '@/services/supabase/auth';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
-import { colors, radius, spacing } from '@/shared/theme';
+import { colors, radius, spacing, typography } from '@/shared/theme';
 
 import { type AuthMode, validateAuthCredentials } from '../credentials';
 import { getAuthErrorMessage } from '../errors';
@@ -114,9 +108,8 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
         </View>
 
         <View style={styles.form}>
-          <View style={styles.field}>
-            <Text style={styles.label}>メールアドレス</Text>
-            <TextInput
+          <FormField label="メールアドレス">
+            <FormInput
               accessibilityLabel="メールアドレス"
               autoCapitalize="none"
               autoComplete="email"
@@ -125,17 +118,14 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
               keyboardType="email-address"
               onChangeText={setEmail}
               placeholder="name@example.com"
-              placeholderTextColor={colors.textSubtle}
               returnKeyType="next"
-              style={styles.input}
               textContentType="emailAddress"
               value={email}
             />
-          </View>
+          </FormField>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>パスワード</Text>
-            <TextInput
+          <FormField label="パスワード">
+            <FormInput
               accessibilityLabel="パスワード"
               autoCapitalize="none"
               autoComplete={isLogin ? 'current-password' : 'new-password'}
@@ -143,30 +133,21 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
               onChangeText={setPassword}
               onSubmitEditing={() => void submit()}
               placeholder={isLogin ? 'パスワードを入力' : '6文字以上で入力'}
-              placeholderTextColor={colors.textSubtle}
               returnKeyType="done"
               secureTextEntry
-              style={styles.input}
               textContentType={isLogin ? 'password' : 'newPassword'}
               value={password}
             />
-          </View>
+          </FormField>
 
-          {displayedError ? (
-            <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}>
-              {displayedError}
-            </Text>
-          ) : null}
+          {displayedError ? <Notice tone="error" message={displayedError} /> : null}
 
-          {successMessage ? (
-            <Text accessibilityLiveRegion="polite" style={styles.success}>
-              {successMessage}
-            </Text>
-          ) : null}
+          {successMessage ? <Notice tone="success" message={successMessage} /> : null}
 
           <ActionButton
             accessibilityLabel={isSubmitting ? loadingLabel : `${submitLabel}する`}
             disabled={isSubmitting}
+            loading={isSubmitting}
             label={isSubmitting ? loadingLabel : submitLabel}
             onPress={() => void submit()}
             style={styles.submitButton}
@@ -228,8 +209,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 30,
-    fontWeight: '800',
+    ...typography.screenTitle,
     letterSpacing: -0.5,
   },
   subtitle: {
@@ -268,40 +248,6 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.lg,
     marginTop: spacing.xl,
-  },
-  field: {
-    gap: spacing.sm,
-  },
-  label: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  input: {
-    minHeight: 52,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    color: colors.text,
-    fontSize: 16,
-  },
-  error: {
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    backgroundColor: colors.warningSoft,
-    color: colors.warning,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  success: {
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    backgroundColor: colors.accentSoft,
-    color: colors.accent,
-    fontSize: 13,
-    lineHeight: 19,
   },
   submitButton: {
     minHeight: 50,

@@ -82,7 +82,7 @@ describe('AuthForm', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'ログインする' }));
 
     const pendingButton = await screen.findByRole('button', { name: 'ログイン中…' });
-    expect(pendingButton.props.accessibilityState).toEqual({ disabled: true });
+    expect(pendingButton.props.accessibilityState).toMatchObject({ disabled: true, busy: true });
     expect(screen.getByLabelText('メールアドレス').props.editable).toBe(false);
     expect(screen.getByLabelText('パスワード').props.editable).toBe(false);
 

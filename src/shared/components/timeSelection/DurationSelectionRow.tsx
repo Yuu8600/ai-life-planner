@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
-import { colors, spacing } from '@/shared/theme';
+import { Text, View } from 'react-native';
+import { colors } from '@/shared/theme';
+import { FormInput } from '../FormField';
 import { ActionButton } from '../ActionButton';
 import { SelectionPanel, type PanelAnchor } from './SelectionPanel';
 import { SelectionRow } from './SelectionRow';
@@ -52,7 +53,6 @@ export function DurationSelectionRow({
       />
       {anchor ? (
         <SelectionPanel title={label} anchor={anchor} onCancel={close}>
-          <Text accessibilityRole="header">{label}</Text>
           <Text>選択中: {draft}分</Text>
           <View style={{ gap: 8, flexDirection: 'row', flexWrap: 'wrap' }}>
             {presets.map((n) => (
@@ -74,24 +74,15 @@ export function DurationSelectionRow({
             onPress={() => setCustom(true)}
           />
           {custom ? (
-            <TextInput
+            <FormInput
               accessibilityLabel={`${label}の詳細（分）`}
               keyboardType="number-pad"
               value={draft}
               onChangeText={setDraft}
-              style={{
-                minHeight: 48,
-                padding: spacing.md,
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: 8,
-                color: colors.text,
-                fontSize: 16,
-              }}
             />
           ) : null}
           {error ? (
-            <Text accessibilityRole="alert" style={{ color: colors.warning }}>
+            <Text accessibilityRole="alert" style={{ color: colors.error }}>
               {error}
             </Text>
           ) : null}

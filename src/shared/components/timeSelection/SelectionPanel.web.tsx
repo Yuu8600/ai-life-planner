@@ -1,61 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Modal, useWindowDimensions } from 'react-native';
-import { colors, radius, spacing } from '@/shared/theme';
+import { useTheme } from '@/shared/theme';
+import { ModalHeader } from '../ModalHeader';
+import { useModalFocus } from '../useModalFocus.web';
 import type { SelectionPanelProps } from './SelectionPanel';
 export type { PanelAnchor, SelectionPanelProps } from './SelectionPanel';
 export function SelectionPanel({ title, anchor, onCancel, children }: SelectionPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const { colors, radius, spacing, surfaces } = useTheme();
   const { width, height } = useWindowDimensions();
-  useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const oldOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        onCancel();
-      }
-      if (e.key === 'Tab') {
-        const controls = [
-          ...(ref.current?.querySelectorAll<HTMLElement>(
-            'button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex="0"]',
-          ) ?? []),
-        ].filter((node) => node.getClientRects().length);
-        const first = controls[0],
-          last = controls.at(-1);
-        if (!first) {
-          e.preventDefault();
-          return;
-        }
-        if (
-          e.shiftKey &&
-          (document.activeElement === first || document.activeElement === ref.current)
-        ) {
-          e.preventDefault();
-          last?.focus();
-        } else if (
-          !e.shiftKey &&
-          (document.activeElement === last ||
-            !ref.current?.contains(document.activeElement) ||
-            document.activeElement === ref.current)
-        ) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', onKey, true);
-    return () => {
-      document.removeEventListener('keydown', onKey, true);
-      document.body.style.overflow = oldOverflow;
-      previous?.focus();
-    };
-  }, [onCancel]);
-  if (typeof document === 'undefined') return null;
+  useModalFocus(ref, onCancel);
   const desktop = width >= 768,
-    panelWidth = Math.min(400, width - 32),
+    panelWidth = Math.min(surfaces.popoverMaxWidth, width - 32),
     panelHeight = Math.min(640, height - 32);
   const top = Math.max(16, Math.min(anchor.y + anchor.height + 8, height - panelHeight - 16));
   return (
@@ -64,16 +20,16 @@ export function SelectionPanel({ title, anchor, onCancel, children }: SelectionP
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 10000,
-          background: desktop ? 'rgba(0,0,0,.12)' : 'rgba(0,0,0,.32)',
+          background: desktop ? colors.overlaySubtle : colors.overlay,
         }}
-        onMouseDown={(e) => {
-          if (e.target === e.currentTarget) onCancel();
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) onCancel();
         }}
       >
         <div
           ref={ref}
           tabIndex={-1}
+          data-testid="selection-panel"
           style={{
             position: 'absolute',
             ...(desktop
@@ -84,19 +40,29 @@ export function SelectionPanel({ title, anchor, onCancel, children }: SelectionP
                   maxHeight: panelHeight,
                 }
               : { bottom: 0, left: 0, right: 0, maxHeight: '85dvh' }),
-            overflowY: 'auto',
             background: colors.surface,
-            borderRadius: radius.lg,
-            padding: spacing.lg,
-            paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
-            boxShadow: '0 8px 32px #0003',
+            color: colors.textPrimary,
+            borderRadius: radius.dialog,
+            paddingBottom: 'max(0px, env(safe-area-inset-bottom))',
+            boxShadow: `0 12px 36px ${colors.shadow}24`,
             outline: 'none',
             display: 'flex',
             flexDirection: 'column',
-            gap: spacing.md,
           }}
         >
-          {children}
+          <ModalHeader title={title} onClose={onCancel} closeLabel={`${title}のパネルを閉じる`} />
+          <div
+            style={{
+              minHeight: 0,
+              overflowY: 'auto',
+              padding: spacing.lg,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: spacing.md,
+            }}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </Modal>
