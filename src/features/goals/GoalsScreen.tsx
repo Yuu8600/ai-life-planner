@@ -1,11 +1,12 @@
+import { Notice } from '@/shared/components/Notice';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
-import { colors, radius, spacing } from '@/shared/theme';
+import { spacing } from '@/shared/theme';
 
 import type { CreateGoalInput, Goal, GoalRepository } from './repositories/GoalRepository';
 import { toGoalListItemModel } from './presentation';
@@ -73,18 +74,21 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
 
   return (
     <AppScreen testID="goals-screen">
-      <ScreenHeader subtitle="目標を決めたら、Tasksで取り組む行動に分けましょう。" title="目標" />
-
-      {repository && !isLoading ? (
-        <ActionButton
-          accessibilityLabel="新しい目標を作成する"
-          disabled={isMutating}
-          label="＋ 目標を追加"
-          onPress={openCreateForm}
-          style={styles.addButton}
-          variant="primary"
-        />
-      ) : null}
+      <ScreenHeader
+        title="目標"
+        action={
+          repository && !isLoading ? (
+            <ActionButton
+              accessibilityLabel="新しい目標を作成する"
+              disabled={isMutating}
+              label="＋ 追加"
+              onPress={openCreateForm}
+              style={styles.addButton}
+              variant="primary"
+            />
+          ) : null
+        }
+      />
 
       {isLoading ? (
         <GoalStatePanel
@@ -124,9 +128,7 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
       )}
 
       {mutationError && editingGoal === undefined ? (
-        <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}>
-          {mutationError}
-        </Text>
+        <Notice tone="error" message={mutationError} />
       ) : null}
 
       {editingGoal !== undefined ? (
@@ -143,24 +145,6 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  list: {
-    marginTop: spacing.xl,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-  addButton: {
-    marginTop: spacing.lg,
-  },
-  error: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    backgroundColor: colors.warningSoft,
-    color: colors.warning,
-    fontSize: 13,
-    lineHeight: 19,
-  },
+  list: { gap: spacing.md, minWidth: 0 },
+  addButton: { minHeight: 48 },
 });

@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/shared/theme';
+import { colors, radius, spacing, typography } from '@/shared/theme';
 
 import type { TaskFilter } from '../types';
 
@@ -11,6 +12,7 @@ type TaskFiltersProps = {
 };
 
 export function TaskFilters({ activeFilter, filters, onChange }: TaskFiltersProps) {
+  const [focused, setFocused] = useState<string | null>(null);
   return (
     <View accessibilityLabel="タスクのフィルター" style={styles.container}>
       {filters.map((filter) => {
@@ -18,12 +20,30 @@ export function TaskFilters({ activeFilter, filters, onChange }: TaskFiltersProp
 
         return (
           <Pressable
+            {...(Platform.OS === 'web' ? { 'aria-pressed': selected } : {})}
             accessibilityLabel={filter.label + 'のタスクを表示'}
             accessibilityRole="button"
             accessibilityState={{ selected }}
             key={filter.id}
             onPress={() => onChange(filter.id)}
-            style={[styles.filter, selected ? styles.selectedFilter : null]}
+            onFocus={() => setFocused(filter.id)}
+            onBlur={() => setFocused(null)}
+            style={({ pressed }) => [
+              styles.filter,
+              pressed ? { backgroundColor: colors.primarySoft } : null,
+              selected ? styles.selectedFilter : null,
+              focused === filter.id
+                ? Platform.select({
+                    web: {
+                      outlineColor: colors.focusRing,
+                      outlineWidth: 2,
+                      outlineStyle: 'solid',
+                      outlineOffset: 2,
+                    },
+                    default: { borderColor: colors.focusRing, borderWidth: 2 },
+                  })
+                : null,
+            ]}
           >
             <Text style={[styles.label, selected ? styles.selectedLabel : null]}>
               {filter.label}
@@ -40,7 +60,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
   },
   filter: {
     minHeight: 44,
@@ -49,8 +69,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
+    borderColor: colors.borderControl,
+    borderRadius: radius.control,
     backgroundColor: colors.surface,
   },
   selectedFilter: {
@@ -59,8 +79,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
+    ...typography.label,
   },
   selectedLabel: {
     color: colors.surface,

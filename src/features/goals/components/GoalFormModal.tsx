@@ -194,11 +194,14 @@ const styles = StyleSheet.create({
   },
   valueRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-start',
     gap: spacing.md,
   },
   valueField: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 160,
+    minWidth: 0,
   },
   submitButton: {
     minHeight: 50,

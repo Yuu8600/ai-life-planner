@@ -1,11 +1,12 @@
+import { Notice } from '@/shared/components/Notice';
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
-import { colors, radius, spacing } from '@/shared/theme';
+import { spacing } from '@/shared/theme';
 
 import { GoalOptionsNotice } from './components/GoalOptionsNotice';
 import { TaskFilters } from './components/TaskFilters';
@@ -89,20 +90,20 @@ export function TasksScreen({ now, refreshToken = 0, repository }: TasksScreenPr
   return (
     <AppScreen testID="tasks-screen">
       <ScreenHeader
-        subtitle="所要時間と優先度を登録すると、Plannerが空き時間に配置します。"
         title="タスク"
+        action={
+          repository && !isLoading && !loadError ? (
+            <ActionButton
+              accessibilityLabel="新しいタスクを作成する"
+              disabled={isMutating}
+              label="＋ 追加"
+              onPress={openCreateForm}
+              style={styles.addButton}
+              variant="primary"
+            />
+          ) : null
+        }
       />
-
-      {repository && !isLoading && !loadError ? (
-        <ActionButton
-          accessibilityLabel="新しいタスクを作成する"
-          disabled={isMutating}
-          label="＋ タスクを追加"
-          onPress={openCreateForm}
-          style={styles.addButton}
-          variant="primary"
-        />
-      ) : null}
 
       <TaskFilters activeFilter={activeFilter} filters={TASK_FILTERS} onChange={setActiveFilter} />
 
@@ -156,9 +157,7 @@ export function TasksScreen({ now, refreshToken = 0, repository }: TasksScreenPr
       )}
 
       {mutationError && editingTask === undefined ? (
-        <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}>
-          {mutationError}
-        </Text>
+        <Notice tone="error" message={mutationError} />
       ) : null}
 
       {editingTask !== undefined ? (
@@ -179,25 +178,6 @@ export function TasksScreen({ now, refreshToken = 0, repository }: TasksScreenPr
 }
 
 const styles = StyleSheet.create({
-  list: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-  addButton: {
-    marginTop: spacing.lg,
-  },
-  error: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    backgroundColor: colors.warningSoft,
-    color: colors.warning,
-    fontSize: 13,
-    lineHeight: 19,
-  },
+  list: { gap: spacing.md, minWidth: 0 },
+  addButton: { minHeight: 48 },
 });

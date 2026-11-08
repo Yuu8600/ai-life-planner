@@ -1,6 +1,6 @@
 import type { AlertButton } from 'react-native';
 import { Alert } from 'react-native';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { GoalsScreen } from '@/features/goals/GoalsScreen';
 import type {
@@ -149,6 +149,7 @@ describe('GoalsScreen', () => {
     const screen = await render(<GoalsScreen repository={repository} />);
 
     await screen.findByText('TOEIC');
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEICのその他の操作' }));
     await fireEvent.press(screen.getByRole('button', { name: 'TOEICを削除する' }));
 
     await waitFor(() => {
@@ -209,5 +210,48 @@ describe('GoalsScreen', () => {
 
     expect(await screen.findByText('タイトルを入力してください。')).toBeTruthy();
     expect(repository.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('Clear deletion controls', () => {
+  afterEach(() => jest.restoreAllMocks());
+  it('preserves confirmation cancellation without calling remove', async () => {
+    const alert = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((_title, _message, buttons) =>
+        buttons?.find((button) => button.style === 'cancel')?.onPress?.(),
+      );
+    const repository = createRepository();
+    const screen = await render(<GoalsScreen repository={repository} />);
+    await screen.findByText('TOEIC');
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEICのその他の操作' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEICを削除する' }));
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(repository.remove).not.toHaveBeenCalled();
+    expect(screen.getByText('TOEIC')).toBeTruthy();
+  });
+  it('prevents duplicate delete and edit until the pending removal finishes', async () => {
+    const pending = createDeferred<void>();
+    const repository = createRepository({ remove: jest.fn((_id: string) => pending.promise) });
+    jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((_title, _message, buttons) =>
+        buttons?.find((button) => button.style === 'destructive')?.onPress?.(),
+      );
+    const screen = await render(<GoalsScreen repository={repository} />);
+    await screen.findByText('TOEIC');
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEICのその他の操作' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEICを削除する' }));
+    const deletion = screen.getByRole('button', { name: 'TOEICを削除する' });
+    expect(deletion.props.accessibilityState).toMatchObject({ disabled: true, busy: true });
+    await fireEvent.press(deletion);
+    await fireEvent.press(screen.getByRole('button', { name: 'TOEICを編集する' }));
+    expect(repository.remove).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('goal-form-modal')).toBeNull();
+    await act(async () => {
+      pending.resolve(undefined);
+      await pending.promise;
+    });
+    await waitFor(() => expect(screen.queryByText('TOEIC')).toBeNull());
   });
 });

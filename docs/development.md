@@ -188,3 +188,5 @@ package.jsonのpeer overridesはSDK 57互換範囲を保つための固定値で
 Todayの時間軸・空き時間の意味・確認手順は[Todayの時間軸](today-time-axis.md)を参照。
 
 Clearのデザイントークン・共通UI・移行範囲は[Clearデザインシステム](clear-design-system.md)を参照。
+
+Tasks・Goalsの一覧と操作の方針は[Tasks・Goals Clear UI](clear-tasks-goals.md)を参照。
