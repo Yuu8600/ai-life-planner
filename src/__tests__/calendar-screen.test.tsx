@@ -213,7 +213,9 @@ describe('CalendarScreen', () => {
     expect(screen.getByText('終日')).toBeTruthy();
     expect(screen.getByText('朝会')).toBeTruthy();
     expect(screen.getByText('08:00–09:00')).toBeTruthy();
-    expect(screen.getAllByText('空き時間')).toHaveLength(2);
+    expect(screen.getAllByText('空き時間')).toHaveLength(1);
+    expect(screen.getByRole('header', { name: '配置可能な空き時間' })).toBeTruthy();
+    expect(screen.getByText(/保存済みActionと過去の時間は差し引いていません/)).toBeTruthy();
     expect(screen.getAllByText('仕事')).toHaveLength(2);
     expect(screen.getByText('会議室A')).toBeTruthy();
   });

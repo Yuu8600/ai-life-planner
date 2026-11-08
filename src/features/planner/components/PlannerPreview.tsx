@@ -4,16 +4,19 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { SectionHeader } from '@/shared/components/SectionHeader';
-import { colors, radius, spacing } from '@/shared/theme';
+import { colors, radius, spacing, typography } from '@/shared/theme';
+import { Badge } from '@/shared/components/Badge';
+import { Notice } from '@/shared/components/Notice';
 
 import type { PlannerPreviewViewModel } from '../plannerPreviewPresentation';
 
 type PlannerPreviewProps = {
   isSaved?: boolean;
+  children?: ReactNode;
   preview: PlannerPreviewViewModel;
 };
 
-export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps) {
+export function PlannerPreview({ isSaved = false, preview, children }: PlannerPreviewProps) {
   const calendarRows = preview.calendarEvents.map((event, index) => ({
     allDay: event.allDay,
     startAt: event.startAt,
@@ -29,7 +32,11 @@ export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps
   return (
     <View style={styles.container} testID="planner-preview">
       <View style={styles.summaryCard}>
-        <Text style={styles.eyebrow}>プレビュー</Text>
+        <Badge
+          label={isSaved ? '保存済み' : 'プレビュー・未保存'}
+          tone={isSaved ? 'success' : 'accent'}
+        />
+        <Text style={styles.count}>配置されたAction {preview.actions.length}件</Text>
         <Text style={styles.summary}>{preview.summary}</Text>
         <Text style={styles.temporary}>
           {isSaved
@@ -39,6 +46,7 @@ export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps
       </View>
 
       <SectionHeader
+        compact
         detail={`Action ${preview.actions.length}件・Calendar ${preview.calendarEvents.length}件`}
         title="1日の流れ"
       />
@@ -59,7 +67,8 @@ export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps
             allDay: false,
             startAt: action.startAt,
             value: (
-              <View key={`action-${index}`} style={styles.item}>
+              <View key={`action-${index}`} style={[styles.item, styles.action]}>
+                <Text style={styles.time}>Action</Text>
                 <View style={styles.itemHeader}>
                   <Text style={styles.time}>{action.timeRange}</Text>
                   <Text style={styles.title}>{action.title}</Text>
@@ -71,7 +80,8 @@ export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps
         ])}
       </View>
 
-      <SectionHeader detail={`${preview.unscheduled.length}件`} title="未配置のタスク" />
+      {children}
+      <SectionHeader compact detail={`${preview.unscheduled.length}件`} title="未配置のタスク" />
       {preview.unscheduled.length === 0 ? (
         <View style={styles.emptyCard} testID="planner-unscheduled-empty">
           <Text style={styles.emptyText}>未配置のタスクはありません。</Text>
@@ -89,12 +99,11 @@ export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps
 
       {preview.warnings.length > 0 ? (
         <View style={styles.warningCard} testID="planner-warnings">
-          <Text style={styles.warningTitle}>注意事項</Text>
-          {preview.warnings.map((warning, index) => (
-            <Text key={`${warning.code}-${warning.path}-${index}`} style={styles.warningText}>
-              ・{warning.message}
-            </Text>
-          ))}
+          <Notice
+            tone="warning"
+            title="注意事項"
+            message={preview.warnings.map((warning) => warning.message).join('\n')}
+          />
         </View>
       ) : null}
     </View>
@@ -102,91 +111,42 @@ export function PlannerPreview({ isSaved = false, preview }: PlannerPreviewProps
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginTop: spacing.xl,
-  },
+  container: { gap: spacing.lg },
   summaryCard: {
     gap: spacing.sm,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.accentMuted,
-    borderRadius: radius.lg,
-    backgroundColor: colors.accentSoft,
-  },
-  eyebrow: {
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  summary: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 26,
-  },
-  temporary: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  list: {
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
+    borderColor: colors.borderSubtle,
+    borderRadius: radius.card,
     backgroundColor: colors.surface,
   },
+  count: { ...typography.bodyStrong, color: colors.action },
+  summary: { ...typography.sectionTitle, color: colors.textPrimary },
+  temporary: { ...typography.secondary, color: colors.textSecondary },
+  list: { gap: spacing.sm },
   item: {
     gap: spacing.sm,
     padding: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  itemHeader: {
-    gap: spacing.xs,
-  },
-  time: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  title: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  reason: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  emptyCard: {
-    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
+    borderColor: colors.borderSubtle,
+    borderRadius: radius.card,
     backgroundColor: colors.surface,
   },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: 14,
+  action: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.action,
+    backgroundColor: colors.actionSoft,
   },
-  warningCard: {
+  itemHeader: { gap: spacing.xs },
+  time: { ...typography.secondary, color: colors.action, fontVariant: ['tabular-nums'] },
+  title: { ...typography.bodyStrong, color: colors.textPrimary },
+  reason: { ...typography.secondary, color: colors.textSecondary },
+  emptyCard: {
     gap: spacing.sm,
-    marginTop: spacing.xl,
     padding: spacing.lg,
-    borderRadius: radius.md,
-    backgroundColor: colors.warningSoft,
+    borderRadius: radius.card,
+    backgroundColor: colors.surface,
   },
-  warningTitle: {
-    color: colors.warning,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  warningText: {
-    color: colors.warning,
-    fontSize: 13,
-    lineHeight: 19,
-  },
+  emptyText: { ...typography.body, color: colors.textSecondary },
+  warningCard: { minWidth: 0 },
 });

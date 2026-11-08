@@ -1,8 +1,9 @@
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
-import { StyleSheet, Text, View } from 'react-native';
-
-import { colors, radius, spacing } from '@/shared/theme';
-
+import { Badge } from '@/shared/components/Badge';
+import { Card } from '@/shared/components/Card';
+import { SectionHeader } from '@/shared/components/SectionHeader';
+import { colors, spacing, typography } from '@/shared/theme';
 import type { CalendarEventViewModel } from '../presentation';
 
 type DayTimelineProps = {
@@ -20,132 +21,55 @@ export function DayTimeline({
   individualKeys = [],
   sourceLabel = '端末カレンダー（読み取り専用）',
 }: DayTimelineProps) {
+  const { width, fontScale } = useWindowDimensions();
+  const columns = width >= 768 && fontScale < 1.4;
   return (
     <View style={styles.container}>
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, styles.calendarDot]} />
-          <Text style={styles.legendLabel}>{sourceLabel}</Text>
-        </View>
-      </View>
-
-      <View style={styles.list}>
-        {events.map((event) => (
-          <View accessibilityLabel={event.accessibilityLabel} key={event.key} style={styles.event}>
-            <View style={styles.timeColumn}>
-              <Text style={styles.eventTime}>{event.timeLabel}</Text>
-              <Text style={styles.availability}>{event.availabilityLabel}</Text>
-            </View>
-            <View style={styles.eventBody}>
-              <Text
-                numberOfLines={2}
-                style={[styles.eventTitle, event.isCanceled ? styles.canceled : null]}
-              >
-                {event.title}
-              </Text>
+      <SectionHeader compact title="選択日の予定" detail={`${events.length}件・${sourceLabel}`} />
+      {events.map((event) => (
+        <Card key={event.key} style={styles.event}>
+          <View style={[styles.layout, columns && styles.columns]}>
+            <Text style={[styles.time, columns && styles.timeColumn]}>{event.timeLabel}</Text>
+            <View style={styles.body}>
+              <Text style={[styles.title, event.isCanceled && styles.canceled]}>{event.title}</Text>
+              <View style={styles.badges}>
+                <Badge label={event.availabilityLabel} tone="neutral" />
+                {event.isCanceled ? <Badge label="キャンセル済み" tone="warning" /> : null}
+                {individualKeys.includes(event.key) ? (
+                  <Badge label="個別余白" tone="accent" />
+                ) : null}
+              </View>
               {event.calendarTitle ? (
-                <Text numberOfLines={1} style={styles.metadata}>
-                  {event.calendarTitle}
-                </Text>
+                <Text style={styles.metadata}>{event.calendarTitle}</Text>
               ) : null}
-              {event.location ? (
-                <Text numberOfLines={1} style={styles.metadata}>
-                  {event.location}
-                </Text>
-              ) : null}
-              {individualKeys.includes(event.key) ? (
-                <Text style={styles.metadata}>個別余白</Text>
-              ) : null}
+              {event.location ? <Text style={styles.metadata}>{event.location}</Text> : null}
               {onEditBuffer && editableKeys.includes(event.key) ? (
                 <ActionButton
                   label="余白を設定"
                   accessibilityLabel={`${event.title}の余白を設定`}
                   onPress={() => onEditBuffer(event.key)}
-                  variant="secondary"
+                  variant="ghost"
+                  style={styles.edit}
                 />
               ) : null}
-              {event.isCanceled ? <Text style={styles.canceledLabel}>キャンセル済み</Text> : null}
             </View>
           </View>
-        ))}
-      </View>
+        </Card>
+      ))}
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  container: {
-    marginTop: spacing.xl,
-  },
-  legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  calendarDot: {
-    backgroundColor: colors.calendar,
-  },
-  legendLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  list: {
-    gap: spacing.sm,
-  },
-  event: {
-    minHeight: 74,
-    flexDirection: 'row',
-    padding: spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.calendar,
-    borderRadius: radius.md,
-    backgroundColor: colors.calendarSoft,
-  },
-  timeColumn: {
-    width: 104,
-    paddingRight: spacing.sm,
-  },
-  eventBody: {
-    flex: 1,
-  },
-  eventTitle: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  eventTime: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  availability: {
-    marginTop: spacing.xs,
-    color: colors.textSubtle,
-    fontSize: 10,
-  },
-  metadata: {
-    marginTop: spacing.xs,
-    color: colors.textMuted,
-    fontSize: 11,
-  },
-  canceled: {
-    textDecorationLine: 'line-through',
-  },
-  canceledLabel: {
-    marginTop: spacing.xs,
-    color: colors.warning,
-    fontSize: 11,
-    fontWeight: '600',
-  },
+  container: { gap: spacing.md },
+  event: { borderLeftWidth: 3, borderLeftColor: colors.calendar },
+  layout: { gap: spacing.sm },
+  columns: { flexDirection: 'row', gap: spacing.lg },
+  timeColumn: { flexBasis: 180, flexShrink: 1 },
+  body: { flex: 1, minWidth: 0, gap: spacing.sm },
+  time: { ...typography.bodyStrong, color: colors.calendar, fontVariant: ['tabular-nums'] },
+  title: { ...typography.bodyStrong, color: colors.textPrimary },
+  metadata: { ...typography.secondary, color: colors.textSecondary },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  canceled: { textDecorationLine: 'line-through' },
+  edit: { alignSelf: 'flex-start', maxWidth: '100%' },
 });

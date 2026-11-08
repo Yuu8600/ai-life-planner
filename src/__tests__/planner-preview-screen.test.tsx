@@ -200,7 +200,7 @@ describe('Replanning Preview', () => {
     const screen = await render(<PlannerPreviewScreen {...test.props} />);
     await waitFor(() => expect(screen.getByText('残り時間の計画を作成')).not.toBeDisabled());
     await fireEvent.press(screen.getByText('残り時間の計画を作成'));
-    await fireEvent.press(await screen.findByText('この計画を保存'));
+    await fireEvent.press(await screen.findByText('この再計画を保存'));
     expect(alert.mock.calls.at(-1)?.[1]).toContain('途中の予定も組み直されます');
     await act(async () => {
       await confirmLatestAlert(alert);
@@ -210,7 +210,7 @@ describe('Replanning Preview', () => {
     expect(test.provider.generate).toHaveBeenCalledTimes(1);
     expect(test.onSaved).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByText('再生成'));
-    await fireEvent.press(await screen.findByText('この計画を保存'));
+    await fireEvent.press(await screen.findByText('この再計画を保存'));
     await act(async () => {
       await confirmLatestAlert(alert);
     });
@@ -226,7 +226,7 @@ describe('Replanning Preview', () => {
     const screen = await render(<PlannerPreviewScreen {...test.props} />);
     await waitFor(() => expect(screen.getByText('残り時間の計画を作成')).not.toBeDisabled());
     await fireEvent.press(screen.getByText('残り時間の計画を作成'));
-    await fireEvent.press(await screen.findByText('この計画を保存'));
+    await fireEvent.press(await screen.findByText('この再計画を保存'));
     expect(alert.mock.calls.at(-1)?.[1]).toContain('旧計画の予定もすべて削除されます');
     expect(test.replan.replaceIfCurrent).not.toHaveBeenCalled();
     expect(screen.getByTestId('planner-preview')).toBeTruthy();
@@ -808,4 +808,28 @@ describe('PlannerPreviewScreen', () => {
     });
     expect(await screen.findByTestId('planner-save-success')).toBeTruthy();
   });
+});
+
+it('keeps a single reachable save area and moves provider options after the generated preview', async () => {
+  const onSelectProvider = jest.fn();
+  const screen = await renderScreen(undefined, undefined, undefined, undefined, {
+    onSelectProvider,
+    openAiAvailability: 'unavailable',
+  });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '今日の計画を作成する' })).not.toBeDisabled(),
+  );
+  expect(screen.getByTestId('planner-provider-rule-based').props.accessibilityState.checked).toBe(
+    true,
+  );
+  expect(screen.getByTestId('planner-provider-openai').props.accessibilityState.disabled).toBe(
+    true,
+  );
+  await fireEvent.press(screen.getByRole('button', { name: '今日の計画を作成する' }));
+  await screen.findByTestId('planner-save-area');
+  expect(screen.getAllByRole('button', { name: 'この計画を保存する' })).toHaveLength(1);
+  expect(screen.getByText('配置されたAction 1件')).toBeTruthy();
+  expect(screen.getByText('未保存・保存するとTodayに反映します')).toBeTruthy();
+  expect(screen.getByTestId('planner-unscheduled-list')).toBeTruthy();
+  expect(screen.getByTestId('planner-provider-options')).toBeTruthy();
 });

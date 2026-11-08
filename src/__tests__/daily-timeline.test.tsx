@@ -85,7 +85,7 @@ it('interleaves Preview context with actions while retaining unscheduled tasks a
     .slice(1)
     .forEach((title, i) => expect(json.indexOf(titles[i])).toBeLessThan(json.indexOf(title)));
   expect(screen.getByText('unscheduled title')).toBeTruthy();
-  expect(screen.getByText('・warning text')).toBeTruthy();
+  expect(screen.getByText('warning text')).toBeTruthy();
   expect(screen.getAllByTestId('calendar-timeline-event')).toHaveLength(3);
   expect(JSON.stringify(preview)).toBe(original);
 });

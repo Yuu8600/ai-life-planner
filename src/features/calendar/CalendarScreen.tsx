@@ -2,8 +2,8 @@ import { EventBufferEditor } from './components/EventBufferEditor';
 import { bufferKey, eventBufferKey, type CalendarEventBufferRepository } from './eventBuffers';
 import { isBlockingCalendarEvent, calculateFreeTime } from '@/features/planner';
 import type { CalendarEvent } from './types';
-import { Text } from 'react-native';
-import { colors } from '@/shared/theme';
+import { StyleSheet, Text } from 'react-native';
+import { colors, spacing, typography } from '@/shared/theme';
 import { useMemo, useState } from 'react';
 
 import { getLocalDate } from '@/features/today';
@@ -92,15 +92,8 @@ export function CalendarScreen({
     !calendar.loadError;
 
   return (
-    <AppScreen testID="calendar-screen">
-      <ScreenHeader
-        subtitle={
-          sourceLabel === 'demo'
-            ? 'サンプル予定から空き時間を計算し、Plannerの配置に使います。'
-            : '予定から空き時間を計算し、Plannerの配置に使います。端末の予定は変更しません。'
-        }
-        title="カレンダー"
-      />
+    <AppScreen testID="calendar-screen" contentContainerStyle={styles.content}>
+      <ScreenHeader title="カレンダー" />
 
       {calendar.accessState === 'granted' && selectedDate && timeZone ? (
         <CalendarDateNavigator
@@ -241,9 +234,7 @@ export function CalendarScreen({
           {calendar.planningSettings?.calendarBufferBeforeMinutes ||
           calendar.planningSettings?.calendarBufferAfterMinutes ||
           calendar.overrides.length > 0 ? (
-            <Text style={{ color: colors.textMuted }}>
-              予定前後の余白時間を除いて計算しています。
-            </Text>
+            <Text style={styles.caption}>予定前後の余白時間を除いて計算しています。</Text>
           ) : null}
           <FreeTimeSummary result={freeTimeCalculation.result} timezone={timeZone} />
         </>
@@ -254,6 +245,16 @@ export function CalendarScreen({
           title="空き時間を計算できませんでした"
         />
       ) : null}
+      <Text style={styles.caption}>
+        {sourceLabel === 'demo'
+          ? 'サンプル予定を表示しています。'
+          : '端末カレンダーは読み取り専用です。'}
+      </Text>
     </AppScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  content: { width: '100%', maxWidth: 880, alignSelf: 'center', gap: spacing.lg },
+  caption: { ...typography.secondary, color: colors.textSecondary },
+});
