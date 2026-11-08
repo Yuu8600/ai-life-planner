@@ -48,6 +48,7 @@ export function AccountSection() {
         <ActionButton
           accessibilityLabel={isSigningOut ? 'ログアウト処理中' : 'ログアウトする'}
           disabled={isSigningOut}
+          loading={isSigningOut}
           label={isSigningOut ? 'ログアウト中…' : 'ログアウト'}
           onPress={() => void handleSignOut()}
           variant="secondary"

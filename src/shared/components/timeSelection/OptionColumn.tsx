@@ -9,9 +9,10 @@ export type OptionColumnProps = {
 };
 export function OptionColumn({ label, options, value, onChange }: OptionColumnProps) {
   const ref = useRef<ScrollView>(null);
+  const selectedLayout = useRef({ y: 0, height: 48 });
   const revealSelection = () =>
     ref.current?.scrollTo({
-      y: Math.max(0, options.indexOf(value) - 2) * 48,
+      y: Math.max(0, selectedLayout.current.y - selectedLayout.current.height * 2),
       animated: false,
     });
   return (
@@ -27,6 +28,12 @@ export function OptionColumn({ label, options, value, onChange }: OptionColumnPr
         {options.map((option) => (
           <Pressable
             key={option}
+            onLayout={(event) => {
+              if (option === value) {
+                selectedLayout.current = event.nativeEvent.layout;
+                revealSelection();
+              }
+            }}
             accessibilityRole="button"
             accessibilityLabel={`${label} ${option}`}
             accessibilityState={{ selected: option === value }}

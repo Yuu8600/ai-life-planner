@@ -1,4 +1,5 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Card } from './Card';
+import { ActivityIndicator, StyleSheet, Text } from 'react-native';
 
 import { ActionButton } from './ActionButton';
 import { colors, radius, spacing, typography } from '@/shared/theme';
@@ -25,7 +26,7 @@ export function StatePanel({
   title,
 }: StatePanelProps) {
   return (
-    <View style={styles.container} testID={testID}>
+    <Card style={styles.container} testID={testID}>
       {isLoading ? (
         <ActivityIndicator accessibilityLabel={loadingLabel} color={colors.accent} />
       ) : null}
@@ -41,7 +42,7 @@ export function StatePanel({
           variant="secondary"
         />
       ) : null}
-    </View>
+    </Card>
   );
 }
 

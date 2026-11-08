@@ -78,7 +78,7 @@ export function Timeline(
     setSelected({ id, anchor: { x: 24, y: 40, width: 300, height: 44 } });
   return (
     <View style={styles.root}>
-      <Text style={styles.legend}>Calendar＝グレー　Action＝グリーン</Text>
+      <Text style={styles.legend}>Calendar＝グレー　Action＝ブルー</Text>
       <Text style={styles.helper}>
         {formatPlanningTime(window.startAt, localDate, timezone)}〜
         {formatPlanningTime(window.endAt, localDate, timezone)}（{timezone}）
@@ -335,13 +335,13 @@ const styles = StyleSheet.create({
   blockTime: { fontSize: 11, lineHeight: 16, color: colors.textMuted },
   free: {
     position: 'absolute',
-    backgroundColor: '#F0F8F3',
+    backgroundColor: colors.availableSoft,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: colors.accentMuted,
+    borderColor: colors.availableBorder,
     overflow: 'hidden',
   },
-  freeLabel: { fontSize: 11, color: colors.accent, padding: 4 },
+  freeLabel: { fontSize: 11, color: colors.available, padding: 4 },
   now: {
     height: 0,
     position: 'absolute',
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     top: -8,
     width: 78,
     fontSize: 11,
-    color: '#B33A3A',
+    color: colors.nowIndicator,
     backgroundColor: colors.surface,
     fontWeight: '700',
     paddingLeft: 4,
@@ -368,6 +368,6 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     height: 2,
-    backgroundColor: '#B33A3A',
+    backgroundColor: colors.nowIndicator,
   },
 });

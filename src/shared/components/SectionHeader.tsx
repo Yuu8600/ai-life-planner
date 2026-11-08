@@ -24,6 +24,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: spacing.md,
   },
@@ -34,7 +35,7 @@ const styles = StyleSheet.create({
   },
   detail: {
     color: colors.textMuted,
-    fontSize: 13,
+    ...typography.secondary,
     fontWeight: '600',
   },
 });

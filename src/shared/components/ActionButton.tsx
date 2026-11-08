@@ -1,89 +1,119 @@
-import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  Text,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import { useTheme } from '@/shared/theme';
 
-import { colors, radius, spacing } from '@/shared/theme';
-
-type ActionButtonProps = {
+export type ActionButtonProps = {
   accessibilityLabel?: string;
   disabled?: boolean;
+  loading?: boolean;
   label: string;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'destructive';
 };
-
 export function ActionButton({
   accessibilityLabel,
   disabled = false,
+  loading = false,
   label,
   onPress,
   style,
   variant = 'primary',
 }: ActionButtonProps) {
-  const labelStyle = {
-    ghost: styles.ghostLabel,
-    primary: styles.primaryLabel,
-    secondary: styles.secondaryLabel,
-  }[variant];
-
+  const { colors: c, controls, radius, spacing, typography } = useTheme();
+  const [focused, setFocused] = useState(false);
+  const blocked = disabled || loading;
+  const solid = variant === 'primary' || variant === 'destructive';
+  const foreground = blocked
+    ? c.disabledText
+    : solid
+      ? variant === 'destructive'
+        ? c.onError
+        : c.onPrimary
+      : c.primary;
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: blocked, busy: loading }}
+      disabled={blocked}
       onPress={onPress}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       style={({ pressed }) => [
-        styles.base,
-        styles[variant],
-        pressed && onPress && !disabled ? styles.pressed : null,
-        disabled ? styles.disabled : null,
+        {
+          minHeight: controls.buttonHeight,
+          minWidth: controls.minimumTarget,
+          maxWidth: '100%',
+          flexShrink: 1,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+          borderRadius: radius.button,
+          borderWidth: controls.borderWidth,
+          flexDirection: 'row',
+          gap: spacing.sm,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderColor: blocked
+            ? c.borderControl
+            : variant === 'primary'
+              ? c.primary
+              : variant === 'destructive'
+                ? c.error
+                : variant === 'secondary'
+                  ? c.borderControl
+                  : 'transparent',
+          backgroundColor: blocked
+            ? c.disabledSurface
+            : variant === 'primary'
+              ? pressed
+                ? c.primaryPressed
+                : c.primary
+              : variant === 'destructive'
+                ? pressed
+                  ? c.errorPressed
+                  : c.error
+                : pressed
+                  ? c.primarySoft
+                  : variant === 'secondary'
+                    ? c.surface
+                    : 'transparent',
+        },
         style,
+        focused && !blocked
+          ? Platform.select({
+              web: {
+                outlineColor: c.focusRing,
+                outlineStyle: 'solid',
+                outlineWidth: controls.focusWidth,
+                outlineOffset: controls.focusOffset,
+              },
+              default: { borderColor: c.focusRing, borderWidth: controls.focusWidth },
+            })
+          : null,
       ]}
     >
-      <Text style={[styles.label, labelStyle]}>{label}</Text>
+      {loading ? (
+        <ActivityIndicator accessibilityLabel="処理中" color={foreground} size="small" />
+      ) : null}
+      <Text
+        style={{
+          ...typography.button,
+          color: foreground,
+          flexShrink: 1,
+          minWidth: 0,
+          textAlign: 'center',
+        }}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-  },
-  primary: {
-    backgroundColor: colors.accent,
-  },
-  secondary: {
-    borderWidth: 1,
-    borderColor: colors.accentMuted,
-    backgroundColor: colors.surface,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
-  pressed: {
-    opacity: 0.78,
-  },
-  disabled: {
-    opacity: 0.55,
-  },
-  label: {
-    textAlign: 'center',
-    flexShrink: 1,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  primaryLabel: {
-    color: colors.surface,
-  },
-  secondaryLabel: {
-    color: colors.accent,
-  },
-  ghostLabel: {
-    color: colors.textMuted,
-  },
-});

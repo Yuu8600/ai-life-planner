@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.base,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
   },

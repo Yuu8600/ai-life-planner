@@ -24,7 +24,7 @@ export function OptionColumn({ label, options, value, onChange }: OptionColumnPr
           fontSize: 18,
           color: colors.text,
           background: colors.surface,
-          border: `1px solid ${colors.border}`,
+          border: `1px solid ${colors.borderControl}`,
           borderRadius: 8,
         }}
       >

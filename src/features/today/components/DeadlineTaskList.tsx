@@ -41,7 +41,7 @@ export function DeadlineTaskList({ items }: DeadlineTaskListProps) {
             label={item.statusLabel}
             tone={
               item.status === 'completed'
-                ? 'accent'
+                ? 'success'
                 : item.status === 'skipped'
                   ? 'warning'
                   : 'neutral'
