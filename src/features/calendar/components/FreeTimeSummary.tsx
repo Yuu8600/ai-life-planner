@@ -2,7 +2,8 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { FreeTimeCalculationResult } from '@/features/planner';
 import { formatPlanningTime, getLocalDate } from '@/features/today';
-import { colors, radius, spacing } from '@/shared/theme';
+import { colors, spacing, typography } from '@/shared/theme';
+import { Card } from '@/shared/components/Card';
 
 type FreeTimeSummaryProps = {
   result: FreeTimeCalculationResult;
@@ -17,21 +18,37 @@ function formatDuration(durationMinutes: number): string {
 
 export function FreeTimeSummary({ result, timezone }: FreeTimeSummaryProps) {
   return (
-    <View style={styles.container} testID="calendar-free-time">
-      <Text style={styles.title}>空き時間</Text>
+    <Card style={styles.container} testID="calendar-free-time">
+      <Text accessibilityRole="header" style={styles.title}>
+        配置可能な空き時間
+      </Text>
       <Text style={styles.total}>
         {result.freeSlots.length}枠・合計
         {formatDuration(result.freeSlots.reduce((total, slot) => total + slot.durationMinutes, 0))}
         分
       </Text>
       <Text style={styles.subtitle}>
-        Plannerがタスクを配置できる時間帯。今日の計画はPlannerタブで作成できます。
+        Calendar予定・余白・最小空き時間に基づく候補です。Todayと異なり、保存済みActionと過去の時間は差し引いていません。
       </Text>
 
+      <Text style={styles.subtitle}>
+        活動時間{' '}
+        {formatPlanningTime(
+          result.planningWindow.startAt,
+          getLocalDate(result.planningWindow.startAt, timezone),
+          timezone,
+        )}
+        –
+        {formatPlanningTime(
+          result.planningWindow.endAt,
+          getLocalDate(result.planningWindow.startAt, timezone),
+          timezone,
+        )}
+      </Text>
       {result.freeSlots.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>条件を満たす空き時間はありません。</Text>
-          <Text style={styles.subtitle}>Todayの設定から活動時間と最小空き時間を見直せます。</Text>
+          <Text style={styles.subtitle}>Settingsで活動時間と最小空き時間を見直せます。</Text>
         </View>
       ) : (
         <View style={styles.list}>
@@ -56,55 +73,32 @@ export function FreeTimeSummary({ result, timezone }: FreeTimeSummaryProps) {
           })}
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginTop: spacing.xl,
-  },
-  total: { color: colors.accent, fontSize: 19, fontWeight: '700', marginBottom: spacing.sm },
-  duration: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  emptyCard: {
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentSoft,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-  list: {
-    gap: spacing.sm,
-  },
+  container: { gap: spacing.sm },
+  title: { ...typography.sectionTitle, color: colors.textPrimary },
+  total: { ...typography.bodyStrong, color: colors.available },
+  subtitle: { ...typography.secondary, color: colors.textSecondary },
+  emptyCard: { gap: spacing.sm, paddingVertical: spacing.sm },
+  emptyText: { ...typography.body, color: colors.textSecondary },
+  list: { gap: spacing.sm },
   slot: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     justifyContent: 'space-between',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-  },
-  subtitle: {
-    lineHeight: 20,
-    marginBottom: spacing.md,
-    color: colors.textMuted,
-    fontSize: 13,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
   },
   time: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '700',
+    ...typography.bodyStrong,
+    color: colors.available,
+    flexShrink: 1,
+    fontVariant: ['tabular-nums'],
   },
-  title: {
-    marginBottom: spacing.xs,
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  duration: { ...typography.secondary, color: colors.textSecondary },
 });

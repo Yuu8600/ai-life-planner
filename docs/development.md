@@ -192,3 +192,5 @@ Clearのデザイントークン・共通UI・移行範囲は[Clearデザイン�
 Tasks・Goalsの一覧と操作の方針は[Tasks・Goals Clear UI](clear-tasks-goals.md)を参照。
 
 Settings・Authの構成と保存操作、確認範囲は[Settings・Auth Clear UI](clear-settings-auth.md)を参照。
+
+Calendar・Plannerの表示と承認UIは[Calendar・Planner Clear UI](clear-calendar-planner.md)を参照。

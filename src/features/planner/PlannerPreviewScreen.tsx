@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { CalendarEventBufferRepository, CalendarRepository } from '@/features/calendar';
 import type { SettingsRepository } from '@/features/settings';
@@ -8,7 +8,8 @@ import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
-import { colors, radius, spacing } from '@/shared/theme';
+import { colors, radius, spacing, typography } from '@/shared/theme';
+import { Notice } from '@/shared/components/Notice';
 
 import { PlannerPreview } from './components/PlannerPreview';
 import { PlannerStatePanel } from './components/PlannerStatePanel';
@@ -93,7 +94,7 @@ export function PlannerPreviewScreen({
   );
   const confirmApproval = () => {
     appAlert.alert(
-      'この計画を保存しますか？',
+      mode === 'replan' ? 'この再計画を保存しますか？' : 'この計画を保存しますか？',
       mode === 'replan'
         ? `今日の計画をこの内容に置き換えます。途中の予定も組み直されます。完了・スキップの履歴は残ります。${state.status === 'success' && state.proposal.actions.length === 0 ? '\n新しい予定は0件です。旧計画の予定もすべて削除されます。' : ''}`
         : '今日の既存の計画がある場合は、このプレビューの内容で置き換えます。',
@@ -104,8 +105,185 @@ export function PlannerPreviewScreen({
     );
   };
 
+  const [focusedProvider, setFocusedProvider] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    if (
+      state.status === 'success' ||
+      state.status === 'error' ||
+      ['success', 'stale', 'error'].includes(saveState.status)
+    )
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [saveState.status, state.status]);
+  const providerOptions = onSelectProvider ? (
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel="生成方法"
+      style={styles.providerOptions}
+      testID="planner-provider-options"
+    >
+      <Text style={styles.providerHeading}>生成方法</Text>
+      <Pressable
+        accessibilityRole="radio"
+        accessibilityState={{
+          checked: provider.id === 'rule-based',
+          disabled: saveState.status === 'saving',
+        }}
+        disabled={saveState.status === 'saving'}
+        onPress={() => onSelectProvider('rule-based')}
+        onFocus={() => setFocusedProvider('rule-based')}
+        onBlur={() => setFocusedProvider(null)}
+        {...(Platform.OS === 'web'
+          ? {
+              'aria-checked': provider.id === 'rule-based',
+              onKeyDown: (event: { key: string; preventDefault: () => void }) => {
+                if (event.key === 'Enter' && !(saveState.status === 'saving')) {
+                  event.preventDefault();
+                  onSelectProvider('rule-based');
+                }
+              },
+            }
+          : {})}
+        style={[
+          styles.providerOption,
+          provider.id === 'rule-based' && styles.selectedProviderOption,
+          focusedProvider === 'rule-based' && styles.focusedProvider,
+        ]}
+        testID="planner-provider-rule-based"
+      >
+        <Text style={styles.providerTitle}>
+          {provider.id === 'rule-based' ? '◉' : '○'} ルールベース
+        </Text>
+        <Text style={styles.providerDescription}>API不要・標準</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="radio"
+        accessibilityState={{
+          checked: provider.id === 'openai',
+          disabled: openAiAvailability !== 'available' || saveState.status === 'saving',
+        }}
+        disabled={openAiAvailability !== 'available' || saveState.status === 'saving'}
+        onPress={() => onSelectProvider('openai')}
+        onFocus={() => setFocusedProvider('openai')}
+        onBlur={() => setFocusedProvider(null)}
+        {...(Platform.OS === 'web'
+          ? {
+              'aria-checked': provider.id === 'openai',
+              onKeyDown: (event: { key: string; preventDefault: () => void }) => {
+                if (
+                  event.key === 'Enter' &&
+                  !(openAiAvailability !== 'available' || saveState.status === 'saving')
+                ) {
+                  event.preventDefault();
+                  onSelectProvider('openai');
+                }
+              },
+            }
+          : {})}
+        style={[
+          styles.providerOption,
+          provider.id === 'openai' && styles.selectedProviderOption,
+          focusedProvider === 'openai' && styles.focusedProvider,
+          openAiAvailability !== 'available' && styles.unavailableProvider,
+        ]}
+        testID="planner-provider-openai"
+      >
+        <Text style={styles.providerTitle}>{provider.id === 'openai' ? '◉' : '○'} OpenAI</Text>
+        <Text style={styles.providerDescription}>
+          {openAiAvailability === 'available'
+            ? '任意・AIを使って計画'
+            : openAiAvailability === 'checking'
+              ? '利用状況を確認中…'
+              : '任意・現在利用できません'}
+        </Text>
+      </Pressable>
+    </View>
+  ) : null;
+  const saveFeedback =
+    saveState.status === 'success' ? (
+      <Notice
+        tone="success"
+        testID="planner-save-success"
+        title="今日の計画を保存しました"
+        message={`${saveState.plan.actionCount}件の予定を保存しました。Todayで確認できます。`}
+        action={
+          mode === 'generate' && onPressToday ? (
+            <ActionButton label="今日の計画を見る" onPress={onPressToday} />
+          ) : undefined
+        }
+      />
+    ) : saveState.status === 'stale' ? (
+      <View style={styles.feedback} testID="planner-preview-stale">
+        <Notice tone="warning" title="計画の再生成が必要です" message={saveState.message} />
+        <Text style={styles.introText}>
+          最新の設定・予定・タスク・保存済み計画との整合性が失われたため、このプレビューは保存できません。「再生成」で最新の内容を確認してください。
+        </Text>
+        {saveState.issues.map((issue, index) => (
+          <Text key={index} style={styles.issueText}>
+            {issue.message}
+          </Text>
+        ))}
+      </View>
+    ) : saveState.status === 'error' ? (
+      <Notice
+        tone="error"
+        testID={
+          saveState.kind === 'verification' ? 'planner-approval-check-error' : 'planner-save-error'
+        }
+        title={
+          saveState.kind === 'verification'
+            ? '最新の状況を確認できませんでした'
+            : '計画を保存できませんでした'
+        }
+        message={saveState.message}
+      />
+    ) : null;
+  const footer =
+    preview && saveState.status !== 'stale' && saveState.status !== 'success' ? (
+      <View style={styles.saveArea} testID="planner-save-area">
+        <Text accessibilityLiveRegion="polite" style={styles.providerDescription}>
+          {mode === 'replan' ? '再計画・' : ''}
+          {saveState.status === 'saving'
+            ? '最新の内容を確認して保存しています'
+            : saveState.status === 'error'
+              ? '未保存・内容を保持しています'
+              : '未保存・保存するとTodayに反映します'}
+        </Text>
+        <ActionButton
+          accessibilityLabel={
+            saveState.status === 'error'
+              ? saveState.kind === 'verification'
+                ? '計画の承認を再試行する'
+                : '計画の保存を再試行する'
+              : mode === 'replan'
+                ? 'この再計画を保存する'
+                : 'この計画を保存する'
+          }
+          disabled={!canApprove}
+          loading={saveState.status === 'saving'}
+          label={
+            saveState.status === 'saving'
+              ? '確認・保存中…'
+              : saveState.status === 'error'
+                ? saveState.kind === 'verification'
+                  ? '承認を再試行'
+                  : '保存を再試行'
+                : mode === 'replan'
+                  ? 'この再計画を保存'
+                  : 'この計画を保存'
+          }
+          onPress={confirmApproval}
+        />
+      </View>
+    ) : undefined;
+
   return (
-    <AppScreen testID="planner-preview-screen">
+    <AppScreen
+      testID="planner-preview-screen"
+      contentContainerStyle={styles.content}
+      footer={footer}
+      scrollRef={scrollRef}
+    >
       <ScreenHeader
         eyebrow={dateLabel}
         subtitle={
@@ -125,61 +303,7 @@ export function PlannerPreviewScreen({
         <Badge label="3 保存" tone={saveState.status === 'success' ? 'success' : 'neutral'} />
       </View>
 
-      {onSelectProvider ? (
-        <View
-          accessibilityRole="radiogroup"
-          style={styles.providerOptions}
-          testID="planner-provider-options"
-        >
-          <Text style={styles.providerHeading}>生成方法</Text>
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{
-              selected: provider.id === 'rule-based',
-              disabled: saveState.status === 'saving',
-            }}
-            disabled={saveState.status === 'saving'}
-            onPress={() => onSelectProvider('rule-based')}
-            style={[
-              styles.providerOption,
-              provider.id === 'rule-based' && styles.selectedProviderOption,
-            ]}
-            testID="planner-provider-rule-based"
-          >
-            <Text style={styles.providerTitle}>
-              {provider.id === 'rule-based' ? '◉' : '○'} ルールベース
-            </Text>
-            <Text style={styles.providerDescription}>API設定なし・標準</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{
-              selected: provider.id === 'openai',
-              disabled: openAiAvailability !== 'available' || saveState.status === 'saving',
-            }}
-            disabled={openAiAvailability !== 'available' || saveState.status === 'saving'}
-            onPress={() => onSelectProvider('openai')}
-            style={[
-              styles.providerOption,
-              provider.id === 'openai' && styles.selectedProviderOption,
-              openAiAvailability !== 'available' && styles.unavailableProvider,
-            ]}
-            testID="planner-provider-openai"
-          >
-            <Text style={styles.providerTitle}>{provider.id === 'openai' ? '◉' : '○'} OpenAI</Text>
-            <Text style={styles.providerDescription}>
-              {openAiAvailability === 'available'
-                ? '任意・AIを使って計画'
-                : openAiAvailability === 'checking'
-                  ? '利用状況を確認中…'
-                  : '任意・現在利用できません'}
-            </Text>
-          </Pressable>
-          <Text style={styles.providerDescription}>
-            OpenAIを設定しなくても、ルールベースで計画を作成・保存できます。
-          </Text>
-        </View>
-      ) : null}
+      {!preview ? providerOptions : null}
 
       {showCalendarStatus && calendar.accessState === 'checking' ? (
         <PlannerStatePanel
@@ -277,79 +401,28 @@ export function PlannerPreviewScreen({
           <Text style={styles.providerLabel} testID="planner-preview-provider-label">
             生成方法: {state.providerId === 'openai' ? 'OpenAI' : 'ルールベース（API不要）'}
           </Text>
-          <PlannerPreview isSaved={saveState.status === 'success'} preview={preview} />
-          {saveState.status === 'success' ? (
-            <View style={styles.saveSuccess} testID="planner-save-success">
-              <Text style={styles.saveSuccessTitle}>今日の計画を保存しました</Text>
-              <Text style={styles.saveSuccessText}>
-                {saveState.plan.actionCount}件の予定を保存しました。Todayで確認できます。
-              </Text>
-              {mode === 'generate' && onPressToday ? (
-                <ActionButton label="今日の計画を見る" onPress={onPressToday} />
-              ) : null}
-            </View>
-          ) : saveState.status === 'stale' ? (
-            <View style={styles.saveError} testID="planner-preview-stale">
-              <Text style={styles.saveErrorTitle}>計画の再生成が必要です</Text>
-              <Text style={styles.saveErrorText}>{saveState.message}</Text>
-            </View>
-          ) : saveState.status === 'error' ? (
-            <View
-              style={styles.saveError}
-              testID={
-                saveState.kind === 'verification'
-                  ? 'planner-approval-check-error'
-                  : 'planner-save-error'
-              }
-            >
-              <Text style={styles.saveErrorTitle}>
-                {saveState.kind === 'verification'
-                  ? '最新の状況を確認できませんでした'
-                  : '計画を保存できませんでした'}
-              </Text>
-              <Text style={styles.saveErrorText}>{saveState.message}</Text>
-            </View>
-          ) : null}
-          <View style={styles.actions}>
-            {saveState.status !== 'success' && saveState.status !== 'stale' ? (
+          {saveFeedback}
+          <PlannerPreview isSaved={saveState.status === 'success'} preview={preview}>
+            <View style={styles.actions}>
               <ActionButton
-                accessibilityLabel={
-                  saveState.status === 'error'
-                    ? saveState.kind === 'verification'
-                      ? '計画の承認を再試行する'
-                      : '計画の保存を再試行する'
-                    : 'この計画を保存する'
-                }
-                disabled={!canApprove}
-                label={
-                  saveState.status === 'saving'
-                    ? '確認・保存中…'
-                    : saveState.status === 'error'
-                      ? saveState.kind === 'verification'
-                        ? '承認を再試行'
-                        : '保存を再試行'
-                      : 'この計画を保存'
-                }
-                onPress={confirmApproval}
+                accessibilityLabel="最新データで今日の計画を再生成する"
+                disabled={!canGenerate}
+                label="再生成"
+                onPress={() => void generate()}
+                variant="secondary"
               />
-            ) : null}
-            <ActionButton
-              accessibilityLabel="最新データで今日の計画を再生成する"
-              disabled={!canGenerate}
-              label="再生成"
-              onPress={() => void generate()}
-              variant="secondary"
-            />
-            <ActionButton
-              disabled={saveState.status === 'saving'}
-              label={mode === 'replan' ? '再計画をキャンセル' : 'プレビューを閉じる'}
-              onPress={() => {
-                discard();
-                if (mode === 'replan') onCancelReplan?.();
-              }}
-              variant="ghost"
-            />
-          </View>
+              <ActionButton
+                disabled={saveState.status === 'saving'}
+                label={mode === 'replan' ? '再計画をキャンセル' : 'プレビューを閉じる'}
+                onPress={() => {
+                  discard();
+                  if (mode === 'replan') onCancelReplan?.();
+                }}
+                variant="ghost"
+              />
+            </View>
+          </PlannerPreview>
+          {providerOptions}
         </>
       ) : (
         <View style={styles.introCard} testID="planner-idle-state">
@@ -359,7 +432,7 @@ export function PlannerPreviewScreen({
               : '今日使える時間から計画を作ります'}
           </Text>
           <Text style={styles.introText}>
-            Goals・Tasksの登録内容とCalendarの空き時間から提案します。内容を確認してから保存するので、作成しただけでは今日の計画は変わりません。
+            TasksとCalendarの空き時間から提案します。生成だけではTodayは変わりません。確認後に保存してください。
           </Text>
           <ActionButton
             accessibilityLabel={
@@ -388,119 +461,65 @@ export function PlannerPreviewScreen({
 }
 
 const styles = StyleSheet.create({
+  content: { width: '100%', maxWidth: 880, alignSelf: 'center', gap: spacing.lg },
   flow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  unavailableProvider: { opacity: 0.6 },
-  providerOptions: {
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  providerHeading: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '700',
-  },
+  unavailableProvider: { backgroundColor: colors.surfaceSubtle },
+  providerOptions: { gap: spacing.sm },
+  providerHeading: { ...typography.sectionTitle, color: colors.textPrimary },
   providerOption: {
     minHeight: 60,
     gap: spacing.xs,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    borderColor: colors.borderControl,
+    borderRadius: radius.card,
     borderWidth: 1,
     backgroundColor: colors.surface,
     padding: spacing.md,
   },
-  selectedProviderOption: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
+  focusedProvider: {
+    borderColor: colors.focusRing,
+    ...Platform.select({
+      web: {
+        outlineColor: colors.focusRing,
+        outlineWidth: 2,
+        outlineStyle: 'solid',
+        outlineOffset: 2,
+      },
+      default: { borderWidth: 2 },
+    }),
   },
-  providerTitle: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  providerDescription: {
-    lineHeight: 20,
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  providerLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: spacing.md,
-  },
+  selectedProviderOption: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  providerTitle: { ...typography.bodyStrong, color: colors.textPrimary },
+  providerDescription: { ...typography.secondary, color: colors.textSecondary },
+  providerLabel: { ...typography.secondary, color: colors.textSecondary },
   introCard: {
     gap: spacing.md,
-    marginTop: spacing.xl,
-    padding: spacing.xl,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
+    borderColor: colors.borderSubtle,
+    borderRadius: radius.card,
     backgroundColor: colors.surface,
   },
-  introTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  introText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  createButton: {
-    marginTop: spacing.sm,
-  },
-  actions: {
-    gap: spacing.sm,
-    marginTop: spacing.xl,
-  },
+  introTitle: { ...typography.sectionTitle, color: colors.textPrimary },
+  introText: { ...typography.secondary, color: colors.textSecondary },
+  createButton: { marginTop: spacing.sm },
+  actions: { gap: spacing.sm },
   issueCard: {
     gap: spacing.sm,
-    marginTop: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.md,
-    backgroundColor: colors.warningSoft,
+    borderRadius: radius.card,
+    backgroundColor: colors.errorSoft,
   },
-  issueTitle: {
-    color: colors.warning,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  issueText: {
-    color: colors.warning,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  saveSuccess: {
-    gap: spacing.xs,
-    marginTop: spacing.lg,
+  issueTitle: { ...typography.bodyStrong, color: colors.error },
+  issueText: { ...typography.secondary, color: colors.warning },
+  feedback: { gap: spacing.sm },
+  saveArea: {
+    gap: spacing.sm,
     padding: spacing.lg,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentSoft,
-  },
-  saveSuccessTitle: {
-    color: colors.accent,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  saveSuccessText: {
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-  saveError: {
-    gap: spacing.xs,
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: radius.md,
-    backgroundColor: colors.warningSoft,
-  },
-  saveErrorTitle: {
-    color: colors.warning,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  saveErrorText: {
-    color: colors.warning,
-    fontSize: 13,
-    lineHeight: 19,
+    width: '100%',
+    maxWidth: 880,
+    alignSelf: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+    backgroundColor: colors.surface,
   },
 });
