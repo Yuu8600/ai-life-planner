@@ -1,3 +1,4 @@
+import { SettingsExitControl } from '@/navigation/SettingsExitControl';
 import { useMemo } from 'react';
 import { useRouter } from 'expo-router';
 
@@ -16,6 +17,7 @@ export default function SettingsRoute() {
 
   return (
     <SettingsScreen
+      CloseControl={SettingsExitControl}
       accountSection={<AccountSection />}
       onPressBack={() => router.back()}
       repository={repository}

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { colors, spacing, typography } from '@/shared/theme';
 
@@ -11,9 +11,10 @@ type ScreenHeaderProps = {
 };
 
 export function ScreenHeader({ action, eyebrow, subtitle, title }: ScreenHeaderProps) {
+  const { fontScale } = useWindowDimensions();
   return (
     <View style={styles.container}>
-      <View style={styles.copy}>
+      <View key={fontScale} style={styles.copy}>
         {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
         <Text accessibilityRole="header" style={styles.title}>
           {title}

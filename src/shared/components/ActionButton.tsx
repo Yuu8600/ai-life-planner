@@ -4,6 +4,7 @@ import {
   Platform,
   Pressable,
   Text,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -30,6 +31,7 @@ export function ActionButton({
   variant = 'primary',
 }: ActionButtonProps) {
   const { colors: c, controls, radius, spacing, typography } = useTheme();
+  const { fontScale } = useWindowDimensions();
   const [focused, setFocused] = useState(false);
   const blocked = disabled || loading;
   const solid = variant === 'primary' || variant === 'destructive';
@@ -113,6 +115,7 @@ export function ActionButton({
         <ActivityIndicator accessibilityLabel="処理中" color={foreground} size="small" />
       ) : null}
       <Text
+        key={fontScale}
         style={{
           ...typography.button,
           color: foreground,

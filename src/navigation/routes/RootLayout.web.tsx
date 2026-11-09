@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   background: { flex: 1, backgroundColor: colors.background },
   frame: {
     width: '100%',
-    maxWidth: 960,
+    maxWidth: 1280,
     flex: 1,
     alignSelf: 'center',
     borderLeftWidth: 1,
