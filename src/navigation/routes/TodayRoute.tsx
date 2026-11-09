@@ -3,7 +3,7 @@ import { createSupabaseCalendarEventBufferRepository } from '@/services/supabase
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { createExpoCalendarRepository } from '@/services/calendar/ExpoCalendarRepository';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useIsFocused, useRouter } from 'expo-router';
 
 import { useAuth } from '@/features/auth';
 import { TodayScreen } from '@/features/today/TodayScreen';
@@ -14,6 +14,7 @@ import { createSupabaseActivityLogRepository } from '@/services/supabase/reposit
 export default function TodayRoute() {
   const calendarRepository = useMemo(() => createExpoCalendarRepository(), []);
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const settingsRepository = useMemo(
@@ -65,6 +66,7 @@ export default function TodayRoute() {
 
   return (
     <TodayScreen
+      isFocused={isFocused}
       calendarRepository={calendarRepository}
       settingsRepository={settingsRepository}
       eventBufferRepository={eventBufferRepository}

@@ -1,6 +1,6 @@
 import { SettingsExitControl } from '@/navigation/SettingsExitControl';
 import { useCallback, useState } from 'react';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { GoalsScreen } from '@/features/goals/GoalsScreen';
 import { TasksScreen } from '@/features/tasks/TasksScreen';
@@ -52,12 +52,14 @@ export function DemoCalendarRoute() {
   );
 }
 export function DemoTodayRoute() {
+  const isFocused = useIsFocused();
   const { repositories, refreshToken } = useDemoRoute();
   const router = useRouter();
   const openPlanner = (mode: 'generate' | 'replan') =>
     router.push({ pathname: '/ai', params: { mode, entry: String(Date.now()) } });
   return (
     <TodayScreen
+      isFocused={isFocused}
       now={repositories.now}
       settingsRepository={repositories.settingsRepository}
       eventBufferRepository={repositories.eventBufferRepository}

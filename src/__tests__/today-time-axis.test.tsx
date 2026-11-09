@@ -1,5 +1,5 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import {
   axisPosition,
   axisTicks,
@@ -34,12 +34,12 @@ it('positions and clips cards by UTC elapsed minutes, preserving exact short dur
     { id: 'overlap', startAt: action.startAt, endAt: '2026-11-07T02:00:00Z' },
     { id: 'clipped', startAt: '2026-11-06T23:00:00Z', endAt: '2026-11-07T00:15:00Z' },
   ]);
-  expect(layout.height).toBe(17 * 96);
-  expect(layout.blocks.find((b) => b.id === 'short')).toMatchObject({ top: 96, height: 3.2 });
-  expect(layout.blocks.find((b) => b.id === 'clipped')).toMatchObject({ top: 0, height: 24 });
-  expect(new Set(layout.blocks.filter((b) => b.top === 96).map((b) => b.lane)).size).toBe(2);
+  expect(layout.height).toBe(17 * 80);
+  expect(layout.blocks.find((b) => b.id === 'short')).toMatchObject({ top: 80, height: 80 / 30 });
+  expect(layout.blocks.find((b) => b.id === 'clipped')).toMatchObject({ top: 0, height: 20 });
+  expect(new Set(layout.blocks.filter((b) => b.top === 80).map((b) => b.lane)).size).toBe(2);
   expect(layout.blocks).toHaveLength(3);
-  expect(axisPosition('2026-11-07T16:00:00Z', window)).toBe(16 * 96);
+  expect(axisPosition('2026-11-07T16:00:00Z', window)).toBe(16 * 80);
 });
 it('keeps even adjacent short touch areas in independent lanes', () => {
   const layout = layoutTimeAxis(window, [
@@ -47,7 +47,7 @@ it('keeps even adjacent short touch areas in independent lanes', () => {
     { ...action, id: 'second', startAt: action.endAt, endAt: '2026-11-07T01:05:00Z' },
   ]);
   expect(layout.blocks[0].lane).not.toBe(layout.blocks[1].lane);
-  expect(layout.blocks[1].top).toBeCloseTo(99.2);
+  expect(layout.blocks[1].top).toBeCloseTo(80 + 80 / 30);
 });
 it('rejects invalid windows and excludes events entirely outside the window', () => {
   expect(() => layoutTimeAxis({ startAt: window.endAt, endAt: window.startAt }, [])).toThrow();
@@ -72,21 +72,21 @@ it('labels overnight and year boundaries continuously with exclusive end-date fe
 });
 it('uses real elapsed height through DST spring-forward, without a fabricated 02:00 tick', () => {
   const bounds = getUtcDayBounds('2026-03-08', 'America/New_York');
-  expect(layoutTimeAxis(bounds, []).height).toBe(23 * 96);
+  expect(layoutTimeAxis(bounds, []).height).toBe(23 * 80);
   const ticks = axisTicks(bounds, '2026-03-08', 'America/New_York');
   expect(ticks.some((t) => t.label === '02:00')).toBe(false);
   expect(
     ticks.find((t) => t.label === '03:00')!.top - ticks.find((t) => t.label === '01:00')!.top,
-  ).toBe(96);
+  ).toBe(80);
 });
 it('distinguishes both real 01:00 hours during DST fallback', () => {
   const bounds = getUtcDayBounds('2026-11-01', 'America/New_York');
-  expect(layoutTimeAxis(bounds, []).height).toBe(25 * 96);
+  expect(layoutTimeAxis(bounds, []).height).toBe(25 * 80);
   const repeated = axisTicks(bounds, '2026-11-01', 'America/New_York').filter((t) =>
     t.label.startsWith('01:00'),
   );
   expect(repeated.map((t) => t.label)).toEqual(['01:00 (GMT-4)', '01:00 (GMT-5)']);
-  expect(repeated[1].top - repeated[0].top).toBe(96);
+  expect(repeated[1].top - repeated[0].top).toBe(80);
 });
 it('preserves saved windows instead of reinterpreting them after settings change', () => {
   const current = { startAt: '2026-11-07T11:00:00Z', endAt: '2026-11-07T18:00:00Z' };
@@ -122,7 +122,7 @@ it('keeps all-day events above the axis and opens complete details for a two-min
   expect(within(screen.getByTestId('today-all-day')).getByText('終日メモ')).toBeTruthy();
   expect(
     StyleSheet.flatten(screen.getByTestId('today-axis-duration-action:short').props.style).height,
-  ).toBe(3.2);
+  ).toBeCloseTo(80 / 30);
   expect(
     StyleSheet.flatten(screen.getByTestId('today-axis-action:short').props.style).height,
   ).toBeGreaterThanOrEqual(44);
@@ -196,4 +196,110 @@ it('changes chart width without changing UTC placement and keeps enlarged touch 
     90,
   );
   expect(layout.laneCount).toBe(2);
+});
+
+it('keeps adjacent bands at their actual boundaries and shares the scale with free slots and now', async () => {
+  const second = {
+    ...action,
+    id: 'one-minute',
+    startAt: action.endAt,
+    endAt: '2026-11-07T01:03:00Z',
+  };
+  const screen = await render(
+    <Timeline
+      window={window}
+      items={[action, second]}
+      now={new Date('2026-11-07T03:00:00Z')}
+      freeSlots={[{ startAt: '2026-11-07T03:00:00Z', endAt: '2026-11-07T04:00:00Z' }]}
+    />,
+  );
+  const style = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style);
+  const first = style('today-axis-action:short');
+  const firstBand = style('today-axis-duration-action:short');
+  expect(firstBand.borderBottomWidth).toBe(1);
+  expect(style('today-axis-action:one-minute').top).toBeCloseTo(first.top + firstBand.height);
+  expect(style('today-axis-action:one-minute').left).not.toBe(first.left);
+  expect(style('today-axis-duration-action:one-minute')).toMatchObject({
+    height: 80 / 60,
+    borderBottomWidth: 0,
+  });
+  expect(style('today-current-time').top).toBe(240);
+  expect(style('today-available-slot')).toMatchObject({ top: 240, height: 80 });
+});
+
+it('separates contiguous Action and Calendar bands in the same lane', async () => {
+  const time = (hour: string) => `2026-11-07T${hour}:00:00Z`;
+  const screen = await render(
+    <Timeline
+      window={window}
+      items={[
+        { ...action, startAt: time('02'), endAt: time('04') },
+        { ...action, id: 'next', startAt: time('04'), endAt: time('06') },
+      ]}
+      calendarEvents={[
+        { title: '予定1', allDay: false, startAt: time('06'), endAt: time('08') },
+        { title: '予定2', allDay: false, startAt: time('08'), endAt: time('10') },
+      ]}
+    />,
+  );
+  const style = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style);
+  const ids = ['action:short', 'action:next', 'calendar:0', 'calendar:1'];
+  const left = style(`today-axis-${ids[0]}`).left;
+  ids.forEach((id, index) => {
+    expect(style(`today-axis-${id}`)).toMatchObject({ top: (index + 1) * 160, left, height: 160 });
+    expect(style(`today-axis-duration-${id}`)).toMatchObject({ height: 160, borderBottomWidth: 1 });
+  });
+});
+
+it('scrolls after loading and layout once per visit, and yields to manual dragging', async () => {
+  const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
+  const focusVisit = () => {
+    const isPending = jest.fn().mockReturnValue(true);
+    return { isPending, consume: () => isPending.mockReturnValue(false) };
+  };
+  const focusScroll = focusVisit();
+  const now = new Date('2026-11-07T06:00:00Z');
+  const timeline = { window, now, items: [action], focusScroll };
+  try {
+    const screen = await render(<Timeline {...timeline} isLoading />);
+    const axis = () => screen.getByTestId('today-axis-scroll');
+    const frame = () =>
+      act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    await fireEvent(axis(), 'layout', { nativeEvent: { layout: { height: 560 } } });
+    await fireEvent(axis(), 'contentSizeChange', 375, 1424);
+    await frame();
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    await screen.rerender(<Timeline {...timeline} />);
+    await frame();
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: 372, animated: false });
+
+    await screen.rerender(
+      <Timeline {...timeline} now={new Date('2026-11-07T07:00:00Z')} items={[]} />,
+    );
+    await frame();
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+
+    const nextVisit = focusVisit();
+    await screen.rerender(<Timeline {...timeline} focusScroll={nextVisit} isLoading />);
+    await fireEvent(axis(), 'scrollBeginDrag');
+    await screen.rerender(<Timeline {...timeline} focusScroll={nextVisit} />);
+    await frame();
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+
+    await screen.rerender(
+      <Timeline {...timeline} focusScroll={focusVisit()} now={new Date(window.endAt)} />,
+    );
+    await frame();
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: 864, animated: false });
+
+    await screen.rerender(
+      <Timeline {...timeline} focusScroll={focusVisit()} now={new Date('2026-11-06T23:00:00Z')} />,
+    );
+    await frame();
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: 0, animated: false });
+    expect(scrollTo).toHaveBeenCalledTimes(3);
+  } finally {
+    scrollTo.mockRestore();
+  }
 });
