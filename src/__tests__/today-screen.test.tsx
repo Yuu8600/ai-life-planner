@@ -625,7 +625,7 @@ describe('Today calendar integration', () => {
     // The legacy Plan still uses its saved Tokyo day window: 23:30Z is 510 elapsed minutes after 15:00Z.
     expect(
       StyleSheet.flatten(screen.getByTestId('today-axis-action:action-words').props.style).top,
-    ).toBe(816);
+    ).toBe(8.5 * 80);
     expect(calendar.listEvents).toHaveBeenCalledWith(
       { startAt: '2026-09-11T04:00:00.000Z', endAt: '2026-09-12T04:00:00.000Z' },
       '2026-09-11',

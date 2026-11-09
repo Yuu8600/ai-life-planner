@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { SettingsRepository } from '@/features/settings';
 import { useTodayCalendar } from './useTodayCalendar';
 import { currentInstant, useTimelineClock } from './useTimelineClock';
@@ -38,6 +39,7 @@ type TodayScreenProps = {
   onPressAi: () => void;
   onPressSettings: () => void;
   refreshToken?: number;
+  isFocused?: boolean;
   repository: TodayRepository | null;
   executionRepository?: PlannedActionExecutionRepository | null;
   activityLogRepository?: ActivityLogRepository | null;
@@ -52,6 +54,7 @@ export function TodayScreen({
   onPressAi,
   onPressSettings,
   refreshToken = 0,
+  isFocused = false,
   repository,
   executionRepository = null,
   activityLogRepository = null,
@@ -60,6 +63,17 @@ export function TodayScreen({
     repository,
     refreshToken,
   );
+  // Each visit can scroll once, even if the timeline is replaced during that visit.
+  const focusScroll = useMemo(() => {
+    if (!isFocused) return undefined;
+    let pending = true;
+    return {
+      isPending: () => pending,
+      consume: () => {
+        pending = false;
+      },
+    };
+  }, [isFocused]);
   const displayTimezone = today?.profileTimezone ?? 'UTC';
   const axisWindow = today
     ? resolveAxisWindow(
@@ -198,6 +212,8 @@ export function TodayScreen({
                     <DeadlineTaskList items={deadlineTaskItems} />
                   </>
                 }
+                focusScroll={focusScroll}
+                isLoading={isLoading}
                 window={axisWindow}
                 now={instant}
                 freeSlots={freeSlots}
@@ -260,6 +276,8 @@ export function TodayScreen({
 
           {!today.plan ? (
             <Timeline
+              focusScroll={focusScroll}
+              isLoading={isLoading}
               window={axisWindow}
               now={instant}
               freeSlots={freeSlots}

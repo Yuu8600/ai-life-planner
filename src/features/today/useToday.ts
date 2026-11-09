@@ -4,7 +4,11 @@ import { getTodayErrorMessage } from './errors';
 import type { TodayProjection, TodayRepository } from './repositories/TodayRepository';
 
 export function useToday(repository: TodayRepository | null, refreshToken = 0) {
-  const [today, setToday] = useState<TodayProjection | null>(null);
+  const [projection, setProjection] = useState<{
+    repository: TodayRepository;
+    today: TodayProjection;
+  } | null>(null);
+  const today = projection?.repository === repository ? projection.today : null;
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dataRevision, setDataRevision] = useState(0);
@@ -20,7 +24,7 @@ export function useToday(repository: TodayRepository | null, refreshToken = 0) {
       try {
         const loadedToday = await repository.getToday();
         if (loadVersion.current !== activeVersion) return latestLoad.current ?? false;
-        setToday(loadedToday);
+        setProjection({ repository, today: loadedToday });
         setDataRevision((current) => current + 1);
         setLoadError(null);
         return true;
@@ -41,7 +45,6 @@ export function useToday(repository: TodayRepository | null, refreshToken = 0) {
     let isActive = true;
     void Promise.resolve().then(() => {
       if (!isActive) return;
-      setToday(null);
       if (!repository) {
         setLoadError('今日の予定を表示するにはログインが必要です。');
         setIsLoading(false);

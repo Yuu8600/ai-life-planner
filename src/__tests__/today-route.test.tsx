@@ -30,6 +30,7 @@ jest.mock('expo-router', () => ({
   useFocusEffect: (callback: () => void) => {
     mockFocusCallback = callback;
   },
+  useIsFocused: () => true,
   useRouter: () => ({ push: mockPush }),
 }));
 

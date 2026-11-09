@@ -3,7 +3,7 @@ import { formatPlanningTime } from './planningTime';
 
 export type AxisWindow = { startAt: string; endAt: string };
 export type AxisInterval = AxisWindow & { id: string };
-export const PIXELS_PER_MINUTE = 1.6;
+const PIXELS_PER_MINUTE = 80 / 60;
 export const AXIS_TAP_HEIGHT = 44;
 
 /** All coordinates use elapsed UTC time, including DST repeated / missing hours. */

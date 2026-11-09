@@ -1,8 +1,16 @@
 import type { ReactNode } from 'react';
 import { selectNextAction } from '../nextAction';
 import { Card } from '@/shared/components/Card';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { CalendarTimelineCard } from '@/features/calendar';
 import { SelectionPanel, type PanelAnchor } from '@/shared/components/timeSelection/SelectionPanel';
 import { ActionButton } from '@/shared/components/ActionButton';
@@ -18,6 +26,8 @@ import {
 } from '../timeAxis';
 import { TimelineDetails, type TimelineProps } from './TimelineDetails';
 
+const AXIS_TOP_INSET = 12;
+
 export function Timeline(
   props: TimelineProps & {
     completedActions?: number;
@@ -27,6 +37,8 @@ export function Timeline(
     now?: Date;
     freeSlots?: readonly AxisWindow[];
     availabilityMessage?: string;
+    focusScroll?: { isPending: () => boolean; consume: () => void };
+    isLoading?: boolean;
   },
 ) {
   const {
@@ -37,6 +49,8 @@ export function Timeline(
     now = new Date(),
     freeSlots = [],
     availabilityMessage,
+    focusScroll,
+    isLoading,
   } = props;
   const { fontScale } = useWindowDimensions();
   const tapHeight = Math.max(AXIS_TAP_HEIGHT, Math.ceil(38 * fontScale + 8));
@@ -74,6 +88,8 @@ export function Timeline(
   const [selected, setSelected] = useState<{ id: string; anchor: PanelAnchor } | null>(null);
   const closeSelection = useCallback(() => setSelected(null), []);
   const scroll = useRef<ScrollView>(null);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
   const entry = entries.find((item) => item.id === selected?.id);
   const selection = selectNextAction(items, now);
   const next = selection?.item;
@@ -81,6 +97,32 @@ export function Timeline(
   const laneWidth = (chartWidth - 82) / layout.laneCount;
   const currentY = axisPosition(now.getTime(), window);
   const showNow = currentY >= 0 && currentY < layout.height;
+  const scrollToNow = useCallback(
+    (animated: boolean) => {
+      const view = scroll.current;
+      if (!view) return;
+      const maxOffset = Math.max(0, contentHeight - viewportHeight);
+      const y =
+        currentY >= layout.height
+          ? maxOffset
+          : Math.min(maxOffset, Math.max(0, currentY + AXIS_TOP_INSET - 120));
+      view.scrollTo({ y, animated });
+    },
+    [contentHeight, currentY, layout.height, viewportHeight],
+  );
+  useEffect(() => {
+    if (!focusScroll?.isPending() || isLoading || !viewportHeight || !contentHeight) return;
+    const frame = requestAnimationFrame(() => {
+      if (!focusScroll.isPending()) return;
+      focusScroll.consume();
+      scrollToNow(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusScroll, isLoading, viewportHeight, contentHeight, scrollToNow]);
+
+  const cancelFocusScroll = () => {
+    focusScroll?.consume();
+  };
   const open = (id: string) =>
     setSelected({ id, anchor: { x: 24, y: 40, width: 300, height: 44 } });
   return (
@@ -139,9 +181,10 @@ export function Timeline(
           <ActionButton
             label="現在時刻へ"
             variant="ghost"
-            onPress={() =>
-              scroll.current?.scrollTo({ y: Math.max(0, currentY - 120), animated: true })
-            }
+            onPress={() => {
+              cancelFocusScroll();
+              scrollToNow(true);
+            }}
           />
         ) : null}
       </View>
@@ -158,6 +201,11 @@ export function Timeline(
           style={styles.viewport}
           contentContainerStyle={{ minHeight: 320 }}
           testID="today-axis-scroll"
+          onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
+          onContentSizeChange={(_, height) => setContentHeight(height)}
+          onScrollBeginDrag={cancelFocusScroll}
+          onScroll={Platform.OS === 'web' ? cancelFocusScroll : undefined}
+          scrollEventThrottle={16}
         >
           <ScrollView horizontal showsHorizontalScrollIndicator testID="today-axis-horizontal">
             <View
@@ -165,7 +213,7 @@ export function Timeline(
               style={{
                 width: chartWidth,
                 height: layout.height + tapHeight + 8,
-                marginTop: 12,
+                marginTop: AXIS_TOP_INSET,
               }}
             >
               {ticks.map((tick) => (
@@ -182,7 +230,7 @@ export function Timeline(
                 const start = Math.max(Date.parse(slot.startAt), Date.parse(window.startAt)),
                   end = Math.min(Date.parse(slot.endAt), Date.parse(window.endAt));
                 if (start >= end) return null;
-                const height = ((end - start) / 60_000) * 1.6;
+                const top = axisPosition(start, window);
                 return (
                   <View
                     key={index}
@@ -192,8 +240,8 @@ export function Timeline(
                       styles.free,
                       {
                         left: 82,
-                        top: axisPosition(start, window),
-                        height,
+                        top,
+                        height: axisPosition(end, window) - top,
                         width: chartWidth - 86,
                       },
                     ]}
@@ -233,7 +281,9 @@ export function Timeline(
                         {
                           height: block.height,
                           backgroundColor: action ? colors.accentSoft : colors.calendarSoft,
-                          borderColor: action ? colors.accent : colors.calendar,
+                          borderLeftColor: action ? colors.accent : colors.calendar,
+                          borderBottomWidth: block.height >= 2 ? 1 : 0,
+                          borderBottomColor: colors.surface,
                         },
                       ]}
                     />
