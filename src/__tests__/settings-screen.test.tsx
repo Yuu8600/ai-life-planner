@@ -313,7 +313,12 @@ describe('Clear Settings save and close controls', () => {
     buttons.find((b) => b.style === 'cancel')?.onPress?.();
     expect(screen.getByRole('button', { name: '活動開始時間、08:10' })).toBeTruthy();
     expect(repository.updateProfilePlanningSettings).not.toHaveBeenCalled();
-    buttons.find((b) => b.style === 'destructive')?.onPress?.();
+    await fireEvent.press(screen.getByRole('button', { name: '設定を閉じる' }));
+    expect(alert).toHaveBeenCalledTimes(2);
+    const retryButtons = alert.mock.calls[1][2] as AlertButton[];
+    const discard = retryButtons.find((button) => button.style === 'destructive')?.onPress;
+    discard?.();
+    discard?.();
     expect(close).toHaveBeenCalledTimes(1);
   });
   it('closes without a warning after reverting the draft or successfully saving unchanged normalized values', async () => {

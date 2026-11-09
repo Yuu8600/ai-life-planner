@@ -1,7 +1,5 @@
-import { ActionButton } from '@/shared/components/ActionButton';
 import { Card } from '@/shared/components/Card';
-import { appAlert } from '@/shared/feedback/appAlert';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -9,6 +7,10 @@ import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { colors, spacing } from '@/shared/theme';
 
+import {
+  SettingsCloseControl,
+  type SettingsCloseControlProps,
+} from './components/SettingsCloseControl';
 import { SettingRow } from './components/SettingRow';
 import { PlanningSettingsForm } from './components/PlanningSettingsForm';
 import { SettingsStatePanel } from './components/SettingsStatePanel';
@@ -18,6 +20,7 @@ import { usePlanningSettings } from './usePlanningSettings';
 
 type SettingsScreenProps = {
   accountSection?: ReactNode;
+  CloseControl?: ComponentType<SettingsCloseControlProps>;
   sections?: typeof SETTING_SECTIONS;
   onPressBack: () => void;
   repository: SettingsRepository | null;
@@ -25,6 +28,7 @@ type SettingsScreenProps = {
 
 export function SettingsScreen({
   accountSection,
+  CloseControl = SettingsCloseControl,
   sections = SETTING_SECTIONS,
   onPressBack,
   repository,
@@ -48,15 +52,6 @@ export function SettingsScreen({
     return () => cancelAnimationFrame(frame);
   }, [saveError]);
   const layout = (body: ReactNode, footer?: ReactNode, dirty = false, feedback?: ReactNode) => {
-    const close = () => {
-      if (isSaving) return;
-      if (dirty)
-        appAlert.alert('変更を破棄しますか？', '保存していない設定の変更は失われます。', [
-          { text: '編集を続ける', style: 'cancel' },
-          { text: '変更を破棄', style: 'destructive', onPress: onPressBack },
-        ]);
-      else onPressBack();
-    };
     return (
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -70,15 +65,7 @@ export function SettingsScreen({
         >
           <ScreenHeader
             title="設定"
-            action={
-              <ActionButton
-                accessibilityLabel="設定を閉じる"
-                label="閉じる"
-                variant="ghost"
-                disabled={isSaving}
-                onPress={close}
-              />
-            }
+            action={<CloseControl dirty={dirty} isSaving={isSaving} onPressBack={onPressBack} />}
           />
           {body}
           {sections.map((section) => (

@@ -1,3 +1,4 @@
+import { SettingsExitControl } from '@/navigation/SettingsExitControl';
 import { useCallback, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -106,6 +107,7 @@ export function DemoSettingsRoute() {
   const router = useRouter();
   return (
     <SettingsScreen
+      CloseControl={SettingsExitControl}
       repository={repositories.settingsRepository}
       onPressBack={() => (router.canGoBack() ? router.back() : router.replace('/today'))}
       sections={[

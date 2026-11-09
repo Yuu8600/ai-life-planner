@@ -194,3 +194,5 @@ Tasks・Goalsの一覧と操作の方針は[Tasks・Goals Clear UI](clear-tasks-
 Settings・Authの構成と保存操作、確認範囲は[Settings・Auth Clear UI](clear-settings-auth.md)を参照。
 
 Calendar・Plannerの表示と承認UIは[Calendar・Planner Clear UI](clear-calendar-planner.md)を参照。
+
+下部タブ、PCサイドバー、Settingsの離脱確認と文字拡大の制約は[ナビゲーションとPCレイアウト](clear-navigation-layout.md)を参照。
