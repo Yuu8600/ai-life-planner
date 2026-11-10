@@ -28,7 +28,8 @@
 ## Web Demo / portfolio
 
 - [Web Demoのローカル起動・GitHub Pages公開手順](web-demo.md)
-- [公開用screenshots・サンプルデータ・Native撮影手順](screenshots/README.md)
+- [ポートフォリオ用の開発紹介・実機とブラウザの確認範囲](portfolio.md)
+- [公開用スクリーンショット・サンプルデータ・Native撮影手順](screenshots/README.md)
 - [公開準備・Security / Privacy監査・GitHub設定チェック](portfolio-release.md)
 - [個人メールを非公開にするための履歴整理手順](history-privacy.md)
 - [依存脆弱性・SDK 57互換更新・公開可否の評価](dependency-security.md)
