@@ -3,52 +3,75 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
-import { ScreenHeader } from '@/shared/components/ScreenHeader';
-import { colors, radius, spacing } from '@/shared/theme';
+import { Card } from '@/shared/components/Card';
+import { colors, spacing, typography } from '@/shared/theme';
+
+const steps = [
+  { title: '計画を作る', detail: '予定の合間に、サンプルのタスクが自動で入ります。' },
+  { title: '内容を見て保存する', detail: '何をいつやるか確認してから保存します。' },
+  { title: '「今日」で試す', detail: '時間軸で予定を開き、完了やスキップを試せます。' },
+];
 
 export function DemoWelcomeScreen() {
   const router = useRouter();
   return (
-    <AppScreen testID="demo-welcome">
-      <ScreenHeader
-        eyebrow="ログイン不要のWeb Demo"
-        title="目標を、今日の行動に。"
-        subtitle="Goals / Tasksとカレンダーの予定から空き時間を計算し、一日の計画を自動で作ります。"
-      />
-      <View style={styles.card}>
-        <Text style={styles.title}>授業の合間に、TOEIC 730点へ</Text>
-        <Text style={styles.body}>
-          英単語30分、文法30分、リスニング45分、模試復習60分。大学や授業と重ならないよう、ルールベースのPlannerが配置します。
+    <AppScreen testID="demo-welcome" contentContainerStyle={styles.content}>
+      <Card style={styles.hero}>
+        <Text style={styles.eyebrow}>AI Life Planner · Webデモ</Text>
+        <Text accessibilityRole="header" style={styles.heading}>
+          空き時間を、目標のための時間に。
         </Text>
-        <Text style={styles.flow}>Tasks → Calendar・空き時間 → Planner → Preview → Today</Text>
-        <ActionButton label="サンプルのタスクから試す" onPress={() => router.push('/tasks')} />
-        <ActionButton
-          label="すぐに計画を作ってみる"
-          onPress={() => router.push('/ai')}
-          variant="secondary"
-        />
+        <Text style={styles.body}>
+          カレンダーの予定を避けて、やるべきタスクを1日の中に自動配置します。
+        </Text>
+        <Text style={styles.ready}>ログイン不要。サンプルですぐに試せます。</Text>
+        <View style={styles.actions}>
+          <ActionButton
+            label="サンプルで計画を作ってみる"
+            onPress={() => router.push('/ai')}
+            style={styles.action}
+          />
+          <ActionButton
+            label="タスクを見てから始める"
+            onPress={() => router.push('/tasks')}
+            style={styles.action}
+            variant="secondary"
+          />
+        </View>
+      </Card>
+
+      <Text accessibilityRole="header" style={styles.sectionTitle}>
+        3ステップで試す
+      </Text>
+      <View style={styles.steps}>
+        {steps.map(({ title, detail }, index) => (
+          <Card key={title} style={styles.step}>
+            <Text style={styles.stepTitle}>
+              {index + 1}. {title}
+            </Text>
+            <Text style={styles.body}>{detail}</Text>
+          </Card>
+        ))}
       </View>
       <Text style={styles.note}>
-        保存先はこのページを開いている間のメモリです。アカウント登録・端末カレンダーの許可・AI
-        APIの課金は不要です。
-      </Text>
-      <Text style={styles.note}>
-        時計はサンプル日の08:00から始まります。計画を保存し、完了・スキップした後、上の時計を15:00に進めると残りの時間で再計画できます。
+        デモの変更はこのタブを開いている間だけ保存されます。再読み込みやリセットで初期状態に戻ります。
       </Text>
     </AppScreen>
   );
 }
+
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    gap: spacing.lg,
-  },
-  title: { color: colors.text, fontSize: 21, lineHeight: 30, fontWeight: '700' },
-  body: { color: colors.textMuted, fontSize: 15, lineHeight: 25 },
-  flow: { color: colors.accent, fontSize: 14, lineHeight: 24, fontWeight: '600' },
-  note: { color: colors.textMuted, fontSize: 13, lineHeight: 22, marginTop: spacing.lg },
+  content: { maxWidth: 880, gap: spacing.lg },
+  hero: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.primarySoft },
+  eyebrow: { ...typography.label, color: colors.primary },
+  heading: { ...typography.screenTitle, color: colors.textPrimary },
+  body: { ...typography.body, color: colors.textSecondary },
+  ready: { ...typography.bodyStrong, color: colors.textPrimary },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, maxWidth: 560 },
+  action: { flexBasis: 245, flexGrow: 1 },
+  sectionTitle: { ...typography.sectionTitle, color: colors.textPrimary },
+  steps: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  step: { flexBasis: 210, flexGrow: 1, gap: spacing.xs },
+  stepTitle: { ...typography.bodyStrong, color: colors.textPrimary },
+  note: { ...typography.secondary, color: colors.textSecondary },
 });
