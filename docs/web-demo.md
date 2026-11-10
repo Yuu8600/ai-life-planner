@@ -1,10 +1,20 @@
 # Web Demo / GitHub Pages
 
-Web Demoは、Core v1の主要体験をアカウントやAPIキーの設定なしで試せるブラウザ版です。初期実装時の記録は2026年11月6日の結果です。公開準備時点の確認範囲は下記に分けて記載しています。
+Web Demoは、Core v1の主要体験をアカウントやAPIキーの設定なしで試せるブラウザ版です。初期実装時の記録は2026年11月6日の結果です。公開先とローカルで確認した範囲を分けて記載しています。
+
+## 最新版の公開検証（2026年11月11日）
+
+[公開サイト](https://yuu8600.github.io/ai-life-planner/)で、`main` のコミット `1086990d68c041c286b08ad91b7d473aa3ed8df7` の配信を確認しました。手動ワークフローのbuildとdeployはいずれも成功しています。[Pagesの実行結果](https://github.com/Yuu8600/ai-life-planner/actions/runs/42774947760)
+
+- Chromeの375px・1440pxで最新版の入口、計画の生成・プレビュー・保存、完了・スキップ、時計変更、再計画後の履歴保持、リセットを確認しました。
+- Todayの目盛り間隔は80px／時間で、連続するカードに1pxの境界がありました。デモ時計を15:00に進め、Todayの初回表示とタブ再訪で現在時刻付近に移動することを確認しました。
+- タブ移動後のブラウザの戻る・進むと、`/today`、`/tasks`、`/goals`、`/calendar`、`/ai`、`/settings` の直接アクセス・再読み込みが成功しました。JSとナビゲーション画像5点はHTTP 200で、インラインCSSも適用されました。
+- 重大なJavaScriptエラーやSupabase・OpenAIを含む外部HTTP通信は観測されませんでした。
+- 配信版のHTMLにはfaviconの指定がなく、Chromeの既定リクエスト `/favicon.ico` は404でした。Web設定に既存のfaviconを指定し、Pages用exportで `/ai-life-planner/favicon.ico` のリンクとICOファイルを検査します。公開先への反映には新規の手動実行が必要です。
 
 ## GitHub Pagesの配信確認（2026年11月10日）
 
-[公開サイト](https://yuu8600.github.io/ai-life-planner/)はHTTP 200でした。最新のPages実行ではbuildとdeployが成功しています。配信中のコミットはPR #4時点の `2541048db2996c602dca71c79f741d98f4dbb3f2` で、確認時点のmain（PR #18の `66aa5f8`）より前です。[配信ワークフロー](https://github.com/Yuu8600/ai-life-planner/actions/runs/42241690427)
+[公開サイト](https://yuu8600.github.io/ai-life-planner/)はHTTP 200でした。この日時点の最新Pages実行はbuildとdeployに成功していました。当時の配信コミットはPR #4時点の `2541048db2996c602dca71c79f741d98f4dbb3f2` で、確認時点のmain（PR #18の `66aa5f8`）より前です。[配信ワークフロー](https://github.com/Yuu8600/ai-life-planner/actions/runs/42241690427)
 
 - 配信中の版をChromeの375px・1440pxで開き、旧版の入口、計画の生成・プレビュー・保存、完了・スキップ、時計を15:00に進めての再計画と履歴保持、リセットを確認しました。
 - `/today`、`/tasks`、`/goals`、`/calendar`、`/ai`、`/settings` は直接アクセスと再読み込みでHTTP 200でした。JavaScriptとインラインCSSは読み込まれ、重大なJavaScriptエラーや外部HTTP通信は観測されませんでした。ブラウザの既定のfavicon取得は404でした。

@@ -8,6 +8,7 @@ const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript',
   '.css': 'text/css',
+  '.ico': 'image/x-icon',
   '.png': 'image/png',
   '.json': 'application/json',
   '.svg': 'image/svg+xml',
