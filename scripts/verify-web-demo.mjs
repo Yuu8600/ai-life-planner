@@ -4,9 +4,14 @@ import path from 'node:path';
 
 const baseUrl = '/ai-life-planner';
 await fs.access('dist/.nojekyll');
+await fs.access('dist/favicon.ico');
 for (const route of ['index', 'goals', 'tasks', 'calendar', 'ai', 'today', 'settings', 'login']) {
   const html = await fs.readFile(`dist/${route}.html`, 'utf8');
   assert.match(html, /lang="ja"/);
+  assert(
+    html.includes(`<link rel="icon" href="${baseUrl}/favicon.ico"`),
+    `Missing or unprefixed favicon: ${route}`,
+  );
   for (const [, resource] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
     if (!resource.startsWith('/')) continue;
     assert(resource.startsWith(`${baseUrl}/`), `Unprefixed resource: ${resource}`);
@@ -33,5 +38,5 @@ for (const file of bundles.filter((name) => name.endsWith('.js'))) {
   }
 }
 console.log(
-  'Pages export verified: routes, baseUrl, assets, Japanese HTML, .nojekyll and integration isolation.',
+  'Pages export verified: routes, baseUrl, assets, favicon, Japanese HTML, .nojekyll and integration isolation.',
 );

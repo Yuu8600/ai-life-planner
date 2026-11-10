@@ -2,7 +2,11 @@
 
 ## 現在のPages公開前チェック
 
-README・スクリーンショットを更新し、最新のWeb Demoをproduction exportしてローカルで確認済みです。2026年11月10日の確認では、公開先はPR #4のコミットを配信しています。最新版の配信と検証が済んだ後、READMEとAbout Websiteに公開リンクを載せます。[配信確認の詳細](web-demo.md#github-pagesの配信確認2026年11月10日)
+2026年11月11日の確認では、[GitHub PagesのWeb Demo](https://yuu8600.github.io/ai-life-planner/)に `1086990` が配信され、主要フローと6画面の直接アクセス・再読み込みが通りました。faviconの404はWeb設定で修正し、公開先の確認を残しています。[最新版の公開検証](web-demo.md#最新版の公開検証2026年11月11日)
+
+faviconの修正を公開するには、`Web Demo Pages` の `Run workflow` から現在の `main` を選んで新規実行します。配信先で `/ai-life-planner/favicon.ico` の取得を確認した後、README冒頭を公開リンクに切り替えます。
+
+GitHubのAboutのDescriptionは希望の文面で、Websiteは空欄でした。公開URLを載せるときは、リポジトリの **Code → Aboutの歯車 → Website** に `https://yuu8600.github.io/ai-life-planner/` を入力して **Save changes** を押します。
 
 1. 公開に使う `main` のコミットと通常CIの成功、GitHubのSettings → Pagesでの公開元を確認する。
 2. 公開を決めたら、Actionsの `Web Demo Pages` を `main` から手動実行し、公開ジョブが成功したことを確認する。

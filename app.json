@@ -11,6 +11,7 @@
       "output": "static",
       "bundler": "metro",
       "lang": "ja",
+      "favicon": "./assets/favicon.png",
       "name": "AI Life Planner Demo",
       "description": "目標・タスクとサンプル予定から一日の計画を作る、ログイン不要のWeb Demo。"
     },
