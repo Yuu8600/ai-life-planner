@@ -1,5 +1,10 @@
 import { SettingsExitControl } from '@/navigation/SettingsExitControl';
 import { useCallback, useState } from 'react';
+import { StyleSheet, Text } from 'react-native';
+
+import { ActionButton } from '@/shared/components/ActionButton';
+import { Card } from '@/shared/components/Card';
+import { colors, spacing, typography } from '@/shared/theme';
 import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { GoalsScreen } from '@/features/goals/GoalsScreen';
@@ -28,10 +33,35 @@ export function DemoGoalsRoute() {
   const { repositories, refreshToken } = useDemoRoute();
   return <GoalsScreen key={refreshToken} repository={repositories.goalRepository} />;
 }
+function DemoNextStep({
+  message,
+  label,
+  onPress,
+}: {
+  message: string;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Card style={styles.nextStep}>
+      <Text style={styles.nextStepCopy}>{message}</Text>
+      <ActionButton label={label} onPress={onPress} variant="secondary" />
+    </Card>
+  );
+}
+
 export function DemoTasksRoute() {
+  const router = useRouter();
   const { repositories, refreshToken } = useDemoRoute();
   return (
     <TasksScreen
+      intro={
+        <DemoNextStep
+          message="タスクを確認したら、計画で使うサンプル予定を見てみましょう。"
+          label="カレンダーを見る"
+          onPress={() => router.navigate('/calendar')}
+        />
+      }
       now={repositories.now()}
       refreshToken={refreshToken}
       repository={repositories.taskRepository}
@@ -39,9 +69,17 @@ export function DemoTasksRoute() {
   );
 }
 export function DemoCalendarRoute() {
+  const router = useRouter();
   const { repositories, refreshToken } = useDemoRoute();
   return (
     <CalendarScreen
+      intro={
+        <DemoNextStep
+          message="授業などのサンプル予定が入っています。空いている時間を使って計画を作れます。"
+          label="計画を作りに進む"
+          onPress={() => router.navigate('/ai')}
+        />
+      }
       sourceLabel="demo"
       eventBufferRepository={repositories.eventBufferRepository}
       calendarRepository={repositories.calendarRepository}
@@ -70,6 +108,7 @@ export function DemoTodayRoute() {
       refreshToken={refreshToken}
       onPressAi={() => openPlanner('generate')}
       onPressReplan={() => openPlanner('replan')}
+      replanHint="予定を完了・スキップしたあと、再計画で残り時間の予定を組み直せます。"
       onPressSettings={() => router.push('/settings')}
     />
   );
@@ -86,6 +125,7 @@ export function DemoPlannerRoute() {
   };
   return (
     <PlannerPreviewScreen
+      isDemo
       key={`${mode}-${params.entry ?? ''}`}
       mode={mode}
       provider={ruleBasedProvider}
@@ -136,3 +176,14 @@ export function DemoSettingsRoute() {
     />
   );
 }
+
+const styles = StyleSheet.create({
+  nextStep: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  nextStepCopy: { ...typography.body, color: colors.textSecondary, flexBasis: 300, flexGrow: 1 },
+});

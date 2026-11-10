@@ -23,6 +23,7 @@ import type { PlannerReplanRepository } from './repositories/PlannerReplanReposi
 
 type PlannerPreviewScreenProps = {
   eventBufferRepository?: CalendarEventBufferRepository | null;
+  isDemo?: boolean;
   mode?: 'generate' | 'replan';
   replanRepository?: PlannerReplanRepository | null;
   onReplanSaved?: () => void;
@@ -43,6 +44,7 @@ type PlannerPreviewScreenProps = {
 
 export function PlannerPreviewScreen({
   eventBufferRepository,
+  isDemo = false,
   mode = 'generate',
   replanRepository = null,
   onReplanSaved,
@@ -85,6 +87,7 @@ export function PlannerPreviewScreen({
     [calendar.selectedDate, calendar.timeZone, state],
   );
   const showCalendarStatus = state.status !== 'success';
+  const todayLabel = isDemo ? '「今日」' : 'Today';
   const preview = useMemo(
     () =>
       state.status === 'success' && state.providerId === provider.id
@@ -205,7 +208,7 @@ export function PlannerPreviewScreen({
         tone="success"
         testID="planner-save-success"
         title="今日の計画を保存しました"
-        message={`${saveState.plan.actionCount}件の予定を保存しました。Todayで確認できます。`}
+        message={`${saveState.plan.actionCount}件の予定を保存しました。${todayLabel}で確認できます。`}
         action={
           mode === 'generate' && onPressToday ? (
             <ActionButton label="今日の計画を見る" onPress={onPressToday} />
@@ -247,7 +250,7 @@ export function PlannerPreviewScreen({
             ? '最新の内容を確認して保存しています'
             : saveState.status === 'error'
               ? '未保存・内容を保持しています'
-              : '未保存・保存するとTodayに反映します'}
+              : `未保存・保存すると${todayLabel}に反映します`}
         </Text>
         <ActionButton
           accessibilityLabel={
@@ -288,8 +291,14 @@ export function PlannerPreviewScreen({
         eyebrow={dateLabel}
         subtitle={
           mode === 'replan'
-            ? '現在時刻以降の予定を、最新のTaskとカレンダーから組み直します。'
-            : '目標につながるタスクを、カレンダーの空き時間へ配置します。'
+            ? isDemo
+              ? 'デモ時計の時刻から先の予定を、タスクとカレンダーを使って組み直します。'
+              : '現在時刻以降の予定を、最新のTaskとカレンダーから組み直します。'
+            : isDemo
+              ? preview
+                ? undefined
+                : 'サンプル入りのタスク一覧から、カレンダーの予定と重ならない時間に割り振ります。'
+              : '目標につながるタスクを、カレンダーの空き時間へ配置します。'
         }
         title={mode === 'replan' ? '今日の計画を再計画' : '今日の計画を作成'}
       />
@@ -297,7 +306,7 @@ export function PlannerPreviewScreen({
       <View accessibilityLabel="計画作成の流れ" style={styles.flow}>
         <Badge label="1 作成" tone={state.status !== 'success' ? 'accent' : 'neutral'} />
         <Badge
-          label="2 プレビュー"
+          label={isDemo ? '2 内容を確認' : '2 プレビュー'}
           tone={state.status === 'success' && saveState.status !== 'success' ? 'accent' : 'neutral'}
         />
         <Badge label="3 保存" tone={saveState.status === 'success' ? 'success' : 'neutral'} />
@@ -308,7 +317,11 @@ export function PlannerPreviewScreen({
       {showCalendarStatus && calendar.accessState === 'checking' ? (
         <PlannerStatePanel
           isLoading
-          message="プロフィール設定とカレンダー権限を確認しています。"
+          message={
+            isDemo
+              ? 'デモの設定を確認しています。'
+              : 'プロフィール設定とカレンダー権限を確認しています。'
+          }
           testID="planner-checking-state"
           title="確認中"
         />
@@ -357,7 +370,11 @@ export function PlannerPreviewScreen({
         (calendar.isLoadingEvents || (calendar.calendarCount === null && !calendar.loadError)) ? (
         <PlannerStatePanel
           isLoading
-          message="今日の端末カレンダー予定を読み込んでいます。"
+          message={
+            isDemo
+              ? 'サンプル予定を読み込んでいます。'
+              : '今日の端末カレンダー予定を読み込んでいます。'
+          }
           testID="planner-calendar-loading"
           title="予定を確認中"
         />
@@ -372,7 +389,11 @@ export function PlannerPreviewScreen({
       ) : state.status === 'loading' ? (
         <PlannerStatePanel
           isLoading
-          message="最新の設定・タスク・端末の予定から、今日の計画を作成しています。"
+          message={
+            isDemo
+              ? 'タスクと予定を使って、今日の計画を作成しています。'
+              : '最新の設定・タスク・端末の予定から、今日の計画を作成しています。'
+          }
           testID="planner-generating-state"
           title="計画を作成中"
         />
@@ -398,11 +419,17 @@ export function PlannerPreviewScreen({
         </>
       ) : state.status === 'success' && preview ? (
         <>
-          <Text style={styles.providerLabel} testID="planner-preview-provider-label">
-            生成方法: {state.providerId === 'openai' ? 'OpenAI' : 'ルールベース（API不要）'}
-          </Text>
+          {isDemo ? null : (
+            <Text style={styles.providerLabel} testID="planner-preview-provider-label">
+              生成方法: {state.providerId === 'openai' ? 'OpenAI' : 'ルールベース（API不要）'}
+            </Text>
+          )}
           {saveFeedback}
-          <PlannerPreview isSaved={saveState.status === 'success'} preview={preview}>
+          <PlannerPreview
+            isDemo={isDemo}
+            isSaved={saveState.status === 'success'}
+            preview={preview}
+          >
             <View style={styles.actions}>
               <ActionButton
                 accessibilityLabel="最新データで今日の計画を再生成する"
@@ -432,7 +459,11 @@ export function PlannerPreviewScreen({
               : '今日使える時間から計画を作ります'}
           </Text>
           <Text style={styles.introText}>
-            TasksとCalendarの空き時間から提案します。生成だけではTodayは変わりません。確認後に保存してください。
+            {isDemo
+              ? mode === 'replan'
+                ? '新しい内容を確認してから、今日の計画を置き換えられます。'
+                : 'タスクを追加せずに試せます。作成後に、何をいつやるか確認して保存できます。'
+              : 'TasksとCalendarの空き時間から提案します。生成だけではTodayは変わりません。確認後に保存してください。'}
           </Text>
           <ActionButton
             accessibilityLabel={

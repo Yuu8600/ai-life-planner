@@ -11,12 +11,18 @@ import { Notice } from '@/shared/components/Notice';
 import type { PlannerPreviewViewModel } from '../plannerPreviewPresentation';
 
 type PlannerPreviewProps = {
+  isDemo?: boolean;
   isSaved?: boolean;
   children?: ReactNode;
   preview: PlannerPreviewViewModel;
 };
 
-export function PlannerPreview({ isSaved = false, preview, children }: PlannerPreviewProps) {
+export function PlannerPreview({
+  isDemo = false,
+  isSaved = false,
+  preview,
+  children,
+}: PlannerPreviewProps) {
   const calendarRows = preview.calendarEvents.map((event, index) => ({
     allDay: event.allDay,
     startAt: event.startAt,
@@ -33,30 +39,40 @@ export function PlannerPreview({ isSaved = false, preview, children }: PlannerPr
     <View style={styles.container} testID="planner-preview">
       <View style={styles.summaryCard}>
         <Badge
-          label={isSaved ? '保存済み' : 'プレビュー・未保存'}
+          label={isSaved ? '保存済み' : isDemo ? '保存前の確認' : 'プレビュー・未保存'}
           tone={isSaved ? 'success' : 'accent'}
         />
-        <Text style={styles.count}>配置されたAction {preview.actions.length}件</Text>
-        <Text style={styles.summary}>{preview.summary}</Text>
+        <Text style={styles.count}>
+          {isDemo ? '計画に入ったタスク' : '配置されたAction'} {preview.actions.length}件
+        </Text>
+        {isDemo ? null : <Text style={styles.summary}>{preview.summary}</Text>}
         <Text style={styles.temporary}>
           {isSaved
             ? 'この計画は保存済みです。'
-            : '内容を確認し、下の「この計画を保存」でTodayに反映します。'}
+            : isDemo
+              ? '作成しただけでは「今日」に表示されません。内容を確認して保存してください。'
+              : '内容を確認し、下の「この計画を保存」でTodayに反映します。'}
         </Text>
       </View>
 
       <SectionHeader
         compact
-        detail={`Action ${preview.actions.length}件・Calendar ${preview.calendarEvents.length}件`}
+        detail={`${isDemo ? 'タスク' : 'Action'} ${preview.actions.length}件・${isDemo ? 'カレンダー' : 'Calendar'} ${preview.calendarEvents.length}件`}
         title="1日の流れ"
       />
       {preview.calendarEvents.length > 0 ? (
-        <Text style={styles.temporary}>Calendar予定は生成時点の参考情報です。</Text>
+        <Text style={styles.temporary}>
+          {isDemo
+            ? 'グレーはカレンダーの予定、青は計画に入ったタスクです。'
+            : 'Calendar予定は生成時点の参考情報です。'}
+        </Text>
       ) : null}
       {preview.actions.length === 0 ? (
         <View style={styles.emptyCard} testID="planner-actions-empty">
           <Text style={styles.emptyText}>
-            配置できるタスクがありません。Tasksの所要時間やCalendarの空き時間を確認してください。
+            {isDemo
+              ? '空き時間に入るタスクがありません。タスクの所要時間やカレンダーの空き時間を確認してください。'
+              : '配置できるタスクがありません。Tasksの所要時間やCalendarの空き時間を確認してください。'}
           </Text>
         </View>
       ) : null}
@@ -68,7 +84,7 @@ export function PlannerPreview({ isSaved = false, preview, children }: PlannerPr
             startAt: action.startAt,
             value: (
               <View key={`action-${index}`} style={[styles.item, styles.action]}>
-                <Text style={styles.time}>Action</Text>
+                <Text style={styles.time}>{isDemo ? 'タスク' : 'Action'}</Text>
                 <View style={styles.itemHeader}>
                   <Text style={styles.time}>{action.timeRange}</Text>
                   <Text style={styles.title}>{action.title}</Text>

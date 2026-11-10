@@ -1,5 +1,5 @@
 import { Notice } from '@/shared/components/Notice';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
@@ -20,12 +20,13 @@ import type { TaskFilterId } from './types';
 import { useTasks } from './useTasks';
 
 type TasksScreenProps = {
+  intro?: ReactNode;
   now?: Date;
   refreshToken?: number;
   repository: TaskRepository | null;
 };
 
-export function TasksScreen({ now, refreshToken = 0, repository }: TasksScreenProps) {
+export function TasksScreen({ intro, now, refreshToken = 0, repository }: TasksScreenProps) {
   const {
     clearMutationError,
     createTask,
@@ -105,6 +106,7 @@ export function TasksScreen({ now, refreshToken = 0, repository }: TasksScreenPr
         }
       />
 
+      {intro}
       <TaskFilters activeFilter={activeFilter} filters={TASK_FILTERS} onChange={setActiveFilter} />
 
       <GoalOptionsNotice

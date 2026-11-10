@@ -36,6 +36,7 @@ type TodayScreenProps = {
   now?: () => Date;
   calendarRepository?: CalendarRepository | null;
   onPressReplan?: () => void;
+  replanHint?: string;
   onPressAi: () => void;
   onPressSettings: () => void;
   refreshToken?: number;
@@ -51,6 +52,7 @@ export function TodayScreen({
   eventBufferRepository = null,
   now = currentInstant,
   onPressReplan,
+  replanHint,
   onPressAi,
   onPressSettings,
   refreshToken = 0,
@@ -190,6 +192,9 @@ export function TodayScreen({
                     <Text style={{ color: colors.textMuted }}>
                       {today.plan.summary ?? '今日の実行予定を確認しましょう。'}
                     </Text>
+                    {onPressReplan && replanHint ? (
+                      <Text style={{ color: colors.textMuted }}>{replanHint}</Text>
+                    ) : null}
                     {onPressReplan ? (
                       <ActionButton
                         label="再計画する"

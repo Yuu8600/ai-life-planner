@@ -4,7 +4,7 @@ import { isBlockingCalendarEvent, calculateFreeTime } from '@/features/planner';
 import type { CalendarEvent } from './types';
 import { StyleSheet, Text } from 'react-native';
 import { colors, spacing, typography } from '@/shared/theme';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import { getLocalDate } from '@/features/today';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -23,6 +23,7 @@ import { useDeviceCalendar } from './useDeviceCalendar';
 type CalendarScreenProps = {
   eventBufferRepository?: CalendarEventBufferRepository | null;
   sourceLabel?: 'device' | 'demo';
+  intro?: ReactNode;
   calendarRepository: CalendarRepository | null;
   now?: () => Date;
   onOpenSettings?: () => void;
@@ -33,6 +34,7 @@ type CalendarScreenProps = {
 export function CalendarScreen({
   eventBufferRepository,
   sourceLabel = 'device',
+  intro,
   calendarRepository,
   now,
   onOpenSettings,
@@ -94,6 +96,7 @@ export function CalendarScreen({
   return (
     <AppScreen testID="calendar-screen" contentContainerStyle={styles.content}>
       <ScreenHeader title="カレンダー" />
+      {intro}
 
       {calendar.accessState === 'granted' && selectedDate && timeZone ? (
         <CalendarDateNavigator
@@ -245,11 +248,13 @@ export function CalendarScreen({
           title="空き時間を計算できませんでした"
         />
       ) : null}
-      <Text style={styles.caption}>
-        {sourceLabel === 'demo'
-          ? 'サンプル予定を表示しています。'
-          : '端末カレンダーは読み取り専用です。'}
-      </Text>
+      {!intro || sourceLabel === 'device' ? (
+        <Text style={styles.caption}>
+          {sourceLabel === 'demo'
+            ? 'サンプル予定を表示しています。'
+            : '端末カレンダーは読み取り専用です。'}
+        </Text>
+      ) : null}
     </AppScreen>
   );
 }
