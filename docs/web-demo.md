@@ -1,7 +1,17 @@
 # Web Demo / GitHub Pages
 
-実装・確認日: 2026-11-06（Asia/Tokyo）。Core v1の主要体験を、アカウントとAPIなしで試すためのブラウザ版。
-GitHub Pagesへの公開・push・PR作成は行っていない。
+Web Demoは、Core v1の主要体験をアカウントやAPIキーの設定なしで試せるブラウザ版です。初期実装時の記録は2026年11月6日の結果です。公開準備時点の確認範囲は下記に分けて記載しています。
+
+## 今回の公開準備で確認した範囲
+
+2026年11月10日に、PR #17まで取り込んだproduction exportをローカルChromeで確認しました。
+
+- 入口の「サンプルで計画を作ってみる」から直接進む経路と、タスク・カレンダーを確認してから進む経路を、375px幅と1440px幅で確認しました。
+- 作成だけでは「今日」に表示されず、承認して保存した後に時間軸へ反映されます。完了・スキップ、時計を15:00に進めての再計画、再読み込みでの初期化も確認しました。
+- 時間軸の1時間の目盛り間隔は80pxでした。静的成果物の検査と操作中のネットワーク監視で、外部API接続は見られませんでした。
+- 撮影に使った表示幅と状態を画像一覧に記録しています。[スクリーンショット一覧](screenshots/README.md)
+
+GitHub Pagesへ公開した後に確認する項目は[公開前チェック](portfolio-release.md#現在のpages公開前チェック)にまとめています。
 
 ## 最初の調査
 
@@ -76,11 +86,11 @@ Native / 通常ローカル開発にはbaseUrlを追加しない。アプリ内�
 Expo SDK 57の`web.output=static`で各routeのHTMLを生成し、サーバーruntimeは使わない。
 public/.nojekyllもdistへコピーする。`_expo`等のunderscoreを含むassetをJekyllに除外させない。
 
-1. この作業branchをレビューしてpush / PRし、ユーザーの判断でmainへ取り込む。
+1. 公開するmainのコミットと通常CIの成功を確認する。
 2. GitHub repositoryの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にする。
 3. **Actions → Web Demo Pages → Run workflow → Branch: main** を選んで手動実行する。
-4. workflow成功後、表示されたURLで確認する。想定URLは `https://Yuu8600.github.io/ai-life-planner/`。
-5. `/tasks`、`/calendar`、`/ai`、`/today`、`/settings`の直接アクセスとreload、assetの読み込みを公開先でも確認する。
+4. workflow成功後、出力されたURLで入口と主要フローを確認する。`/tasks`、`/calendar`、`/ai`、`/today`、`/settings`の直接アクセス、再読み込み、静的ファイルの読み込みも確認する。
+5. 検証済みのURLをREADMEとGitHubのAboutに掲載する。
 
 workflowは`workflow_dispatch`のみ。push / PRで公開しない。main以外の手動実行もbuild jobで拒否する。
 build jobでtypecheck・lint・format・Jest・Pages export・export検査を行い、成功したartifactだけをdeployする。

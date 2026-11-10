@@ -48,7 +48,8 @@ Web Demoは同じRepository契約をメモリ内で実装する。DB transaction
 
 ## 現在の範囲
 
-主対象は日本語のCore v1 Nativeアプリと、API不要の公開用Web Demo。
-Calendarの書き込み、Todayへの端末予定の統合、OAuth、password reset、offline同期、
-自動Replanning、OpenAIの実API E2Eは現在の確認範囲に含めない。
-NativeのMetroなしRelease buildは次の検証対象。
+主対象は日本語のiPhone向けNativeアプリと、ログイン不要のWeb Demoです。Todayの時間軸には計画したタスクと読み取ったカレンダー予定を表示し、保存済みの計画と現在の空き時間を区別します。[Todayの時間軸](today-time-axis.md)
+
+活動時間はプロフィールのタイムゾーンで定義し、翌日深夜まで続く計画日を暦日と分けて扱います。夏時間で存在しない、または二重になる活動時刻は明示的に拒否します。[翌日深夜対応](overnight-planning.md)
+
+カレンダーへの書き込み、OAuth、パスワード再設定、オフライン同期、自動再計画は対象外です。OpenAIは任意のNative連携として実装し、実APIのE2Eは未確認です。実機とWebの確認結果はそれぞれの記録を参照してください。[確認範囲](portfolio.md#実機とブラウザでの確認範囲)

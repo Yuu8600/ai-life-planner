@@ -1,13 +1,81 @@
 # AI Life Planner
 
-カレンダーの予定とGoals / Tasksから空き時間を計算し、その日の行動計画を自動生成するライフプランニングアプリ。
-React Native / ExpoによるNative版と、ログイン不要のWeb Demoで同じPlannerロジックを使います。
+カレンダーの予定を避けて、目標のためのタスクを1日の空き時間に自動で割り振るアプリです。
 
-## Demo
+## Web Demo
 
-**Web Demoは公開準備済みです。GitHub Pagesの初回公開・動作確認後、この節へ公開URLを追加します。**
+**ログイン不要で、サンプルの計画づくりから実行までブラウザで試せます。**
+GitHub Pagesは公開準備中です。公開後に確認したURLをここに掲載します。[ローカルで試す手順](#ローカルで試す)
 
-APIキーやアカウントなしで、サンプルの一日をブラウザで試せます。
+<img src="docs/screenshots/web-today-desktop.png" width="780" alt="PC版Web Demoの今日画面。左側のナビゲーションと、タスク・カレンダー予定・空き時間を表示した時間軸" />
+
+保存した計画を「今日」で開いた画面です。次に取り組むタスクと、その日の予定が時間軸に並びます。
+
+<details>
+<summary>モバイル幅の入口・保存前の確認・今日の時間軸を見る</summary>
+
+**Web Demoの入口** — サンプルですぐに計画を作るか、先にタスクを見るかを選べます。
+
+<img src="docs/screenshots/web-demo-mobile.png" width="340" alt="サンプルで計画を作ってみるボタンと3ステップの案内があるWeb Demoの入口" />
+
+**保存前の確認** — カレンダー予定と重ならない時間に入ったタスクを、時刻順に確認できます。
+
+<img src="docs/screenshots/web-planner-preview.png" width="340" alt="保存前の計画画面。4件のタスク、カレンダー予定との区別、保存ボタンを表示" />
+
+**保存後の「今日」** — 時間軸のカードを開いて、タスクを完了またはスキップできます。
+
+<img src="docs/screenshots/web-today.png" width="340" alt="保存直後の今日画面。次のタスク、08時の現在時刻線、カレンダー予定と配置可能な空き時間を表示" />
+
+</details>
+
+カレンダーと空き時間、目標、タスク一覧、PC版の入口も掲載しています。[スクリーンショット一覧](docs/screenshots/README.md)
+
+## 使い方
+
+1. 入口の **「サンプルで計画を作ってみる」** から「今日の計画を作成」を押します。
+2. 何をいつやるかを確認し、**「この計画を保存」** を押します。
+3. **「今日の計画を見る」** から時間軸へ進み、タスクを開いて完了・スキップを試せます。
+4. 予定を組み直したい場合は、デモ時計を15:00に進めてから「再計画する」を試せます。
+
+Web Demoはルールベースで動作します。OpenAI APIは使いません。デモ時計はサンプル日の時刻で、データはこのタブのメモリに保持されます。再読み込みやリセットで初期状態に戻ります。
+
+自分の使い方に合わせて、目標の進捗やタスクの所要時間・期限・優先度、活動時間や予定前後の余白も調整できます。iPhone向けNative版は、許可を得た端末カレンダーを読み取り、Supabaseでユーザー別に保存します。Native版には任意のOpenAI連携もあります。
+
+## 制作背景
+
+目標を立てても、いつ取り組むかを決めないままだと行動に移しにくくなります。タスクとカレンダーが別々だと、授業などの合間に何ができるかも見落としがちです。そこで、目標をタスクに分け、予定の合間の具体的な時刻に割り振り、実行結果に応じて組み直せるアプリを作りました。
+
+## 技術的な工夫
+
+- **空き時間を計算する。** 読み取った予定の重なりをまとめ、前後の余白と最小空き時間を考慮します。プロフィールのタイムゾーンを基準に、翌日深夜までの活動時間や夏時間（DST）の境界も扱います。
+- **作成と保存を分ける。** ルールベースで期限・優先度・所要時間を使って配置し、承認時に最新の設定・予定・タスクで再検証します。保存条件を満たさなくなった提案は拒否します。
+- **保存と実行の整合性を保つ。** NativeではSupabase Authと行レベルセキュリティ（RLS）を使い、計画と明細をDB関数内の一つのトランザクションで保存します。完了・スキップの履歴は再計画後も参照できます。
+- **NativeとWebで計算を共用する。** 共通の計画・検証処理を使い、データの読み書きだけを切り替えます。Web Demoは端末カレンダーやSupabaseへ接続せず、サンプルとメモリ上のデータで動きます。
+
+実装の入口と保存境界は[アーキテクチャ](docs/architecture.md)へ。制作の進め方とCodexの利用範囲は[ポートフォリオ用の開発紹介](docs/portfolio.md)にまとめています。
+
+## 技術スタックと構成
+
+| 領域        | 技術                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------ |
+| アプリ・Web | React Native、Expo SDK 57、Expo Router、React Native Web                             |
+| 計画・表示  | TypeScript、共通PlannerとValidator、Clearデザインシステム                            |
+| Native連携  | Expo Calendar、Supabase Auth／PostgreSQL／RLS、任意のOpenAI用Edge Function           |
+| 品質・配信  | Jest、React Native Testing Library、ESLint、Prettier、GitHub Actions、静的Web export |
+
+`src/features` に機能ごとの画面と共通の業務処理、`src/services` にデータ接続を置き、`src/navigation` でプラットフォームごとに接続先を選びます。[設計・検証ドキュメント一覧](docs/README.md)
+
+## テストと検証範囲
+
+- **自動テスト** — 68スイート・715件が成功（2026年11月10日）。計画、時刻・DST、保存・実行・再計画などを検証しています。GitHub ActionsのCIで型・lint・フォーマットとJestを確認します。
+- **Web／Simulator** — 最新のWeb exportをChromeで操作し、375pxと1440pxの初回体験、生成・保存・完了・スキップ・再計画を確認しました。iOS Simulatorでの時間軸、短い予定、文字拡大の確認は別記録にまとめています。[Web検証](docs/web-demo.md#今回の公開準備で確認した範囲) · [時間軸の検証](docs/today-time-axis.md)
+- **iPhone実機** — Core v1の主要フローと、当時のRelease版のUSB・Metroなしでの起動を確認済みです。Step 10のPR #15相当版では一部を実機で再確認しました。実機VoiceOver・文字拡大、同版のUSB解除後の確認などが残っています。[Core v1の実機記録](docs/ios-personal-release.md) · [Step 10の確認範囲](docs/portfolio.md#実機とブラウザでの確認範囲)
+
+OpenAI実API・Android・全ブラウザの動作は検証範囲外です。対応状況の詳細は[開発・検証記録](docs/README.md)を参照してください。
+
+## ローカルで試す
+
+Node.js `^22.13.0 || >=24` とnpmを用意します。Web Demoの起動に環境変数やアカウントは不要です。
 
 ```sh
 npm ci
@@ -16,133 +84,10 @@ npm run verify:pages
 npm run preview:pages
 ```
 
-[ローカルのWeb Demoを開く](http://127.0.0.1:4173/ai-life-planner/) → Tasksを確認 → Calendarの空き時間を確認 → Plannerで生成 → Previewを保存 → Todayで完了・スキップ。
+[ローカルのWeb Demoを開く](http://127.0.0.1:4173/ai-life-planner/)。Native開発には自分のSupabase開発プロジェクトと開発ビルドが必要です。iOSのビルドはmacOSとXcodeを使用します。[開発手順・品質チェック](docs/development.md)
 
-サンプル時計は**2026年11月6日08:00（東京）**に固定しています。「時計を15:00に進める」で再計画を試せます。
-データはこのタブのメモリ内に保持し、reload・リセットで初期化します。Supabase・端末Calendar・OpenAIへの接続は不要です。
-公開手順は[Web Demoガイド](docs/web-demo.md)を参照してください。
+## セキュリティ・ライセンス
 
-## Overview
+端末カレンダーは読み取り専用です。NativeのOpenAI APIキーはSupabase Edge Function側で管理し、アプリには含めません。実際の `.env` やサーバー用の秘密鍵はGit管理の対象外です。[公開前チェック](docs/portfolio-release.md#現在のpages公開前チェック)
 
-目標を立てても、今日いつ何をするかまで決めるのは難しい。タスクリストとカレンダーが別々だと、
-予定の合間に使える時間も見落としがちです。
-
-AI Life Plannerは、目標を具体的なTaskへ分け、カレンダーの空き時間へ自動配置します。
-提案を確認してから保存し、実行結果を記録して、残り時間の計画を組み直すところまでを一つの流れにしました。
-自身が使うNativeアプリとして開発し、設計と動作を第三者にも試してもらえるようWeb Demoを用意しています。
-
-## Main Features
-
-| 機能                           | Native                                                               | Web Demo                             |
-| ------------------------------ | -------------------------------------------------------------------- | ------------------------------------ |
-| Goals / Tasks / Settings       | 目標・TaskのCRUD、所要時間・優先度・期限・計画設定                   | 同じ操作をサンプルデータで体験       |
-| Calendar / Free Time           | 権限取得後に端末予定を読み取り、timezoneと活動時間から空き時間を計算 | サンプル予定から同じCalculatorで計算 |
-| RuleBased Planner              | 期限・優先度・所要時間から決定的に配置。API不要                      | 同じProviderを使用                   |
-| Optional OpenAI Planner        | 共通Contractに沿う任意Providerを実装                                 | 使用しない                           |
-| Preview / Save / Today         | Validatorで検証し、承認後にDBへ保存して表示                          | メモリへ保存してTodayへ反映          |
-| Complete / Skip / Activity Log | 完了時は関連Taskも完了。SkipはTaskを残し、実行履歴を保持             | 同じ操作・履歴を体験                 |
-| Replanning                     | 最新データと残り時間で全置換。競合・古いPreviewを検知し、履歴は保持  | メモリ内の競合ガードで同じ流れを体験 |
-| Auth / persistence             | Supabase Auth・RLS・PostgreSQLによるユーザー別保存                   | ログイン不要。reloadで初期化         |
-
-Core v1 Native版の主要フローはiOS Simulator・iPhone 16で確認済みです。
-無料Personal Team署名の**Release buildで、Metro停止・USB解除後のiPhone単体利用も確認済み**です。
-再署名・上書きinstall手順と検証範囲は[Personal Team Release](docs/ios-personal-release.md)を参照してください。
-OpenAIは任意機能の実装であり、実APIの動作確認を今回の検証範囲には含めていません。
-
-## How it works
-
-```mermaid
-flowchart LR
-  source[Goals / Tasks + Calendar] --> free[Free Time Calculator]
-  free --> planner[Planner + Validator]
-  planner --> preview[Preview]
-  preview -->|承認・保存| today[Today]
-  today -->|Complete / Skip・Replanning| source
-```
-
-Nativeは端末CalendarとSupabase、Web DemoはサンプルCalendarとメモリ内Repositoryを入力・保存先に使います。
-提案を作っただけでは保存せず、ユーザーの承認を境界にします。
-
-## Screenshots
-
-以下は**Web Demoの実画面**です。TOEIC学習のサンプルデータのみを使い、Native実機画面と区別しています。
-
-<table>
-  <tr><th>Today</th><th>Planner Preview</th><th>Calendar / Free Time</th></tr>
-  <tr>
-    <td><img src="docs/screenshots/web-today.png" width="260" alt="サンプルTaskが配置されたWeb DemoのToday画面" /></td>
-    <td><img src="docs/screenshots/web-planner-preview.png" width="260" alt="保存前のルールベースPlanner Preview" /></td>
-    <td><img src="docs/screenshots/web-calendar-free-time.png" width="260" alt="大学・授業などの予定と4枠の空き時間" /></td>
-  </tr>
-</table>
-
-[Desktop版・Goals / Tasksの画像と撮影手順](docs/screenshots/README.md)も用意しています。
-
-## Tech Stack
-
-| 領域               | 技術                                                                          |
-| ------------------ | ----------------------------------------------------------------------------- |
-| App / Web          | React Native 0.86.3、Expo SDK 57、React 19.2.3、React Native Web、Expo Router |
-| 言語 / 品質        | TypeScript strict、Jest、React Native Testing Library、ESLint、Prettier       |
-| Nativeデータ       | Supabase Auth、PostgreSQL、RLS、transactional RPC                             |
-| Calendar / session | expo-calendar、expo-sqlite                                                    |
-| 任意AI             | Supabase Edge Functions → OpenAI Responses API                                |
-| CI / hosting       | GitHub Actions、GitHub Pages向けstatic export                                 |
-
-## Architecture
-
-- **Coreを共有**: 空き時間計算・候補選定・配置・ValidatorはNative / Webで共通のTypeScriptロジック。
-- **Repository境界**: UIと業務処理はinterfaceへ依存し、Supabase / 端末Calendar / DemoのI/Oをadapterで分離。
-- **Provider共通Contract**: RuleBasedと任意OpenAIの出力を`unknown`から共通Validatorで検証。
-- **承認とatomic persistence**: Preview承認時に最新データで再検証し、NativeではPlanとActionをRPCで一括保存。
-- **履歴と競合**: Activity Logは実行時点のsnapshot。Guarded Replanningで旧Previewの上書きを防ぎ、置換後も履歴を保持。
-- **Demoの独立**: Web用compositionはNative側のAuth / Supabase / Calendar SDKをbundleへ取り込まず、production DBへ接続しない。
-
-コードの入口と設計の説明は[Architecture](docs/architecture.md)、要件・検証の一覧は[docs index](docs/README.md)へ。
-
-## Testing / Verification
-
-- **54 test suites / 497 tests**（unit / integration）。Planner、timezone、Calendar正規化、CRUD、承認、保存、実行、履歴、再計画を検証。
-- **iOS Simulator E2E・iPhone 16実機**でCore v1の主要フローを確認。[Native検証記録](docs/README.md#verification)
-- **Web production export**をローカル配信し、生成→保存→実行→再計画、直接URL、reloadを確認。
-- Desktop / Tablet / Mobile相当の1440 / 768 / 390 / 375px幅を確認。[Web検証記録](docs/web-demo.md#verification)
-
-検証済み範囲と未確認事項は各記録に分けて記載しています。Android、全ブラウザ、全異常系の保証ではありません。
-
-## Development / Local Setup
-
-前提: Node.js `^22.13.0 || >=24`、npm。Web Demoは先頭の手順だけで動作します。
-
-Native開発はiOS / Android開発環境と、自分のSupabase開発プロジェクトを用意します。
-
-```sh
-npm ci
-cp .env.example .env
-# .envに自分のSupabase Project URLとPublishable Keyを設定
-npm run ios
-# インストール済みdevelopment buildへ接続する場合
-npm run start:dev
-```
-
-Calendar APIはExpo Goでは使えないためdevelopment buildが必要です。iOSのローカルbuildにはmacOS / Xcodeが必要です。
-DB migrations・RLS確認・任意OpenAIの設定・Androidの手順は[開発ガイド](docs/development.md)へ。
-
-```sh
-npm run typecheck
-npm run lint
-npm run format:check
-npm run test:ci
-```
-
-PR用CIでは上記の品質チェックを実行します。Pages公開workflowはmainを対象とした**手動実行のみ**です。
-
-## Security
-
-OpenAI API keyはSupabase Edge Function Secretにのみ置き、clientへ渡しません。
-Supabaseの`service_role` / Secret Keyもclientへ置きません。`.env`はGit管理対象外で、`.env.example`は変数名のみです。
-Web Demoはproduction SupabaseとOpenAIを使用せず、利用者の入力を公開サーバーへ保存しません。
-公開前検査の範囲と残る確認は[公開準備・監査記録](docs/portfolio-release.md)にまとめています。
-
-## License
-
-[MIT](LICENSE)。Expo由来のcopyright noticeを保持しています。
+[MITライセンス](LICENSE)。Expo由来の著作権表示を保持しています。

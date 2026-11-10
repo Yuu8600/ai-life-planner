@@ -1,5 +1,17 @@
 # Portfolio release preparation
 
+## 現在のPages公開前チェック
+
+README・スクリーンショットを更新し、最新のWeb Demoをproduction exportしてローカルで確認済みです。以降の監査・履歴整理は2026年11月6日時点の記録です。公開用リポジトリの初回作成手順は当時の引き継ぎとして参照してください。
+
+1. 公開に使う `main` のコミットと通常CIの成功、GitHubのSettings → Pagesでの公開元を確認する。
+2. 公開を決めたら、Actionsの `Web Demo Pages` を `main` から手動実行し、公開ジョブが成功したことを確認する。
+3. 出力されたURLで入口、JavaScriptや画像などの静的ファイル、`/tasks`・`/calendar`・`/ai`・`/today`・`/settings` の直接表示と再読み込みを確認する。
+4. スマホ幅・PC幅で計画の作成・保存・実行・再計画を試し、外部APIへの通信がないことを確認する。
+5. 動作確認した公開URLをREADMEとGitHubのAbout Websiteに登録する。
+
+Step 10の実機確認には、USBを外した状態での起動と通信、VoiceOver、文字拡大などが残っています。公開を判断する際は、残っている実機確認の結果も確認します。[実機とブラウザでの確認範囲](portfolio.md#実機とブラウザでの確認範囲)
+
 ## 公開用clean historyの検証結果（2026-11-06）
 
 元private repositoryを変更せず、独立したコピーをgit-filter-repo v2.47.0で整理した。
