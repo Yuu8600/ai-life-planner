@@ -2,6 +2,15 @@
 
 Web Demoは、Core v1の主要体験をアカウントやAPIキーの設定なしで試せるブラウザ版です。初期実装時の記録は2026年11月6日の結果です。公開準備時点の確認範囲は下記に分けて記載しています。
 
+## GitHub Pagesの配信確認（2026年11月10日）
+
+[公開サイト](https://yuu8600.github.io/ai-life-planner/)はHTTP 200でした。最新のPages実行ではbuildとdeployが成功しています。配信中のコミットはPR #4時点の `2541048db2996c602dca71c79f741d98f4dbb3f2` で、確認時点のmain（PR #18の `66aa5f8`）より前です。[配信ワークフロー](https://github.com/Yuu8600/ai-life-planner/actions/runs/42241690427)
+
+- 配信中の版をChromeの375px・1440pxで開き、旧版の入口、計画の生成・プレビュー・保存、完了・スキップ、時計を15:00に進めての再計画と履歴保持、リセットを確認しました。
+- `/today`、`/tasks`、`/goals`、`/calendar`、`/ai`、`/settings` は直接アクセスと再読み込みでHTTP 200でした。JavaScriptとインラインCSSは読み込まれ、重大なJavaScriptエラーや外部HTTP通信は観測されませんでした。ブラウザの既定のfavicon取得は404でした。
+- 旧版では入口 → Tasks → Calendar → Plannerのあとにブラウザで戻ると入口に戻りました。最新mainのローカル静的版ではタブ移動を戻る・進むでたどれます。80px／時間の時間軸と翌日01:00のデモ時計もローカル版で確認しました。
+- 最新版を公開するには、`Web Demo Pages` の `Run workflow` で現在の `main` を選び、新しい実行を開始します。過去の実行の再実行では元のコミットを使います。公開先で最新版を検証した後に、READMEとGitHubのAbout Websiteへ公開リンクを掲載します。
+
 ## 今回の公開準備で確認した範囲
 
 2026年11月10日に、PR #17まで取り込んだproduction exportをローカルChromeで確認しました。
@@ -140,13 +149,11 @@ Web確認ダイアログ、Demo時計での期限filterを対象とする。
 
 ブラウザ確認で見つけた2点は修正済み: サンプルCalendarの凡例を「端末」から変更し、
 小画面のタブ名が切れないようWebだけ高さ・行高を調整した。Task filterにはDemo時計を渡す。
-Pagesの実サーバー上ではまだ検証していないため、公開直後のURL確認は残る。
+初期実装時のPages確認状況は当時の記録です。[その後の配信確認](#github-pagesの配信確認2026年11月10日)
 
-## Remaining / scope
+## 初期実装時の未確認範囲
 
-- GitHub上のworkflow実行・Pages公開・公開URLでの最終確認はユーザーの操作待ち。
 - Nativeの業務ロジック、Calendar adapter、Supabase adapter / RPC / migration、API key配置は変更しない。
   route実装の配置を移したため、既存のrouteテスト・Auth・Calendar・保存・実行・再計画の回帰テストで確認する。
 - 今回のWeb作業後のiPhone / Simulator再E2E、Android、Safari / Firefoxのブラウザ実機確認は対象外。
 - Calendarの予定編集、実端末連携、OpenAI、永続ストレージ、複数タブ同期、offline起動はDemoの対象外。
-- 本番公開前にはこのdiffを確認し、GitHub Pages上でsubpath・直接URL・reloadを確認する。

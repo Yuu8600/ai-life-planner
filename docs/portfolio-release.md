@@ -2,7 +2,7 @@
 
 ## 現在のPages公開前チェック
 
-README・スクリーンショットを更新し、最新のWeb Demoをproduction exportしてローカルで確認済みです。以降の監査・履歴整理は2026年11月6日時点の記録です。公開用リポジトリの初回作成手順は当時の引き継ぎとして参照してください。
+README・スクリーンショットを更新し、最新のWeb Demoをproduction exportしてローカルで確認済みです。2026年11月10日の確認では、公開先はPR #4のコミットを配信しています。最新版の配信と検証が済んだ後、READMEとAbout Websiteに公開リンクを載せます。[配信確認の詳細](web-demo.md#github-pagesの配信確認2026年11月10日)
 
 1. 公開に使う `main` のコミットと通常CIの成功、GitHubのSettings → Pagesでの公開元を確認する。
 2. 公開を決めたら、Actionsの `Web Demo Pages` を `main` から手動実行し、公開ジョブが成功したことを確認する。
@@ -11,6 +11,8 @@ README・スクリーンショットを更新し、最新のWeb Demoをproductio
 5. 動作確認した公開URLをREADMEとGitHubのAbout Websiteに登録する。
 
 Step 10の実機確認には、USBを外した状態での起動と通信、VoiceOver、文字拡大などが残っています。公開を判断する際は、残っている実機確認の結果も確認します。[実機とブラウザでの確認範囲](portfolio.md#実機とブラウザでの確認範囲)
+
+以下の監査・履歴整理と公開用リポジトリの初回作成手順は、2026年11月6日時点の記録です。
 
 ## 公開用clean historyの検証結果（2026-11-06）
 
