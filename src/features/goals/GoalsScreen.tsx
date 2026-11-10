@@ -8,9 +8,10 @@ import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
 import { spacing } from '@/shared/theme';
 
-import type { CreateGoalInput, Goal, GoalRepository } from './repositories/GoalRepository';
+import type { Goal, GoalRepository } from './repositories/GoalRepository';
 import { toGoalListItemModel } from './presentation';
 import { useGoals } from './useGoals';
+import type { GoalFormInput } from './validation';
 import { GoalFormModal } from './components/GoalFormModal';
 import { GoalListItem } from './components/GoalListItem';
 import { GoalStatePanel } from './components/GoalStatePanel';
@@ -48,8 +49,10 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
     setEditingGoal(goal);
   };
 
-  const saveGoal = async (input: CreateGoalInput): Promise<boolean> => {
-    const saved = editingGoal ? await updateGoal(editingGoal.id, input) : await createGoal(input);
+  const saveGoal = async (input: GoalFormInput): Promise<boolean> => {
+    const saved = editingGoal
+      ? await updateGoal(editingGoal.id, input)
+      : await createGoal({ ...input, currentValue: null, targetValue: null, unit: null });
 
     if (saved) setEditingGoal(undefined);
     return saved;

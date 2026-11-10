@@ -57,52 +57,32 @@ it('blocks editing, disclosure and duplicate deletion while deletion is pending'
   expect(edit).not.toHaveBeenCalled();
   expect(remove).not.toHaveBeenCalled();
 });
-it('announces existing progress and values without changing the calculation', async () => {
+it('shows goal details without exposing legacy progress values', async () => {
   const screen = await render(
     <GoalListItem goal={toGoalListItemModel(goal)} onEdit={noop} onDelete={noop} />,
   );
-  const progress = screen.getByRole('progressbar');
-  expect(progress.props.accessibilityValue).toMatchObject({
-    min: 0,
-    max: 100,
-    now: 73,
-    text: '現在 530点、目標 730点、73%',
-  });
   expect(screen.getByText(goal.title)).toBeTruthy();
   expect(screen.getByText(goal.description!)).toBeTruthy();
-  expect(screen.getByText('530点')).toBeTruthy();
-  expect(screen.getByText('730点')).toBeTruthy();
-});
-it.each([
-  { currentValue: null, targetValue: 730 },
-  { currentValue: 530, targetValue: null },
-  { currentValue: 530, targetValue: 0 },
-])('does not show a false percentage for unset progress %j', async (values) => {
-  const screen = await render(
-    <GoalListItem
-      goal={toGoalListItemModel({ ...goal, ...values })}
-      onEdit={noop}
-      onDelete={noop}
-    />,
-  );
+  expect(screen.getByText('期限 2026年12月31日')).toBeTruthy();
+  expect(screen.getByText('優先度 高')).toBeTruthy();
+  for (const text of ['530点', '730点', '73%', '進捗 未設定']) {
+    expect(screen.queryByText(text)).toBeNull();
+  }
   expect(screen.queryByRole('progressbar')).toBeNull();
-  expect(screen.getByText('進捗 未設定')).toBeTruthy();
-  expect(screen.queryByText('0%')).toBeNull();
 });
 it.each([
   ['completed', '完了'],
   ['active', '進行中'],
   ['archived', 'アーカイブ'],
-] as const)('retains goal status %s and completed progress', async (status, label) => {
+] as const)('retains goal status %s', async (status, label) => {
   const screen = await render(
     <GoalListItem
-      goal={toGoalListItemModel({ ...goal, status, currentValue: 730 })}
+      goal={toGoalListItemModel({ ...goal, status })}
       onEdit={noop}
       onDelete={noop}
     />,
   );
   expect(screen.getByText(label)).toBeTruthy();
-  expect(screen.getByRole('progressbar').props.accessibilityValue.now).toBe(100);
 });
 it.each([
   ['completed', '完了'],

@@ -100,7 +100,14 @@ describe('GoalsScreen', () => {
   });
 
   it('creates a goal and immediately adds it to the list', async () => {
-    const createdGoal = { ...goal, id: 'new-goal-id', title: 'アプリ制作' };
+    const createdGoal = {
+      ...goal,
+      id: 'new-goal-id',
+      title: 'アプリ制作',
+      currentValue: null,
+      targetValue: null,
+      unit: null,
+    };
     const repository = createRepository({
       create: jest.fn(async (_input: CreateGoalInput) => createdGoal),
       list: jest.fn(async () => []),
@@ -114,11 +121,18 @@ describe('GoalsScreen', () => {
 
     expect(await screen.findByText('アプリ制作')).toBeTruthy();
     expect(repository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ priority: 'medium', status: 'active', title: 'アプリ制作' }),
+      expect.objectContaining({
+        priority: 'medium',
+        status: 'active',
+        title: 'アプリ制作',
+        currentValue: null,
+        targetValue: null,
+        unit: null,
+      }),
     );
   });
 
-  it('updates a goal and immediately replaces the rendered values', async () => {
+  it('updates editable goal fields without sending legacy progress values', async () => {
     const updatedGoal = { ...goal, title: 'TOEIC 800' };
     const repository = createRepository({
       update: jest.fn(async (_id: string, _input: UpdateGoalInput) => updatedGoal),
@@ -127,15 +141,21 @@ describe('GoalsScreen', () => {
 
     await screen.findByText('TOEIC');
     await fireEvent.press(screen.getByRole('button', { name: 'TOEICを編集する' }));
+    for (const label of ['目標の現在値', '目標の目標値', '目標の単位']) {
+      expect(screen.queryByLabelText(label)).toBeNull();
+    }
     await fireEvent.changeText(screen.getByLabelText('目標タイトル'), 'TOEIC 800');
     await fireEvent.press(screen.getByRole('button', { name: '目標を保存する' }));
 
     expect(await screen.findByText('TOEIC 800')).toBeTruthy();
     expect(screen.queryByText('TOEIC')).toBeNull();
-    expect(repository.update).toHaveBeenCalledWith(
-      goal.id,
-      expect.objectContaining({ title: 'TOEIC 800' }),
-    );
+    expect(repository.update).toHaveBeenCalledWith(goal.id, {
+      deadline: goal.deadline,
+      description: goal.description,
+      priority: goal.priority,
+      status: goal.status,
+      title: 'TOEIC 800',
+    });
   });
 
   it('deletes a confirmed goal and immediately removes it from the list', async () => {

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { ModalFrame } from '@/shared/components/ModalFrame';
@@ -8,12 +8,13 @@ import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
 import { spacing } from '@/shared/theme';
 
-import type { CreateGoalInput, Goal } from '../repositories/GoalRepository';
+import type { Goal } from '../repositories/GoalRepository';
 import {
   createGoalFormValues,
   GOAL_PRIORITIES,
   GOAL_STATUSES,
   type GoalFormErrors,
+  type GoalFormInput,
   type GoalFormValues,
   validateGoalForm,
 } from '../validation';
@@ -23,7 +24,7 @@ type GoalFormModalProps = {
   goal: Goal | null;
   isSubmitting: boolean;
   onClose: () => void;
-  onSubmit: (input: CreateGoalInput) => Promise<boolean>;
+  onSubmit: (input: GoalFormInput) => Promise<boolean>;
 };
 
 export function GoalFormModal({
@@ -67,7 +68,6 @@ export function GoalFormModal({
   return (
     <ModalFrame
       title={isEditing ? '目標を編集' : '新しい目標'}
-      description="目標の状態と進捗を登録します。"
       onClose={onClose}
       closeLabel="目標フォームを閉じる"
       closeDisabled={isSubmitting}
@@ -108,61 +108,18 @@ export function GoalFormModal({
         />
       </FormField>
 
-      <View style={styles.valueRow}>
-        <View style={styles.valueField}>
-          <FormField error={fieldErrors.currentValue} label="現在値">
-            <FormInput
-              accessibilityLabel="目標の現在値"
-              editable={!isSubmitting}
-              keyboardType="decimal-pad"
-              onChangeText={(value) => updateValue('currentValue', value)}
-              placeholder="530"
-              value={values.currentValue}
-            />
-          </FormField>
-        </View>
-        <View style={styles.valueField}>
-          <FormField error={fieldErrors.targetValue} label="目標値">
-            <FormInput
-              accessibilityLabel="目標の目標値"
-              editable={!isSubmitting}
-              keyboardType="decimal-pad"
-              onChangeText={(value) => updateValue('targetValue', value)}
-              placeholder="730"
-              value={values.targetValue}
-            />
-          </FormField>
-        </View>
-      </View>
-
-      <View style={styles.valueRow}>
-        <View style={styles.valueField}>
-          <FormField label="単位">
-            <FormInput
-              accessibilityLabel="目標の単位"
-              editable={!isSubmitting}
-              maxLength={30}
-              onChangeText={(value) => updateValue('unit', value)}
-              placeholder="点、%、冊"
-              value={values.unit}
-            />
-          </FormField>
-        </View>
-        <View style={styles.valueField}>
-          <FormField error={fieldErrors.deadline} label="期限">
-            <FormInput
-              accessibilityLabel="目標の期限"
-              autoCapitalize="none"
-              editable={!isSubmitting}
-              keyboardType="numbers-and-punctuation"
-              maxLength={10}
-              onChangeText={(value) => updateValue('deadline', value)}
-              placeholder="2026-10-25"
-              value={values.deadline}
-            />
-          </FormField>
-        </View>
-      </View>
+      <FormField error={fieldErrors.deadline} label="期限">
+        <FormInput
+          accessibilityLabel="目標の期限"
+          autoCapitalize="none"
+          editable={!isSubmitting}
+          keyboardType="numbers-and-punctuation"
+          maxLength={10}
+          onChangeText={(value) => updateValue('deadline', value)}
+          placeholder="2026-10-25"
+          value={values.deadline}
+        />
+      </FormField>
 
       <OptionGroup
         disabled={isSubmitting}
@@ -191,17 +148,6 @@ const styles = StyleSheet.create({
   multilineInput: {
     minHeight: 96,
     paddingTop: spacing.md,
-  },
-  valueRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  valueField: {
-    flexGrow: 1,
-    flexBasis: 160,
-    minWidth: 0,
   },
   submitButton: {
     minHeight: 50,

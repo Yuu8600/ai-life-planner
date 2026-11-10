@@ -1,29 +1,23 @@
 import { validateGoalForm, type GoalFormValues } from '@/features/goals/validation';
 
 const validValues: GoalFormValues = {
-  currentValue: '530',
   deadline: '2026-10-25',
   description: ' 英語力を伸ばす ',
   priority: 'high',
   status: 'active',
-  targetValue: '730.5',
   title: ' TOEIC ',
-  unit: ' 点 ',
 };
 
 describe('Goal validation', () => {
-  it('normalizes valid form values into repository input', () => {
+  it('normalizes valid form values into an editable goal payload', () => {
     expect(validateGoalForm(validValues)).toEqual({
       errors: null,
       input: {
-        currentValue: 530,
         deadline: '2026-10-25',
         description: '英語力を伸ばす',
         priority: 'high',
         status: 'active',
-        targetValue: 730.5,
         title: 'TOEIC',
-        unit: '点',
       },
     });
   });
@@ -31,20 +25,14 @@ describe('Goal validation', () => {
   it('converts optional empty values to null', () => {
     const result = validateGoalForm({
       ...validValues,
-      currentValue: '',
       deadline: '',
       description: '   ',
-      targetValue: '',
-      unit: '',
     });
 
     expect(result.input).toEqual(
       expect.objectContaining({
-        currentValue: null,
         deadline: null,
         description: null,
-        targetValue: null,
-        unit: null,
       }),
     );
   });
@@ -62,21 +50,6 @@ describe('Goal validation', () => {
         priority: '優先度を選択してください。',
         status: '状態を選択してください。',
         title: 'タイトルを入力してください。',
-      }),
-    );
-  });
-
-  it('rejects invalid numeric values', () => {
-    const result = validateGoalForm({
-      ...validValues,
-      currentValue: '12点',
-      targetValue: 'Infinity',
-    });
-
-    expect(result.errors).toEqual(
-      expect.objectContaining({
-        currentValue: '整数または小数で入力してください。',
-        targetValue: '整数または小数で入力してください。',
       }),
     );
   });
