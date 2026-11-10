@@ -1,3 +1,5 @@
+import { dateInputToLocalDate, formatDateInput } from '@/shared/dateInput';
+
 import type {
   CreateTaskInput,
   Task,
@@ -52,8 +54,9 @@ function isValidDate(value: string): boolean {
 }
 
 function dateInputToDeadline(value: string): string {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString();
+  const date = dateInputToLocalDate(value);
+  date.setHours(23, 59, 59, 999);
+  return date.toISOString();
 }
 
 function deadlineToDateInput(deadline: string | null): string {
@@ -62,10 +65,7 @@ function deadlineToDateInput(deadline: string | null): string {
   const parsed = new Date(deadline);
   if (Number.isNaN(parsed.getTime())) return '';
 
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, '0');
-  const day = String(parsed.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return formatDateInput(parsed);
 }
 
 export function createTaskFormValues(task?: Task): TaskFormValues {

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
+import { DeadlineField } from '@/shared/components/DeadlineField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { Notice } from '@/shared/components/Notice';
@@ -108,18 +109,13 @@ export function GoalFormModal({
         />
       </FormField>
 
-      <FormField error={fieldErrors.deadline} label="期限">
-        <FormInput
-          accessibilityLabel="目標の期限"
-          autoCapitalize="none"
-          editable={!isSubmitting}
-          keyboardType="numbers-and-punctuation"
-          maxLength={10}
-          onChangeText={(value) => updateValue('deadline', value)}
-          placeholder="2026-10-25"
-          value={values.deadline}
-        />
-      </FormField>
+      <DeadlineField
+        accessibilityLabel="目標の期限"
+        disabled={isSubmitting}
+        error={fieldErrors.deadline}
+        onChange={(value) => updateValue('deadline', value)}
+        value={values.deadline}
+      />
 
       <OptionGroup
         disabled={isSubmitting}
