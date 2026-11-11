@@ -76,11 +76,7 @@ it.each([
   ['archived', 'アーカイブ'],
 ] as const)('retains goal status %s', async (status, label) => {
   const screen = await render(
-    <GoalListItem
-      goal={toGoalListItemModel({ ...goal, status })}
-      onEdit={noop}
-      onDelete={noop}
-    />,
+    <GoalListItem goal={toGoalListItemModel({ ...goal, status })} onEdit={noop} onDelete={noop} />,
   );
   expect(screen.getByText(label)).toBeTruthy();
 });
