@@ -6,20 +6,19 @@ import type {
 } from './repositories/GoalRepository';
 
 export type GoalFormValues = {
-  currentValue: string;
   deadline: string;
   description: string;
   priority: string;
   status: string;
-  targetValue: string;
   title: string;
-  unit: string;
 };
+
+export type GoalFormInput = Omit<CreateGoalInput, 'currentValue' | 'targetValue' | 'unit'>;
 
 export type GoalFormErrors = Partial<Record<keyof GoalFormValues, string>>;
 
 export type GoalValidationResult =
-  { errors: null; input: CreateGoalInput } | { errors: GoalFormErrors; input: null };
+  { errors: null; input: GoalFormInput } | { errors: GoalFormErrors; input: null };
 
 export const GOAL_PRIORITIES: readonly { label: string; value: GoalPriority }[] = [
   { label: '高', value: 'high' },
@@ -33,7 +32,6 @@ export const GOAL_STATUSES: readonly { label: string; value: GoalStatus }[] = [
   { label: 'アーカイブ', value: 'archived' },
 ];
 
-const NUMBER_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function isGoalPriority(value: string): value is GoalPriority {
@@ -42,25 +40,6 @@ function isGoalPriority(value: string): value is GoalPriority {
 
 function isGoalStatus(value: string): value is GoalStatus {
   return GOAL_STATUSES.some((option) => option.value === value);
-}
-
-function parseOptionalNumber(
-  value: string,
-  field: 'currentValue' | 'targetValue',
-  errors: GoalFormErrors,
-): number | null {
-  const normalized = value.trim();
-
-  if (!normalized) return null;
-
-  const parsed = Number(normalized);
-
-  if (!NUMBER_PATTERN.test(normalized) || !Number.isFinite(parsed)) {
-    errors[field] = '整数または小数で入力してください。';
-    return null;
-  }
-
-  return parsed;
 }
 
 function isValidDate(value: string): boolean {
@@ -77,18 +56,11 @@ function optionalText(value: string): string | null {
 
 export function createGoalFormValues(goal?: Goal): GoalFormValues {
   return {
-    currentValue:
-      goal?.currentValue === null || goal?.currentValue === undefined
-        ? ''
-        : String(goal.currentValue),
     deadline: goal?.deadline ?? '',
     description: goal?.description ?? '',
     priority: goal?.priority ?? 'medium',
     status: goal?.status ?? 'active',
-    targetValue:
-      goal?.targetValue === null || goal?.targetValue === undefined ? '' : String(goal.targetValue),
     title: goal?.title ?? '',
-    unit: goal?.unit ?? '',
   };
 }
 
@@ -96,8 +68,6 @@ export function validateGoalForm(values: GoalFormValues): GoalValidationResult {
   const errors: GoalFormErrors = {};
   const title = values.title.trim();
   const deadline = values.deadline.trim();
-  const currentValue = parseOptionalNumber(values.currentValue, 'currentValue', errors);
-  const targetValue = parseOptionalNumber(values.targetValue, 'targetValue', errors);
 
   if (!title) {
     errors.title = 'タイトルを入力してください。';
@@ -122,14 +92,11 @@ export function validateGoalForm(values: GoalFormValues): GoalValidationResult {
   return {
     errors: null,
     input: {
-      currentValue,
       deadline: deadline || null,
       description: optionalText(values.description),
       priority: values.priority as GoalPriority,
       status: values.status as GoalStatus,
-      targetValue,
       title,
-      unit: optionalText(values.unit),
     },
   };
 }

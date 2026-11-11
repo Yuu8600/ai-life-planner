@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
+import { DeadlineField } from '@/shared/components/DeadlineField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { Notice } from '@/shared/components/Notice';
@@ -44,6 +45,7 @@ export function TaskFormModal({
   const [values, setValues] = useState<TaskFormValues>(() =>
     createTaskFormValues(task ?? undefined),
   );
+  const initialDeadline = useRef(values.deadline);
   const [fieldErrors, setFieldErrors] = useState<TaskFormErrors>({});
   const submitLock = useRef(false);
   const isEditing = task !== null;
@@ -72,7 +74,12 @@ export function TaskFormModal({
     submitLock.current = true;
 
     try {
-      await onSubmit(validation.input);
+      // Editing other fields must preserve the original deadline instant.
+      await onSubmit(
+        task && values.deadline === initialDeadline.current
+          ? { ...validation.input, deadline: task.deadline }
+          : validation.input,
+      );
     } finally {
       submitLock.current = false;
     }
@@ -108,34 +115,24 @@ export function TaskFormModal({
         />
       </FormField>
 
-      <View style={styles.valueRow}>
-        <View style={styles.valueField}>
-          <FormField error={fieldErrors.estimatedMinutes} label="所要時間（分・必須）">
-            <FormInput
-              accessibilityLabel="タスクの所要時間"
-              editable={!isSubmitting}
-              keyboardType="number-pad"
-              onChangeText={(value) => updateValue('estimatedMinutes', value)}
-              placeholder="30"
-              value={values.estimatedMinutes}
-            />
-          </FormField>
-        </View>
-        <View style={styles.valueField}>
-          <FormField error={fieldErrors.deadline} label="期限">
-            <FormInput
-              accessibilityLabel="タスクの期限"
-              autoCapitalize="none"
-              editable={!isSubmitting}
-              keyboardType="numbers-and-punctuation"
-              maxLength={10}
-              onChangeText={(value) => updateValue('deadline', value)}
-              placeholder="2026-10-25"
-              value={values.deadline}
-            />
-          </FormField>
-        </View>
-      </View>
+      <FormField error={fieldErrors.estimatedMinutes} label="所要時間（分・必須）">
+        <FormInput
+          accessibilityLabel="タスクの所要時間"
+          editable={!isSubmitting}
+          keyboardType="number-pad"
+          onChangeText={(value) => updateValue('estimatedMinutes', value)}
+          placeholder="30"
+          value={values.estimatedMinutes}
+        />
+      </FormField>
+
+      <DeadlineField
+        accessibilityLabel="タスクの期限"
+        disabled={isSubmitting}
+        error={fieldErrors.deadline}
+        onChange={(value) => updateValue('deadline', value)}
+        value={values.deadline}
+      />
 
       <OptionGroup
         disabled={isSubmitting}
@@ -234,8 +231,6 @@ function GoalOption({ disabled, label, onPress, selected }: GoalOptionProps) {
 const styles = StyleSheet.create({
   field: { flex: 1, gap: spacing.sm },
   label: { color: colors.text, fontSize: 13, fontWeight: '700' },
-  valueRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: spacing.md },
-  valueField: { flexGrow: 1, flexBasis: 160, minWidth: 0 },
   goalOptions: { gap: spacing.sm },
   goalOption: {
     minHeight: 46,
