@@ -82,7 +82,7 @@ export function TodayScreen({
         today.localDate,
         today.plan?.timezone ?? displayTimezone,
         today.plan?.window,
-        today.plan ? undefined : today.planningWindow,
+        today.planningWindow,
       )
     : undefined;
   const instant = useTimelineClock(now, refreshToken);
@@ -113,6 +113,30 @@ export function TodayScreen({
     (action) => action.status === 'completed',
   ).length;
 
+  const currentWindow = today?.planningWindow;
+  const savedWindow = today?.plan?.window;
+  const configuredWindow = currentWindow ?? savedWindow;
+  const windowDiffers =
+    currentWindow &&
+    savedWindow &&
+    (Date.parse(currentWindow.startAt) !== Date.parse(savedWindow.startAt) ||
+      Date.parse(currentWindow.endAt) !== Date.parse(savedWindow.endAt));
+  let outsideActions = 0;
+  let clippedActions = 0;
+  if (currentWindow && today?.plan) {
+    const windowStart = Date.parse(currentWindow.startAt);
+    const windowEnd = Date.parse(currentWindow.endAt);
+    for (const action of today.plan.actions) {
+      const start = Date.parse(action.startAt);
+      const end = Date.parse(action.endAt);
+      if (end <= windowStart || start >= windowEnd) {
+        outsideActions += 1;
+      } else if (start < windowStart || end > windowEnd) {
+        clippedActions += 1;
+      }
+    }
+  }
+
   return (
     <AppScreen testID="today-screen">
       <ScreenHeader
@@ -130,10 +154,9 @@ export function TodayScreen({
         eyebrow={today ? formatTodayDateLabel(today.localDate) : undefined}
         subtitle={
           today &&
-          (today.plan?.window ?? today.planningWindow) &&
-          getLocalDate((today.plan?.window ?? today.planningWindow)!.endAt, displayTimezone) >
-            today.localDate
-            ? `${today.localDate}の計画（翌日${formatLocalTimeJa((today.plan?.window ?? today.planningWindow)!.endAt, displayTimezone)}まで）`
+          configuredWindow &&
+          getLocalDate(configuredWindow.endAt, displayTimezone) > today.localDate
+            ? `${today.localDate}の計画（翌日${formatLocalTimeJa(configuredWindow.endAt, displayTimezone)}まで）`
             : undefined
         }
         title="今日の予定"
@@ -168,12 +191,17 @@ export function TodayScreen({
           {today.plan && today.plan.timezone !== today.profileTimezone ? (
             <Text style={{ color: colors.textMuted }}>時刻表示: {displayTimezone}</Text>
           ) : null}
-          {today.plan &&
-          (today.plan.window?.startAt !== today.planningWindow?.startAt ||
-            today.plan.window?.endAt !== today.planningWindow?.endAt ||
-            today.plan.timezone !== today.profileTimezone) ? (
+          {windowDiffers ? (
             <Text style={{ color: colors.textMuted }}>
-              時間軸は保存時の活動時間です。空き時間は現在の設定で計算します。
+              時間軸は現在の活動時間を表示しています。保存済み計画の活動時間とは異なります。
+            </Text>
+          ) : null}
+          {outsideActions || clippedActions ? (
+            <Text style={{ color: colors.textMuted }}>
+              {outsideActions ? `時間軸の表示範囲外にActionが${outsideActions}件あります。` : ''}
+              {clippedActions ? `一部が範囲外のActionは${clippedActions}件です。` : ''}
+              「予定の詳細・操作」で元の時刻を確認・操作できます。
+              {onPressReplan ? '計画を見直すには「再計画する」を選んでください。' : ''}
             </Text>
           ) : null}
           {calendar.message ? (

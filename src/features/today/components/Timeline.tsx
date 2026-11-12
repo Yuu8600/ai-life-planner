@@ -255,6 +255,8 @@ export function Timeline(
               {layout.blocks.map((block, index) => {
                 const source = entries.find((item) => item.id === block.id)!;
                 const action = source.kind === 'action';
+                const bandOffset = block.top - block.touchTop;
+                const edgeWidth = Math.min(1, block.height / 3);
                 const time = `${formatPlanningTime(source.startAt, localDate, timezone)}–${formatPlanningTime(source.endAt, localDate, timezone)}`;
                 return (
                   <Pressable
@@ -266,10 +268,10 @@ export function Timeline(
                     style={[
                       styles.block,
                       {
-                        top: block.top,
+                        top: block.touchTop,
                         left: 82 + block.lane * laneWidth,
                         width: laneWidth - 4,
-                        height: Math.max(tapHeight, block.height),
+                        height: block.touchHeight,
                       },
                     ]}
                   >
@@ -279,26 +281,32 @@ export function Timeline(
                       style={[
                         styles.duration,
                         {
+                          top: bandOffset,
                           height: block.height,
                           backgroundColor: action ? colors.accentSoft : colors.calendarSoft,
-                          borderLeftColor: action ? colors.accent : colors.calendar,
-                          borderBottomWidth: block.height >= 2 ? 1 : 0,
-                          borderBottomColor: colors.surface,
+                          borderColor: action ? colors.accent : colors.calendar,
+                          borderTopWidth: block.joinsPrevious ? 0 : edgeWidth,
+                          borderBottomWidth: edgeWidth,
                         },
                       ]}
                     />
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.blockTitle,
-                        { color: action ? colors.accent : colors.calendar },
-                      ]}
+                    <View
+                      pointerEvents="none"
+                      style={[styles.blockLabels, { marginTop: bandOffset }]}
                     >
-                      {index + 1}. {source.title}
-                    </Text>
-                    <Text numberOfLines={1} style={styles.blockTime}>
-                      {time} · {action ? `Action・${source.item.statusLabel}` : 'Calendar'}
-                    </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.blockTitle,
+                          { color: action ? colors.accent : colors.calendar },
+                        ]}
+                      >
+                        {index + 1}. {source.title}
+                      </Text>
+                      <Text numberOfLines={1} style={styles.blockTime}>
+                        {time} · {action ? `Action・${source.item.statusLabel}` : 'Calendar'}
+                      </Text>
+                    </View>
                   </Pressable>
                 );
               })}
@@ -405,13 +413,15 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
   },
-  block: { position: 'absolute', paddingHorizontal: 6, paddingTop: 4 },
+  block: { position: 'absolute', overflow: 'hidden' },
+  blockLabels: { paddingHorizontal: 6, paddingTop: 4 },
   duration: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     borderLeftWidth: 3,
+    borderRightWidth: 1,
     borderRadius: 4,
   },
   blockTitle: { fontSize: 13, fontWeight: '700', lineHeight: 18 },

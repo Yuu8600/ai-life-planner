@@ -24,7 +24,7 @@ export function layoutTimeAxis(
   if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end)
     throw new Error('Invalid timeline window');
   const lanes: number[] = [];
-  const blocks = intervals
+  const positioned = intervals
     .flatMap((item) => {
       const a = Math.max(start, Date.parse(item.startAt)),
         b = Math.min(end, Date.parse(item.endAt));
@@ -32,17 +32,39 @@ export function layoutTimeAxis(
     })
     .sort((a, b) => a.a - b.a || a.b - b.b || a.id.localeCompare(b.id))
     .map(({ a, b, ...item }) => {
-      let lane = lanes.findIndex((until) => until <= a);
+      // Continue a back-to-back sequence before using a lane with a gap.
+      let lane = lanes.indexOf(a);
+      if (lane < 0) lane = lanes.findIndex((until) => until < a);
       if (lane < 0) lane = lanes.length;
-      // Keep even very short cards' touch areas from covering one another.
-      lanes[lane] = Math.max(b, a + (minimumCardHeight / PIXELS_PER_MINUTE) * 60_000);
+      const previousEnd = lanes[lane] ?? start;
+      const joinsPrevious = lanes[lane] === a;
+      lanes[lane] = b;
       return {
         ...item,
         lane,
         top: axisPosition(a, window),
         height: ((b - a) / 60_000) * PIXELS_PER_MINUTE,
+        bottom: axisPosition(b, window),
+        previousBottom: axisPosition(previousEnd, window),
+        joinsPrevious,
       };
     });
+
+  // Work backward so each touch area can use gaps without covering a neighbor.
+  const nextTouchTops: number[] = [];
+  const blocks = positioned
+    .reverse()
+    .map(({ bottom, previousBottom, ...block }) => {
+      const desiredHeight = Math.max(minimumCardHeight, block.height);
+      const touchBottom = Math.max(
+        bottom,
+        Math.min(block.top + desiredHeight, nextTouchTops[block.lane] ?? Infinity),
+      );
+      const touchTop = Math.min(block.top, Math.max(previousBottom, touchBottom - desiredHeight));
+      nextTouchTops[block.lane] = touchTop;
+      return { ...block, touchTop, touchHeight: touchBottom - touchTop };
+    })
+    .reverse();
   return { blocks, laneCount: Math.max(1, lanes.length), height: axisPosition(end, window) };
 }
 export function axisTicks(window: AxisWindow, date: string, timezone: string) {
@@ -89,7 +111,7 @@ export function resolveAxisWindow(
   saved?: AxisWindow,
   current?: AxisWindow,
 ): AxisWindow {
-  return saved ?? current ?? getUtcDayBounds(date, timezone);
+  return current ?? saved ?? getUtcDayBounds(date, timezone);
 }
 
 /** Remaining future capacity, not raw visual gaps. All saved Actions retain their reservation. */
