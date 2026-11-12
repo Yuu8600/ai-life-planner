@@ -1,4 +1,5 @@
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { TodayScreen } from '@/features/today/TodayScreen';
 import type { TodayProjection } from '@/features/today';
 import type {
@@ -199,19 +200,44 @@ it('loads overnight and adjacent buffer dates once each and blocks only the next
   ]);
   expect(screen.getByTestId('today-all-day')).toBeTruthy();
 });
-it('uses the saved display window while latest settings change capacity and preserves the Plan', async () => {
+it('refreshes the display window and capacity while preserving saved Action times and operations', async () => {
   const { props, profile } = setup();
-  profile.getProfilePlanningSettings = async () => ({ ...settings, planningStart: '11:30' });
+  const partial = {
+    ...action,
+    id: 'partial',
+    title: '一部だけ表示されるAction',
+    startAt: '2026-11-07T02:20:00Z',
+    endAt: '2026-11-07T02:45:00Z',
+  };
+  const plan = { ...today.plan!, actions: [action, partial] };
+  const projection = { ...today, plan };
+  props.repository.getToday = async () => projection;
+  const screen = await render(<TodayScreen {...props} />);
+  expect(await screen.findByTestId('today-axis-duration-action:reserved')).toBeTruthy();
+
+  profile.getProfilePlanningSettings = async () => ({
+    ...settings,
+    planningStart: '11:30',
+    minimumFreeMinutes: 15,
+  });
   props.repository.getToday = async () => ({
-    ...today,
+    ...projection,
     planningWindow: { ...window, startAt: '2026-11-07T02:30:00Z' },
   });
-  const screen = await render(<TodayScreen {...props} />);
-  expect(await screen.findByLabelText('配置可能な空き時間 11:30から12:00')).toBeTruthy();
+  await screen.rerender(<TodayScreen {...props} refreshToken={1} />);
+
+  expect(await screen.findByLabelText('配置可能な空き時間 11:45から12:00')).toBeTruthy();
   expect(screen.queryByLabelText('配置可能な空き時間 09:20から09:45')).toBeNull();
-  expect(
-    screen.getByText('時間軸は保存時の活動時間です。空き時間は現在の設定で計算します。'),
-  ).toBeTruthy();
-  expect(screen.getByTestId('today-axis-duration-action:reserved').props.style).toBeTruthy();
-  expect(today.plan!.window).toEqual(window);
+  expect(screen.getByText(/保存済み計画の活動時間とは異なります/)).toBeTruthy();
+  expect(screen.getByText(/時間軸の表示範囲外にActionが1件あります/)).toBeTruthy();
+  expect(screen.getByText(/一部が範囲外のActionは1件です/)).toBeTruthy();
+  expect(screen.queryByTestId('today-axis-duration-action:reserved')).toBeNull();
+  const clippedBand = screen.getByTestId('today-axis-duration-action:partial');
+  expect(StyleSheet.flatten(clippedBand.props.style).height).toBeCloseTo(20);
+
+  const details = within(screen.getByTestId('today-details-list'));
+  expect(details.getByLabelText(/11:20から11:45、一部だけ表示されるAction/)).toBeTruthy();
+  await fireEvent.press(details.getByRole('button', { name: '既存Actionを完了する' }));
+  await waitFor(() => expect(props.executionRepository.transition).toHaveBeenCalled());
+  expect(plan.window).toEqual(window);
 });

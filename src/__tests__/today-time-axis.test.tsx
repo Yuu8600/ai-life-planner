@@ -94,9 +94,10 @@ it('distinguishes both real 01:00 hours during DST fallback', () => {
   expect(repeated.map((t) => t.label)).toEqual(['01:00 (GMT-4)', '01:00 (GMT-5)']);
   expect(repeated[1].top - repeated[0].top).toBe(80);
 });
-it('preserves saved windows instead of reinterpreting them after settings change', () => {
+it('prefers the current window and falls back to the saved window', () => {
   const current = { startAt: '2026-11-07T11:00:00Z', endAt: '2026-11-07T18:00:00Z' };
-  expect(resolveAxisWindow('2026-11-07', 'Asia/Tokyo', window, current)).toEqual(window);
+  expect(resolveAxisWindow('2026-11-07', 'Asia/Tokyo', window, current)).toEqual(current);
+  expect(resolveAxisWindow('2026-11-07', 'Asia/Tokyo', window)).toEqual(window);
   expect(resolveAxisWindow('2026-11-07', 'Asia/Tokyo', undefined, current)).toEqual(current);
 });
 it('subtracts overlapping saved Actions, rounds the now cutoff upward, and reapplies minimum duration', () => {

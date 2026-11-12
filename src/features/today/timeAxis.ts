@@ -109,7 +109,7 @@ export function resolveAxisWindow(
   saved?: AxisWindow,
   current?: AxisWindow,
 ): AxisWindow {
-  return saved ?? current ?? getUtcDayBounds(date, timezone);
+  return current ?? saved ?? getUtcDayBounds(date, timezone);
 }
 
 /** Remaining future capacity, not raw visual gaps. All saved Actions retain their reservation. */
