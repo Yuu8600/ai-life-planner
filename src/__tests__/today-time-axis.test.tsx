@@ -1,3 +1,4 @@
+import { colors } from '@/shared/theme';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { ScrollView, StyleSheet } from 'react-native';
 import {
@@ -54,6 +55,18 @@ it('places 08:00–08:30 and 08:30–09:20 together and separates actual overlap
   expect(second.height).toBeCloseTo((50 * 80) / 60);
   expect(first.touchHeight).toBeGreaterThanOrEqual(44);
   expect(first.touchTop + first.touchHeight).toBeLessThanOrEqual(second.touchTop);
+});
+it('continues in the adjacent lane when another lane is already free', () => {
+  const { blocks, laneCount } = layoutTimeAxis(window, [
+    { id: 'earlier', startAt: '2026-11-07T08:00:00Z', endAt: '2026-11-07T08:25:00Z' },
+    { id: 'first', startAt: '2026-11-07T08:20:00Z', endAt: '2026-11-07T08:30:00Z' },
+    { id: 'next', startAt: '2026-11-07T08:30:00Z', endAt: '2026-11-07T08:32:00Z' },
+  ]);
+  const [earlier, first, next] = blocks;
+  expect(laneCount).toBe(2);
+  expect(first.lane).not.toBe(earlier.lane);
+  expect(next.lane).toBe(first.lane);
+  expect(first.touchTop + first.touchHeight).toBeLessThanOrEqual(next.touchTop);
 });
 it('rejects invalid windows and excludes events entirely outside the window', () => {
   expect(() => layoutTimeAxis({ startAt: window.endAt, endAt: window.startAt }, [])).toThrow();
@@ -286,8 +299,9 @@ it('separates contiguous Action and Calendar bands in the same lane', async () =
     expect(style(`today-axis-${id}`)).toMatchObject({ top, left, height });
     expect(style(`today-axis-duration-${id}`)).toMatchObject({
       height,
-      borderWidth: 1,
+      borderColor: id.startsWith('action:') ? colors.accent : colors.calendar,
       borderLeftWidth: 3,
+      borderRightWidth: 1,
       borderTopWidth: index === 0 ? 1 : 0,
       borderBottomWidth: 1,
     });

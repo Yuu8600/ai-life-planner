@@ -32,7 +32,9 @@ export function layoutTimeAxis(
     })
     .sort((a, b) => a.a - b.a || a.b - b.b || a.id.localeCompare(b.id))
     .map(({ a, b, ...item }) => {
-      let lane = lanes.findIndex((until) => until <= a);
+      // Continue a back-to-back sequence before using a lane with a gap.
+      let lane = lanes.indexOf(a);
+      if (lane < 0) lane = lanes.findIndex((until) => until < a);
       if (lane < 0) lane = lanes.length;
       const previousEnd = lanes[lane] ?? start;
       const joinsPrevious = lanes[lane] === a;
