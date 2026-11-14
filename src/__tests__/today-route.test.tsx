@@ -1,7 +1,7 @@
 import { Text } from 'react-native';
 import { act, render, waitFor } from '@testing-library/react-native';
 
-import TodayRoute from '@/app/(tabs)/today';
+import TodayRoute from '@/navigation/routes/TodayRoute';
 
 jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => ({
   createSupabaseSettingsRepository: jest.fn(() => ({ type: 'settings' })),

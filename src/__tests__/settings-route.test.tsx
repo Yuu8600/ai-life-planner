@@ -26,6 +26,10 @@ jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => (
   createSupabaseSettingsRepository: (userId: string) => mockCreateRepository(userId),
 }));
 
+jest.mock('@/services/supabase/repositories/SupabaseDailyPlanningRepository', () => ({
+  createSupabaseDailyPlanningRepository: jest.fn(),
+}));
+
 beforeEach(() => {
   jest.clearAllMocks();
 });

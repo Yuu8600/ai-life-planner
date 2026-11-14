@@ -1,7 +1,7 @@
 import { Text } from 'react-native';
 import { render } from '@testing-library/react-native';
 
-import CalendarRoute from '@/app/(tabs)/calendar';
+import CalendarRoute from '@/navigation/routes/CalendarRoute';
 
 const mockUseAuth = jest.fn();
 const mockCreateCalendarRepository = jest.fn(() => ({ type: 'calendar' }));

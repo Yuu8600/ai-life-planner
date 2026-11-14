@@ -2,7 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useState } from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import AiRoute from '@/app/(tabs)/ai';
+import AiRoute from '@/navigation/routes/PlannerRoute';
 import type { EdgeProviderAvailability } from '@/services/supabase/providers/EdgeFunctionPlannerProvider';
 
 const userId = '11111111-1111-4111-8111-111111111111';
