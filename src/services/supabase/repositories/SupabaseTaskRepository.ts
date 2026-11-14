@@ -52,6 +52,15 @@ function toTask(row: TaskRow, expectedUserId: string): Task {
   return {
     createdAt: row.created_at,
     deadline: row.deadline,
+    ...(row.deadline_local ? { localDeadline: row.deadline_local } : {}),
+    ...(row.recurrence
+      ? {
+          recurrence: {
+            kind: row.recurrence as NonNullable<Task['recurrence']>['kind'],
+            weekdays: row.recurrence_days,
+          },
+        }
+      : {}),
     estimatedMinutes: row.estimated_minutes,
     goalId: row.goal_id,
     id: row.id,
@@ -66,6 +75,10 @@ function toTask(row: TaskRow, expectedUserId: string): Task {
 function toTaskInsert(input: CreateTaskInput, userId: string): TaskInsert {
   return {
     deadline: input.deadline,
+    ...(input.localDeadline !== undefined ? { deadline_local: input.localDeadline } : {}),
+    ...(input.recurrence
+      ? { recurrence: input.recurrence.kind, recurrence_days: input.recurrence.weekdays }
+      : {}),
     estimated_minutes: input.estimatedMinutes,
     goal_id: input.goalId,
     priority: input.priority,
@@ -78,6 +91,11 @@ function toTaskInsert(input: CreateTaskInput, userId: string): TaskInsert {
 function toTaskUpdate(input: UpdateTaskInput): TaskUpdate {
   const update: TaskUpdate = {};
 
+  if (input.localDeadline !== undefined) update.deadline_local = input.localDeadline;
+  if (input.recurrence) {
+    update.recurrence = input.recurrence.kind;
+    update.recurrence_days = input.recurrence.weekdays;
+  }
   if (input.deadline !== undefined) update.deadline = input.deadline;
   if (input.estimatedMinutes !== undefined) update.estimated_minutes = input.estimatedMinutes;
   if (input.goalId !== undefined) update.goal_id = input.goalId;

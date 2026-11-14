@@ -29,7 +29,7 @@ export function toTaskSummary(task: Task, goalOptions: readonly TaskGoalOption[]
     : 'Goalなし';
 
   return {
-    deadlineLabel: formatDeadline(task.deadline),
+    deadlineLabel: task.localDeadline ?? formatDeadline(task.deadline),
     estimatedMinutes: task.estimatedMinutes,
     goalId: task.goalId,
     goalTitle,

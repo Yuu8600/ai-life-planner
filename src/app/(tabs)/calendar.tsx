@@ -1,1 +1,1 @@
-export { default } from '@/navigation/routes/CalendarRoute';
+export { CalendarRoute as default } from '@/navigation/routes/V2DailyRoutes';

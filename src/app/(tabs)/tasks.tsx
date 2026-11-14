@@ -1,1 +1,1 @@
-export { default } from '@/navigation/routes/TasksRoute';
+export { default } from '@/navigation/routes/V2TasksRoute';

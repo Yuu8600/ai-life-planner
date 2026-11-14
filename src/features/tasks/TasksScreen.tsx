@@ -21,12 +21,19 @@ import { useTasks } from './useTasks';
 
 type TasksScreenProps = {
   intro?: ReactNode;
+  planningTimezone?: string;
   now?: Date;
   refreshToken?: number;
   repository: TaskRepository | null;
 };
 
-export function TasksScreen({ intro, now, refreshToken = 0, repository }: TasksScreenProps) {
+export function TasksScreen({
+  intro,
+  now,
+  planningTimezone,
+  refreshToken = 0,
+  repository,
+}: TasksScreenProps) {
   const {
     clearMutationError,
     createTask,
@@ -173,6 +180,7 @@ export function TasksScreen({ intro, now, refreshToken = 0, repository }: TasksS
           onRetryGoalOptions={retryGoalOptions}
           onSubmit={saveTask}
           task={editingTask}
+          planningTimezone={planningTimezone}
         />
       ) : null}
     </AppScreen>
