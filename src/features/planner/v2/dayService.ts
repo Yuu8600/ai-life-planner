@@ -1,5 +1,6 @@
 import {
   loadCalendarPlanningEvents,
+  type CalendarEvent,
   type CalendarEventBufferRepository,
   type CalendarRepository,
 } from '@/features/calendar';
@@ -27,6 +28,7 @@ export async function loadDay(
   const window = snapshot.saved?.plan.window ?? getPlanningWindow(date, settings);
   let external: DayInput['busy'] = [];
   let calendarError: string | null = null;
+  let deviceEvents: CalendarEvent[] = [];
   try {
     const permission = await deps.calendar.getPermission();
     if (permission.status !== 'granted') {
@@ -41,6 +43,7 @@ export async function loadDay(
         deps.buffers,
         settings.planningEndDayOffset,
       );
+      deviceEvents = events.events;
       external = calculateFreeTime({
         ...settings,
         events: events.calculationEvents,
@@ -81,6 +84,7 @@ export async function loadDay(
     ...snapshot,
     input,
     calendarError,
+    deviceEvents,
     allowed: !calendarError || allowLimited,
     calendarRevision: JSON.stringify([calendarError, busy]),
   };
@@ -88,8 +92,9 @@ export async function loadDay(
 
 export type LoadedDay = Awaited<ReturnType<typeof loadDay>>;
 export type PlanPreview = {
-  change: PlanChange;
-  revision: string;
+  createdAt: number;
+  change: PlanChange | { kind: 'initial'; taskId?: string };
+  revision: string | null;
   source: string;
   calendarRevision: string;
   plan: DailyPlan;
@@ -117,10 +122,34 @@ export function previewPlan(day: LoadedDay, change: PlanChange): PlanPreview {
     throw new Error('カレンダー未取得のため、限定モードを選択してください。');
   return {
     change,
+    createdAt: day.input.now,
     revision: day.saved.revision,
     source: day.source,
     calendarRevision: day.calendarRevision,
-    plan: changeDailyPlan(day.input, day.saved.plan, change),
+    plan: {
+      ...changeDailyPlan(day.input, day.saved.plan, change),
+      limited:
+        change.kind === 'complete' || change.kind === 'skip' || change.kind === 'unlock'
+          ? day.saved.plan.limited
+          : day.input.limited,
+    },
+  };
+}
+
+export function previewInitialPlan(day: LoadedDay, taskId?: string): PlanPreview {
+  if (!day.allowed || day.saved) throw new PlanConflictError();
+  const initial = createDailyPlan(day.input);
+  const plan =
+    taskId && !initial.sessions.some((item) => item.taskId === taskId)
+      ? changeDailyPlan(day.input, initial, { kind: 'replan', taskId })
+      : initial;
+  return {
+    change: { kind: 'initial', taskId },
+    createdAt: day.input.now,
+    revision: null,
+    source: day.source,
+    calendarRevision: day.calendarRevision,
+    plan,
   };
 }
 
@@ -131,12 +160,52 @@ export async function approvePlan(
 ) {
   const day = await loadDay(deps, preview.plan.date, allowLimited);
   if (
-    day.saved?.revision !== preview.revision ||
+    (day.saved?.revision ?? null) !== preview.revision ||
     day.source !== preview.source ||
     day.calendarRevision !== preview.calendarRevision
   )
     throw new PlanConflictError();
-  const next = previewPlan(day, preview.change);
+  const originalTime = { ...day, input: { ...day.input, now: preview.createdAt } };
+  const next =
+    preview.change.kind === 'initial'
+      ? previewInitialPlan(originalTime, preview.change.taskId)
+      : previewPlan(originalTime, preview.change);
+  const originalSessions = day.saved?.plan.sessions ?? [];
+  for (const item of next.plan.sessions) {
+    const prior = originalSessions.find((entry) => entry.id === item.id);
+    const moved = prior?.startAt !== item.startAt || prior.endAt !== item.endAt;
+    if (
+      item.status === 'scheduled' &&
+      moved &&
+      (Date.parse(item.startAt) <= day.input.now ||
+        (prior && Date.parse(prior.startAt) <= day.input.now))
+    )
+      throw new PlanConflictError();
+    if (
+      prior &&
+      preview.change.kind === 'replan' &&
+      prior.status !== item.status &&
+      Date.parse(prior.startAt) <= day.input.now
+    )
+      throw new PlanConflictError();
+  }
+  for (const item of next.plan.lifestyle) {
+    const prior = day.saved?.plan.lifestyle.find((entry) => entry.id === item.id);
+    if (prior?.startAt === item.startAt && prior.endAt === item.endAt) continue;
+    if (
+      Date.parse(item.startAt) <= day.input.now ||
+      (prior && Date.parse(prior.startAt) <= day.input.now)
+    )
+      throw new PlanConflictError();
+  }
+  if (
+    day.saved?.plan.lifestyle.some(
+      (old) =>
+        Date.parse(old.startAt) <= day.input.now &&
+        !next.plan.lifestyle.some((item) => item.id === old.id),
+    )
+  )
+    throw new PlanConflictError();
   if (JSON.stringify(next.plan) !== JSON.stringify(preview.plan)) throw new PlanConflictError();
   await deps.repository.save(next.plan.date, preview.revision, day.source, next.plan);
 }

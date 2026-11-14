@@ -50,7 +50,10 @@ export function SessionDrag({
         importantForAccessibility="no-hide-descendants"
         style={[
           styles.block,
-          { width: blockWidth, left: Math.min(width - blockWidth, Math.max(0, left + drag)) },
+          {
+            width: blockWidth,
+            left: Math.min(Math.max(0, width - blockWidth), Math.max(0, left + drag)),
+          },
         ]}
       >
         <Text style={styles.label}>↔</Text>

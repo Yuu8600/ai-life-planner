@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '@/features/auth';
 import { TasksScreen } from '@/features/tasks/TasksScreen';
@@ -7,6 +7,7 @@ import { createSupabaseSettingsRepository } from '@/services/supabase/repositori
 import { createSupabaseTaskRepository } from '@/services/supabase/repositories/SupabaseTaskRepository';
 
 export default function V2TasksRoute() {
+  const router = useRouter();
   const userId = useAuth().session?.user.id;
   const repository = useMemo(
     () => (userId ? createSupabaseTaskRepository(userId) : null),
@@ -41,6 +42,12 @@ export default function V2TasksRoute() {
       key={userId}
       repository={repository}
       refreshToken={refresh}
+      onReplanTask={(taskId, date) =>
+        router.navigate({
+          pathname: '/today',
+          params: { taskId, date, review: String(Date.now()) },
+        })
+      }
       planningTimezone={profile?.userId === userId ? profile?.timezone : undefined}
     />
   );

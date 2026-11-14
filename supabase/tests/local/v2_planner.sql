@@ -19,7 +19,7 @@ begin
   first_end := public.planning_instant(day + time '23:00', 'Asia/Tokyo');
   source := public.v2_plan_source(day);
   state := jsonb_build_object('date',day,'timezone','Asia/Tokyo','window',
-    jsonb_build_object('startAt',first_start,'endAt',first_end),'leisure','[]'::jsonb,'sessions',
+    jsonb_build_object('startAt',first_start,'endAt',first_end),'leisure','[]'::jsonb,'lifestyle','[]'::jsonb,'unplaced','[]'::jsonb,'warnings','[]'::jsonb,'limited',false,'sessions',
     jsonb_build_array(jsonb_build_object('id','one','taskId',task,'title','Fixture','reason','Fixture',
       'startAt',first_start,'endAt',first_start + interval '30 minutes','status','scheduled','locked',false)));
   revision := public.v2_save_plan(day,null,source,state);

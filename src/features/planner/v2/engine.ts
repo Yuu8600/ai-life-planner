@@ -268,7 +268,11 @@ export function createDailyPlan(input: DayInput): DailyPlan {
 }
 
 export function calendarConflicts(plan: DailyPlan, busy: readonly TimeInterval[]) {
+  const overlappingFixed = busy.some((item, index) =>
+    busy.slice(index + 1).some((other) => overlaps(item, other)),
+  );
   return [
+    ...(overlappingFixed ? ['固定予定または移動時間が重なっています。'] : []),
     ...plan.sessions
       .filter((item) => active(item) && busy.some((block) => overlaps(block, item)))
       .map((item) => `${item.title}が固定予定と重なっています。`),
@@ -283,7 +287,19 @@ export function calendarConflicts(plan: DailyPlan, busy: readonly TimeInterval[]
 
 export function changeDailyPlan(input: DayInput, plan: DailyPlan, change: PlanChange): DailyPlan {
   const day = { ...input, window: plan.window };
-  if (change.kind === 'replan' && change.taskId) return schedule(day, plan, change.taskId, false);
+  if (change.kind === 'replan' && change.taskId) {
+    const candidate = day.tasks.find((task) => task.id === change.taskId);
+    if (!candidate || candidate.completed)
+      throw new Error('対象のTaskはすでに完了したか削除されています。');
+    const next = schedule(day, plan, change.taskId, false);
+    return {
+      ...next,
+      unplaced: [
+        ...plan.unplaced.filter((item) => item.taskId !== change.taskId),
+        ...next.unplaced,
+      ],
+    };
+  }
   if (change.kind === 'replan') {
     const sessions = plan.sessions.map((item): WorkSession =>
       item.status === 'scheduled' &&
@@ -293,13 +309,54 @@ export function changeDailyPlan(input: DayInput, plan: DailyPlan, change: PlanCh
         ? { ...item, status: 'deferred' }
         : item,
     );
-    const blocks = [...day.busy, ...plan.lifestyle, ...plan.leisure];
     const warnings = [...plan.warnings];
+    const lifestyle = [...plan.lifestyle];
+    const activeRules = new Set(day.flexible.map((item) => item.id));
+    for (const rule of day.flexible) {
+      if (lifestyle.some((item) => item.id === rule.id)) continue;
+      const window =
+        start(futureWindow(day)) < end(day.window) &&
+        clampIntervalToWindow(rule, futureWindow(day));
+      const slot =
+        window &&
+        gaps(window, [...day.busy, ...lifestyle, ...plan.leisure, ...sessions.filter(active)]).find(
+          (item) => duration(item) >= rule.duration * minute,
+        );
+      if (slot)
+        lifestyle.push({ ...rule, ...interval(start(slot), start(slot) + rule.duration * minute) });
+      else warnings.push(`${rule.title}を指定の時間帯に配置できません。`);
+    }
+    for (const [index, event] of lifestyle.entries()) {
+      const rule = day.flexible.find((item) => item.id === event.id);
+      if (!rule || start(event) <= day.now || !day.busy.some((block) => overlaps(block, event)))
+        continue;
+      const window =
+        start(futureWindow(day)) < end(day.window) &&
+        clampIntervalToWindow(rule, futureWindow(day));
+      const other = lifestyle.filter((item) => item.id !== event.id);
+      const blocked = [...day.busy, ...other, ...plan.leisure, ...sessions.filter(active)];
+      const slot =
+        window && gaps(window, blocked).find((item) => duration(item) >= rule.duration * minute);
+      if (slot)
+        lifestyle[index] = {
+          ...event,
+          ...interval(start(slot), start(slot) + rule.duration * minute),
+        };
+      else warnings.push(`${event.title}を指定の時間帯で移動できません。`);
+    }
+    const blocks = [...day.busy, ...lifestyle, ...plan.leisure];
     for (const original of plan.sessions.filter((item, index) => item !== sessions[index])) {
+      const task = day.tasks.find((item) => item.id === original.taskId);
+      if (!task || task.completed || reason(task, day, sessions)) continue;
       if (!place(original.taskId, original.title, duration(original), sessions, blocks, day))
         warnings.push(`${original.title}を当日の別の空きに配置できません。`);
     }
-    return { ...plan, sessions: sessions.sort(chronological), warnings };
+    return {
+      ...plan,
+      lifestyle: lifestyle.filter((item) => activeRules.has(item.id) || start(item) <= day.now),
+      sessions: sessions.sort(chronological),
+      warnings: [...new Set(warnings)],
+    };
   }
   const target = plan.sessions.find((item) => item.id === change.id);
   if (!target || target.status !== 'scheduled') throw new Error('この作業枠は変更できません。');
@@ -325,16 +382,44 @@ export function changeDailyPlan(input: DayInput, plan: DailyPlan, change: PlanCh
     }
     case 'later': {
       if (target.locked) throw new Error('固定を解除してから「あとで」を使ってください。');
+      const task = day.tasks.find((item) => item.id === target.taskId);
       const next = replace({ ...target, status: 'deferred' });
+      if (!task || task.completed || reason(task, day, next.sessions)) {
+        return {
+          ...next,
+          warnings: [
+            ...new Set([...next.warnings, `${target.title}は当日の自動再配置対象外です。`]),
+          ],
+        };
+      }
       const afterTarget = { ...day, now: Math.max(day.now, start(target) + minute) };
       if (
         place(target.taskId, target.title, duration(target), next.sessions, blocks, afterTarget)
       ) {
         return { ...next, sessions: next.sessions.sort(chronological) };
       }
+      const movable = next.sessions.filter(
+        (item) => item.status === 'scheduled' && !item.locked && start(item) > day.now,
+      );
+      for (const candidate of movable) {
+        const working = next.sessions.filter((item) => item.id !== candidate.id);
+        if (!place(target.taskId, target.title, duration(target), working, blocks, afterTarget))
+          continue;
+        if (!place(candidate.taskId, candidate.title, duration(candidate), working, blocks, day))
+          continue;
+        const replacement = working.pop();
+        if (!replacement) continue;
+        return {
+          ...next,
+          sessions: [
+            ...working,
+            { ...candidate, startAt: replacement.startAt, endAt: replacement.endAt },
+          ].sort(chronological),
+        };
+      }
       return {
         ...next,
-        warnings: [...next.warnings, `${target.title}を当日中に再配置できません。`],
+        warnings: [...new Set([...next.warnings, `${target.title}を当日中に再配置できません。`])],
       };
     }
   }

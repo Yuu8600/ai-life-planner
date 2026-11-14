@@ -1,3 +1,4 @@
+import { getLocalDate } from '@/features/today';
 import { Notice } from '@/shared/components/Notice';
 import { useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -22,6 +23,7 @@ import { useTasks } from './useTasks';
 type TasksScreenProps = {
   intro?: ReactNode;
   planningTimezone?: string;
+  onReplanTask?: (taskId: string, date: string) => void;
   now?: Date;
   refreshToken?: number;
   repository: TaskRepository | null;
@@ -31,6 +33,7 @@ export function TasksScreen({
   intro,
   now,
   planningTimezone,
+  onReplanTask,
   refreshToken = 0,
   repository,
 }: TasksScreenProps) {
@@ -50,6 +53,7 @@ export function TasksScreen({
     tasks,
     updateTask,
   } = useTasks(repository, refreshToken);
+  const [mountedAt] = useState(() => new Date());
   const [activeFilter, setActiveFilter] = useState<TaskFilterId>('all');
   const [editingTask, setEditingTask] = useState<Task | null | undefined>(undefined);
   const visibleTasks = useMemo(
@@ -151,17 +155,38 @@ export function TasksScreen({
         />
       ) : (
         <View style={styles.list}>
-          {visibleTasks.map((task, index) => (
-            <TaskListItem
-              disabled={isMutating}
-              isDeleting={pendingMutation === `delete:${task.id}`}
-              isLast={index === visibleTasks.length - 1}
-              key={task.id}
-              onDelete={() => confirmDelete(task)}
-              onEdit={() => openEditForm(task)}
-              task={toTaskSummary(task, goalOptions)}
-            />
-          ))}
+          {visibleTasks.map((task, index) => {
+            const today = planningTimezone
+              ? getLocalDate(now ?? mountedAt, planningTimezone)
+              : undefined;
+            const deadline =
+              task.localDeadline ??
+              (task.deadline && planningTimezone
+                ? getLocalDate(task.deadline, planningTimezone)
+                : null);
+            const overdue =
+              task.status !== 'completed' && Boolean(today && deadline && deadline < today);
+            return (
+              <TaskListItem
+                disabled={isMutating}
+                isDeleting={pendingMutation === `delete:${task.id}`}
+                isLast={index === visibleTasks.length - 1}
+                key={task.id}
+                onDelete={() => confirmDelete(task)}
+                onEdit={() => openEditForm(task)}
+                task={toTaskSummary(task, goalOptions)}
+                overdue={overdue}
+                onComplete={
+                  planningTimezone && task.status !== 'completed'
+                    ? () => void updateTask(task.id, { status: 'completed' })
+                    : undefined
+                }
+                onReplan={
+                  overdue && today && onReplanTask ? () => onReplanTask(task.id, today) : undefined
+                }
+              />
+            );
+          })}
         </View>
       )}
 

@@ -88,6 +88,9 @@ language sql stable security invoker set search_path = '' as $$
     (select jsonb_agg(to_jsonb(g) order by id) from public.goals g where g.user_id = auth.uid()),
     (select jsonb_agg(to_jsonb(e) order by id) from public.v2_events e
       where e.user_id = auth.uid() and e.plan_date between p_date - 2 and p_date + 2),
+    (select jsonb_agg(jsonb_build_array(d.plan_date,d.revision) order by d.plan_date)
+      from public.v2_plans d where d.user_id=auth.uid() and d.plan_date between p_date - 90 and p_date + 6
+        and d.plan_date <> p_date),
     (select jsonb_agg(to_jsonb(b) order by to_jsonb(b)) from public.calendar_event_buffer_overrides b
       where b.user_id = auth.uid())
   )::text)
@@ -129,7 +132,12 @@ begin
     or (p_state ->> 'date')::date is distinct from p_date
     or jsonb_typeof(p_state -> 'sessions') is distinct from 'array'
     or jsonb_array_length(p_state -> 'sessions') > 1500
-    or jsonb_typeof(p_state -> 'leisure') is distinct from 'array' then
+    or jsonb_typeof(p_state -> 'leisure') is distinct from 'array'
+    or jsonb_typeof(p_state -> 'lifestyle') is distinct from 'array'
+    or jsonb_typeof(p_state -> 'unplaced') is distinct from 'array'
+    or jsonb_typeof(p_state -> 'warnings') is distinct from 'array'
+    or jsonb_typeof(p_state -> 'limited') is distinct from 'boolean'
+    or coalesce(p_state ->> 'timezone','') = '' then
     raise exception 'Invalid plan';
   end if;
   if previous.state is not null and (
@@ -162,6 +170,12 @@ begin
         where s ->> 'id' = item.body ->> 'id') > 1 then
       raise exception 'Invalid work session';
     end if;
+    if (old_item is null or item.body -> 'startAt' is distinct from old_item -> 'startAt'
+        or item.body -> 'endAt' is distinct from old_item -> 'endAt')
+      and exists (
+        select 1 from jsonb_array_elements((p_state -> 'leisure') || (p_state -> 'lifestyle')) b
+        where action_start < (b ->> 'endAt')::timestamptz and (b ->> 'startAt')::timestamptz < action_end
+      ) then raise exception 'Work overlaps protected time'; end if;
     if old_item is null then
       if action_start < current_time_at_save or item.body ->> 'status' <> 'scheduled'
         or not exists (select 1 from public.tasks t where t.id = (item.body ->> 'taskId')::uuid

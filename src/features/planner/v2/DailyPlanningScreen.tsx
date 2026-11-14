@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 
 import { addLocalDays, formatPlanningTime, getPlanningDate } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
@@ -18,6 +17,7 @@ import {
   generateFirstPlan,
   loadDay,
   previewPlan,
+  previewInitialPlan,
   type DailyPlanningDependencies,
   type LoadedDay,
   type PlanPreview,
@@ -38,14 +38,23 @@ export function DailyPlanningScreen({
   deps,
   mode,
   initialTaskId,
+  initialDate,
+  review,
   openSettings,
 }: {
   deps: DailyPlanningDependencies;
   mode: 'today' | 'calendar';
   initialTaskId?: string;
+  initialDate?: string;
+  review?: string;
   openSettings: () => void;
 }) {
-  const [selected, setSelected] = useState<string>();
+  const [selected, setSelected] = useState(initialDate);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
   const [loaded, setLoaded] = useState<LoadedDay>();
   const [today, setToday] = useState('');
   const [limitedDate, setLimitedDate] = useState<string>();
@@ -62,6 +71,7 @@ export function DailyPlanningScreen({
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
+      setNow(Date.now());
       reload();
       const subscription = AppState.addEventListener('change', (state) => {
         if (state === 'active') reload();
@@ -85,10 +95,20 @@ export function DailyPlanningScreen({
         setToday(current);
         const day = await loadDay(deps, date, limitedDate === date);
         if (!active) return;
-        const result = await generateFirstPlan(deps, day);
+        const reviewRequested =
+          review && date === initialDate && confirmedRequest.current !== review;
+        const result = reviewRequested ? day : await generateFirstPlan(deps, day);
         if (!active) return;
         setLoaded(result);
         setError('');
+        if (reviewRequested && result.allowed) {
+          confirmedRequest.current = review;
+          setPreview(
+            result.saved
+              ? previewPlan(result, { kind: 'replan', taskId: initialTaskId })
+              : previewInitialPlan(result, initialTaskId),
+          );
+        }
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : '計画を読み込めませんでした。');
       }
@@ -96,30 +116,24 @@ export function DailyPlanningScreen({
     return () => {
       active = false;
     };
-  }, [deps, focused, refresh, selected, limitedDate]);
+  }, [deps, focused, refresh, selected, limitedDate, review, initialDate, initialTaskId]);
 
   const day = loaded?.input.date === (selected ?? today) ? loaded : undefined;
   const saved = day?.saved?.plan;
   const suggest = (change: PlanChange) => {
     if (!day || committing.current) return;
     try {
-      setPreview(previewPlan({ ...day, input: { ...day.input, now: Date.now() } }, change));
+      const next = previewPlan({ ...day, input: { ...day.input, now: Date.now() } }, change);
+      if (day.saved && JSON.stringify(next.plan) === JSON.stringify(day.saved.plan)) {
+        setError('変更できる作業枠・生活予定はありません。');
+        return;
+      }
+      setPreview(next);
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : '変更案を作成できませんでした。');
     }
   };
-  useEffect(() => {
-    if (!initialTaskId || !day?.saved || !day.allowed || confirmedRequest.current === initialTaskId)
-      return;
-    confirmedRequest.current = initialTaskId;
-    try {
-      setPreview(previewPlan(day, { kind: 'replan', taskId: initialTaskId }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '変更案を作成できませんでした。');
-    }
-  }, [day, initialTaskId]);
-
   const switchDate = (date: string | undefined) => {
     setSelected(date);
     setPreview(undefined);
@@ -136,6 +150,7 @@ export function DailyPlanningScreen({
     } catch (e) {
       setPreview(undefined);
       setError(e instanceof Error ? e.message : '計画を保存できませんでした。');
+      if (review) confirmedRequest.current = undefined;
     } finally {
       committing.current = false;
       setPending(false);
@@ -146,7 +161,6 @@ export function DailyPlanningScreen({
   const dropError = (e: unknown) =>
     setError(e instanceof Error ? e.message : '予定を更新できませんでした。');
   const conflicts = saved && day ? calendarConflicts(saved, day.input.busy) : [];
-  const now = Date.now();
   return (
     <AppScreen contentContainerStyle={styles.screen}>
       <ScreenHeader
@@ -243,6 +257,15 @@ export function DailyPlanningScreen({
                     />
                   </View>
                 ))}
+              {day.deviceEvents.length ? (
+                <Text style={styles.heading}>iPhoneカレンダー</Text>
+              ) : null}
+              {day.deviceEvents.map((item) => (
+                <Text key={item.instanceId ?? item.id} style={styles.text}>
+                  {item.title}　
+                  {item.allDay ? '終日' : `${time(item.startAt)}〜${time(item.endAt)}`}
+                </Text>
+              ))}
               <Text style={styles.heading}>固定・移動で使えない時間</Text>
               {day.input.busy.length ? (
                 day.input.busy.map((block, index) => (
@@ -263,7 +286,7 @@ export function DailyPlanningScreen({
                 <Notice tone="warning" message={saved.warnings.join('\n')} />
               ) : null}
               <ActionButton
-                label="衝突した作業枠を再計画"
+                label="予定の変更を確認して再計画"
                 variant="secondary"
                 onPress={() => suggest({ kind: 'replan' })}
               />
@@ -417,7 +440,7 @@ export function DailyPlanningScreen({
           </FormField>
         </ModalFrame>
       ) : null}
-      {preview && saved ? (
+      {preview && day ? (
         <ModalFrame
           title="変更を確認"
           onClose={() => setPreview(undefined)}
@@ -431,10 +454,25 @@ export function DailyPlanningScreen({
               選んだ枠だけを取りやめ、このタスクの当日の自動追加を停止します。
             </Text>
           ) : null}
+          {preview.change.kind === 'initial' ? (
+            <Text style={styles.text}>この日の初回計画を作成します。</Text>
+          ) : null}
+          {preview.plan.unplaced
+            .filter(
+              (item) =>
+                !saved?.unplaced.some(
+                  (prior) => prior.taskId === item.taskId && prior.reason === item.reason,
+                ),
+            )
+            .map((item) => (
+              <Text key={item.taskId} style={styles.text}>
+                {day.tasks.find((task) => task.id === item.taskId)?.title ?? 'Task'}　{item.reason}
+              </Text>
+            ))}
           {preview.plan.sessions
             .filter(
               (item) =>
-                !saved.sessions.some((prior) => JSON.stringify(prior) === JSON.stringify(item)),
+                !saved?.sessions.some((prior) => JSON.stringify(prior) === JSON.stringify(item)),
             )
             .map((item) => (
               <Text style={styles.text} key={item.id}>
@@ -442,8 +480,23 @@ export function DailyPlanningScreen({
                 {item.locked ? '・固定' : ''}
               </Text>
             ))}
+          {preview.plan.lifestyle
+            .filter(
+              (item) =>
+                !saved?.lifestyle.some(
+                  (prior) =>
+                    item.id === prior.id &&
+                    item.startAt === prior.startAt &&
+                    item.endAt === prior.endAt,
+                ),
+            )
+            .map((item) => (
+              <Text key={item.id} style={styles.text}>
+                {item.title}　{time(item.startAt)}〜{time(item.endAt)}
+              </Text>
+            ))}
           {preview.plan.warnings
-            .filter((message) => !saved.warnings.includes(message))
+            .filter((message) => !saved?.warnings.includes(message))
             .map((message) => (
               <Notice key={message} tone="warning" message={message} />
             ))}

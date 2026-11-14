@@ -9,7 +9,11 @@ import { createSupabaseCalendarEventBufferRepository } from '@/services/supabase
 function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
   const userId = useAuth().session?.user.id;
   const router = useRouter();
-  const { taskId } = useLocalSearchParams<{ taskId?: string }>();
+  const { taskId, date, review } = useLocalSearchParams<{
+    taskId?: string;
+    date?: string;
+    review?: string;
+  }>();
   const deps = useMemo(
     () =>
       userId
@@ -24,9 +28,11 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
   if (!deps) return null;
   return (
     <DailyPlanningScreen
-      key={userId}
+      key={`${userId}-${review ?? ''}`}
       deps={deps}
       mode={mode}
+      initialDate={mode === 'today' ? date : undefined}
+      review={mode === 'today' ? review : undefined}
       initialTaskId={mode === 'today' && typeof taskId === 'string' ? taskId : undefined}
       openSettings={() => router.push('/settings')}
     />

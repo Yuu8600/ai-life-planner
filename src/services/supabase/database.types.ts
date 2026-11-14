@@ -369,6 +369,98 @@ export type Database = {
           },
         ]
       }
+      v2_ai_usage: {
+        Row: {
+          cost_micros: number | null
+          created_at: string
+          id: string
+          input_tokens: number | null
+          model: string
+          month: string
+          output_tokens: number | null
+          reserved_micros: number
+          result: string
+          user_id: string
+        }
+        Insert: {
+          cost_micros?: number | null
+          created_at?: string
+          id: string
+          input_tokens?: number | null
+          model: string
+          month: string
+          output_tokens?: number | null
+          reserved_micros: number
+          result?: string
+          user_id: string
+        }
+        Update: {
+          cost_micros?: number | null
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          model?: string
+          month?: string
+          output_tokens?: number | null
+          reserved_micros?: number
+          result?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_ai_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_drafts: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          id: string
+          items: Json
+          revision: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          items: Json
+          revision?: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          revision?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_drafts_thread_id_user_id_fkey"
+            columns: ["thread_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "v2_threads"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "v2_drafts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v2_events: {
         Row: {
           duration_minutes: number | null
@@ -416,6 +508,48 @@ export type Database = {
           },
         ]
       }
+      v2_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          role: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          role: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          role?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_messages_thread_id_user_id_fkey"
+            columns: ["thread_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "v2_threads"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "v2_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v2_plans: {
         Row: {
           plan_date: string
@@ -438,6 +572,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "v2_plans_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_threads: {
+        Row: {
+          created_at: string
+          id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_threads_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -526,7 +689,40 @@ export type Database = {
           action_status: string
         }[]
       }
+      v2_ai_month_usage: { Args: { p_month: string }; Returns: number }
+      v2_approve_draft: {
+        Args: { p_id: string; p_revision: string; p_selected: string[] }
+        Returns: boolean
+      }
+      v2_edit_draft: {
+        Args: { p_id: string; p_items: Json; p_revision: string }
+        Returns: string
+      }
+      v2_finish_ai: {
+        Args: {
+          p_cost: number
+          p_id: string
+          p_input: number
+          p_items: Json
+          p_output: number
+          p_reply: string
+          p_thread: string
+          p_user: string
+        }
+        Returns: undefined
+      }
       v2_plan_source: { Args: { p_date: string }; Returns: string }
+      v2_reserve_ai: {
+        Args: {
+          p_amount: number
+          p_id: string
+          p_model: string
+          p_prompt: string
+          p_thread: string
+          p_user: string
+        }
+        Returns: boolean
+      }
       v2_save_plan: {
         Args: {
           p_date: string
