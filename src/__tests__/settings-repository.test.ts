@@ -24,6 +24,7 @@ const profileRow: ProfileRow = {
   calendar_buffer_before_minutes: 0,
   calendar_buffer_after_minutes: 0,
   minimum_free_minutes: 20,
+  v2_task_gap_minutes: 30,
   planning_end: '23:00:00',
   planning_end_day_offset: 0,
   planning_start: '08:00:00',

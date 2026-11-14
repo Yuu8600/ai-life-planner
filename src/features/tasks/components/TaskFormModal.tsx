@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { getLocalDate, getUtcDayBounds, addLocalDays } from '@/features/today';
+import type { Recurrence } from '@/features/planner/v2/types';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { DeadlineField } from '@/shared/components/DeadlineField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
@@ -29,6 +31,7 @@ type TaskFormModalProps = {
   onRetryGoalOptions: () => void;
   onSubmit: (input: CreateTaskInput) => Promise<boolean>;
   task: Task | null;
+  planningTimezone?: string;
 };
 
 export function TaskFormModal({
@@ -41,10 +44,22 @@ export function TaskFormModal({
   onRetryGoalOptions,
   onSubmit,
   task,
+  planningTimezone,
 }: TaskFormModalProps) {
   const [values, setValues] = useState<TaskFormValues>(() =>
-    createTaskFormValues(task ?? undefined),
+    createTaskFormValues(
+      task && planningTimezone && task.deadline
+        ? {
+            ...task,
+            localDeadline: task.localDeadline ?? getLocalDate(task.deadline, planningTimezone),
+          }
+        : (task ?? undefined),
+    ),
   );
+  const [recurrence, setRecurrence] = useState<Recurrence>(task?.recurrence?.kind ?? 'once');
+  const [weekdays, setWeekdays] = useState(task?.recurrence?.weekdays ?? []);
+  const [recurrenceError, setRecurrenceError] = useState('');
+  const usesWeekdays = recurrence === 'weekdays' || recurrence === 'weekly';
   const initialDeadline = useRef(values.deadline);
   const [fieldErrors, setFieldErrors] = useState<TaskFormErrors>({});
   const submitLock = useRef(false);
@@ -71,9 +86,28 @@ export function TaskFormModal({
       return;
     }
 
+    if (planningTimezone && usesWeekdays && weekdays.length === 0) {
+      setRecurrenceError('曜日を1日以上選んでください。');
+      return;
+    }
     submitLock.current = true;
 
     try {
+      if (planningTimezone) {
+        const date = values.deadline.trim();
+        const deadline = date
+          ? new Date(
+              Date.parse(getUtcDayBounds(addLocalDays(date, 1), planningTimezone).startAt) - 1,
+            ).toISOString()
+          : null;
+        await onSubmit({
+          ...validation.input,
+          deadline,
+          localDeadline: date || null,
+          recurrence: { kind: recurrence, weekdays: usesWeekdays ? [...weekdays].sort() : [] },
+        });
+        return;
+      }
       // Editing other fields must preserve the original deadline instant.
       await onSubmit(
         task && values.deadline === initialDeadline.current
@@ -152,6 +186,52 @@ export function TaskFormModal({
         selectedValue={values.status}
       />
 
+      {planningTimezone ? (
+        <>
+          <OptionGroup
+            label="繰り返し"
+            disabled={isSubmitting}
+            selectedValue={recurrence}
+            onChange={(value) => {
+              setRecurrence(value as Recurrence);
+              setRecurrenceError('');
+            }}
+            options={[
+              { value: 'once', label: '単発' },
+              { value: 'daily', label: '毎日' },
+              { value: 'weekdays', label: '曜日指定' },
+              { value: 'weekly', label: `週${weekdays.length || 'N'}回` },
+            ]}
+          />
+          {usesWeekdays ? (
+            <FormField label="実行する曜日" error={recurrenceError}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                {['月', '火', '水', '木', '金', '土', '日'].map((label, index) => {
+                  const day = index + 1;
+                  const checked = weekdays.includes(day);
+                  return (
+                    <Pressable
+                      key={day}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked }}
+                      disabled={isSubmitting}
+                      style={[styles.goalOption, checked && styles.selectedOption]}
+                      onPress={() => {
+                        setWeekdays(
+                          checked ? weekdays.filter((value) => value !== day) : [...weekdays, day],
+                        );
+                        setRecurrenceError('');
+                      }}
+                    >
+                      <Text style={styles.optionLabel}>{label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </FormField>
+          ) : null}
+        </>
+      ) : null}
       <View style={styles.field}>
         <Text style={styles.label}>関連するGoal（任意）</Text>
         {isLoadingGoalOptions ? (

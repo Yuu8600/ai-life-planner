@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native';
+import { ActionButton } from '@/shared/components/ActionButton';
 import { Badge } from '@/shared/components/Badge';
 import { Card } from '@/shared/components/Card';
 import { ItemActions } from '@/shared/components/ItemActions';
@@ -9,6 +10,9 @@ type TaskListItemProps = {
   disabled?: boolean;
   isDeleting?: boolean;
   isLast?: boolean;
+  overdue?: boolean;
+  onComplete?: () => void;
+  onReplan?: () => void;
   onDelete: () => void;
   onEdit: () => void;
   task: TaskSummary;
@@ -16,6 +20,9 @@ type TaskListItemProps = {
 export function TaskListItem({
   disabled = false,
   isDeleting = false,
+  overdue,
+  onComplete,
+  onReplan,
   onDelete,
   onEdit,
   task,
@@ -79,6 +86,30 @@ export function TaskListItem({
           onDelete={onDelete}
         />
       </View>
+      {overdue ? <Badge label="期限切れ・自動配置を保留" tone="warning" /> : null}
+      {onComplete || onReplan ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {onComplete ? (
+            <ActionButton
+              label="タスクを完了にする"
+              variant="ghost"
+              disabled={disabled}
+              onPress={onComplete}
+            />
+          ) : null}
+          {overdue ? (
+            <ActionButton label="期限を編集" variant="ghost" disabled={disabled} onPress={onEdit} />
+          ) : null}
+          {onReplan ? (
+            <ActionButton
+              label="再計画"
+              variant="secondary"
+              disabled={disabled}
+              onPress={onReplan}
+            />
+          ) : null}
+        </View>
+      ) : null}
     </Card>
   );
 }

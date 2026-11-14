@@ -11,6 +11,7 @@ const mockTasksScreen = jest.fn(({ repository }: { repository: unknown }) => (
 
 jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
+  useRouter: () => ({ navigate: jest.fn() }),
 }));
 
 jest.mock('@/features/auth', () => ({
@@ -23,6 +24,10 @@ jest.mock('@/features/tasks/TasksScreen', () => ({
 
 jest.mock('@/services/supabase/repositories/SupabaseTaskRepository', () => ({
   createSupabaseTaskRepository: (userId: string) => mockCreateRepository(userId),
+}));
+
+jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => ({
+  createSupabaseSettingsRepository: jest.fn(() => ({ getProfilePlanningSettings: jest.fn() })),
 }));
 
 beforeEach(() => {

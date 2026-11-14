@@ -1,1 +1,1 @@
-export { default } from '@/navigation/routes/PlannerRoute';
+export { default } from '@/navigation/routes/V2ChatRoute';

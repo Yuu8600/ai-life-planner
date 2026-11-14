@@ -70,7 +70,7 @@ function deadlineToDateInput(deadline: string | null): string {
 
 export function createTaskFormValues(task?: Task): TaskFormValues {
   return {
-    deadline: deadlineToDateInput(task?.deadline ?? null),
+    deadline: task?.localDeadline ?? deadlineToDateInput(task?.deadline ?? null),
     estimatedMinutes: task ? String(task.estimatedMinutes) : '30',
     goalId: task?.goalId ?? '',
     priority: task?.priority ?? 'medium',

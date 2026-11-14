@@ -1,1 +1,1 @@
-export { default } from '@/navigation/routes/SettingsRoute';
+export { default } from '@/navigation/routes/V2SettingsRoute';

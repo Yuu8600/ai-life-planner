@@ -2,6 +2,12 @@
 
 カレンダーの予定を避けて、目標のためのタスクを1日の空き時間に自動で割り振るアプリです。
 
+## V2 Native版
+
+V2の開発ブランチでは、iPhoneカレンダーとアプリ内の予定を使った初回自動計画、繰り返しTask、作業枠の編集・固定、AIチャットの下書き承認を扱います。AI連携は任意です。[実装ノート](docs/v2/IMPLEMENTATION_NOTES.md) · [Supabaseと公開手順](docs/v2/DEPLOY_AND_RELEASE.md) · [iPhone手動テスト](docs/v2/MANUAL_TEST_CHECKLIST.md)
+
+V1のソースは `v1-stable` ブランチと `v1.0.0` タグから取得できます。
+
 ## Web Demo
 
 **ログイン不要で、サンプルの計画づくりから実行までブラウザで試せます。**

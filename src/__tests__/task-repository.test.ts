@@ -18,6 +18,9 @@ const goalId = '22222222-2222-4222-8222-222222222222';
 const taskRow: TaskRow = {
   created_at: '2026-09-13T00:00:00+00:00',
   deadline: '2026-10-25T14:59:59.999Z',
+  deadline_local: null,
+  recurrence: 'once',
+  recurrence_days: [],
   estimated_minutes: 30,
   goal_id: goalId,
   id: taskId,

@@ -1,3 +1,5 @@
+import type { Recurrence } from '@/features/planner/v2/types';
+
 export type TaskPriority = 'high' | 'low' | 'medium';
 export type TaskStatus = 'completed' | 'pending' | 'scheduled' | 'skipped';
 
@@ -5,6 +7,8 @@ export type Task = {
   createdAt: string;
   deadline: string | null;
   estimatedMinutes: number;
+  localDeadline?: string | null;
+  recurrence?: { kind: Recurrence; weekdays: number[] };
   goalId: string | null;
   id: string;
   priority: TaskPriority;
@@ -16,7 +20,14 @@ export type Task = {
 
 export type CreateTaskInput = Pick<
   Task,
-  'deadline' | 'estimatedMinutes' | 'goalId' | 'priority' | 'status' | 'title'
+  | 'deadline'
+  | 'estimatedMinutes'
+  | 'goalId'
+  | 'priority'
+  | 'status'
+  | 'title'
+  | 'localDeadline'
+  | 'recurrence'
 >;
 
 export type UpdateTaskInput = Partial<CreateTaskInput>;

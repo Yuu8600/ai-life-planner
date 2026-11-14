@@ -1,1 +1,1 @@
-export { default } from '@/navigation/routes/TodayRoute';
+export { TodayRoute as default } from '@/navigation/routes/V2DailyRoutes';
