@@ -351,12 +351,17 @@ export function changeDailyPlan(input: DayInput, plan: DailyPlan, change: PlanCh
       if (!place(original.taskId, original.title, duration(original), sessions, blocks, day))
         warnings.push(`${original.title}を当日の別の空きに配置できません。`);
     }
-    return {
-      ...plan,
-      lifestyle: lifestyle.filter((item) => activeRules.has(item.id) || start(item) <= day.now),
-      sessions: sessions.sort(chronological),
-      warnings: [...new Set(warnings)],
-    };
+    return schedule(
+      day,
+      {
+        ...plan,
+        lifestyle: lifestyle.filter((item) => activeRules.has(item.id) || start(item) <= day.now),
+        sessions: sessions.sort(chronological),
+        warnings: [...new Set(warnings)],
+      },
+      undefined,
+      false,
+    );
   }
   const target = plan.sessions.find((item) => item.id === change.id);
   if (!target || target.status !== 'scheduled') throw new Error('この作業枠は変更できません。');

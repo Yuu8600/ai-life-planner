@@ -1,3 +1,4 @@
+import { approvePlan, loadDay, previewPlan } from '@/features/planner/v2/dayService';
 import {
   calendarConflicts,
   changeDailyPlan,
@@ -94,4 +95,61 @@ it('creates a preview, locks manual edits and records work separately from the T
     changeDailyPlan(input, moved, { kind: 'complete', id: session.id }).sessions[0].status,
   ).toBe('completed');
   expect(input.tasks[0].completed).toBe(false);
+});
+
+it('requires current inputs and an explicit approval before writing a preview', async () => {
+  const settings = {
+    timezone: 'UTC',
+    planningStart: '08:00',
+    planningEnd: '16:30',
+    planningEndDayOffset: 0 as const,
+    minimumFreeMinutes: 1,
+    calendarBufferBeforeMinutes: 0,
+    calendarBufferAfterMinutes: 0,
+  };
+  const saved = createDailyPlan(day);
+  const save = jest.fn(async () => {});
+  let source = 'first';
+  const deps = {
+    now: () => day.now,
+    repository: {
+      getSettings: async () => settings,
+      load: async () => ({
+        source,
+        settings,
+        events: [],
+        gap: day.gap,
+        history: [],
+        tasks: [task],
+        saved: { revision: 'same', plan: saved },
+      }),
+      save,
+      addEvent: jest.fn(),
+      removeEvent: jest.fn(),
+      getGap: jest.fn(),
+      setGap: jest.fn(),
+    },
+    calendar: {
+      getPermission: async () => ({ status: 'granted' as const, canAskAgain: true }),
+      requestPermission: jest.fn(),
+      listEvents: async () => ({ calendarCount: 1, discardedEventCount: 0, events: [] }),
+    },
+  };
+  const loaded = await loadDay(deps, date, false);
+  const preview = previewPlan(loaded, { kind: 'complete', id: saved.sessions[0].id });
+  expect(save).not.toHaveBeenCalled();
+  source = 'changed';
+  await expect(approvePlan(deps, preview, false)).rejects.toThrow('確認中');
+  expect(save).not.toHaveBeenCalled();
+  source = 'first';
+  await approvePlan(deps, preview, false);
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(save).toHaveBeenCalledWith(
+    date,
+    'same',
+    'first',
+    expect.objectContaining({
+      sessions: expect.arrayContaining([expect.objectContaining({ status: 'completed' })]),
+    }),
+  );
 });

@@ -86,7 +86,11 @@ export async function loadDay(
     calendarError,
     deviceEvents,
     allowed: !calendarError || allowLimited,
-    calendarRevision: JSON.stringify([calendarError, busy]),
+    calendarRevision: JSON.stringify([
+      calendarError,
+      busy,
+      deviceEvents.map((event) => JSON.stringify(event)).sort(),
+    ]),
   };
 }
 
