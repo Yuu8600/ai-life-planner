@@ -35,3 +35,9 @@ V1の `replace_daily_plan` は同日Planの既存明細を削除して再作成�
 | 5 公開準備    | 重要な自動チェック、iPhone 17eシミュレータの起動、手順書を完了。実機、staging、本番は利用者確認待ち |
 
 次は [公開手順](DEPLOY_AND_RELEASE.md) の順にV2ブランチのpushとPRを行い、テスト用Supabaseを用意して [iPhone手動テスト](MANUAL_TEST_CHECKLIST.md) を進める。未実装・制約は [実装ノート](IMPLEMENTATION_NOTES.md)、検証の範囲は [テスト報告](TEST_REPORT.md)。修正作業を再開する場合は `git status --short --branch` でブランチと利用者の未追跡ファイルを確認した上で、対象画面と関連する最小のテストだけを実行する。
+
+## 履歴の追加実装
+
+- AI相談は最新100件を表示し、同じ会話の以前の発言を100件ずつ取得できるようにした。
+- Todayとカレンダーで日付を直接選べるようにした。Todayから、選択日のV1計画と実行履歴を元の保存先から参照できる。
+- 今回の変更にDB migrationやSecrets更新は不要。実機手順は [手動テスト](MANUAL_TEST_CHECKLIST.md) の「過去の記録」。次の実装候補は日をまたぐ作業枠移動。移動元と移動先のrevision照合、2日分の原子的保存、繰り返しTaskの実行日との対応が必要。

@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Linking, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AppState, Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { addLocalDays, formatPlanningTime, getPlanningDate } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { Card } from '@/shared/components/Card';
+import { DeadlineCalendar } from '@/shared/components/DeadlineCalendar';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
@@ -41,6 +42,7 @@ export function DailyPlanningScreen({
   initialDate,
   review,
   openSettings,
+  renderLegacyHistory,
 }: {
   deps: DailyPlanningDependencies;
   mode: 'today' | 'calendar';
@@ -48,8 +50,10 @@ export function DailyPlanningScreen({
   initialDate?: string;
   review?: string;
   openSettings: () => void;
+  renderLegacyHistory?: (date: string) => ReactNode;
 }) {
   const [selected, setSelected] = useState(initialDate);
+  const [dateDraft, setDateDraft] = useState<string>();
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
@@ -62,6 +66,7 @@ export function DailyPlanningScreen({
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [preview, setPreview] = useState<PlanPreview>();
+  const [legacyDate, setLegacyDate] = useState<string>();
   const [adding, setAdding] = useState(false);
   const [edit, setEdit] = useState<{ session: WorkSession; from: string; to: string }>();
   const [focused, setFocused] = useState(false);
@@ -174,7 +179,12 @@ export function DailyPlanningScreen({
             variant="secondary"
             onPress={() => switchDate(addLocalDays(selected ?? today, -1))}
           />
-          <Text style={styles.text}>{selected ?? today}</Text>
+          <ActionButton
+            accessibilityLabel={`表示日 ${selected ?? today}。日付を選ぶ`}
+            label={selected ?? today}
+            variant="ghost"
+            onPress={() => setDateDraft(selected ?? today)}
+          />
           <ActionButton
             label="次の日"
             variant="secondary"
@@ -394,6 +404,50 @@ export function DailyPlanningScreen({
                 ))}
             </>
           ) : null}
+        </>
+      ) : null}
+      {dateDraft && Platform.OS === 'android' ? (
+        <DeadlineCalendar
+          label="表示する日付"
+          value={dateDraft}
+          onChange={(date) => {
+            switchDate(date);
+            setDateDraft(undefined);
+          }}
+          onDismiss={() => setDateDraft(undefined)}
+        />
+      ) : dateDraft ? (
+        <ModalFrame
+          title="表示する日付"
+          onClose={() => setDateDraft(undefined)}
+          footer={
+            <ActionButton
+              label="この日を開く"
+              onPress={() => {
+                switchDate(dateDraft);
+                setDateDraft(undefined);
+              }}
+            />
+          }
+        >
+          <DeadlineCalendar
+            label="表示する日付"
+            value={dateDraft}
+            onChange={setDateDraft}
+            onDismiss={() => setDateDraft(undefined)}
+          />
+        </ModalFrame>
+      ) : null}
+      {day && renderLegacyHistory ? (
+        <>
+          <ActionButton
+            variant="secondary"
+            label={legacyDate === day.input.date ? 'V1の記録を閉じる' : 'V1の計画と実行履歴を見る'}
+            onPress={() =>
+              setLegacyDate(legacyDate === day.input.date ? undefined : day.input.date)
+            }
+          />
+          {legacyDate === day.input.date ? renderLegacyHistory(day.input.date) : null}
         </>
       ) : null}
       {adding && day ? (

@@ -44,3 +44,9 @@ npm run test:ci -- --runTestsByPath \
 ```
 
 新規PreviewテストでJestの動的importがVMモジュールを要求したため静的importに変更した。実機操作、共有本番、実OpenAI API、フルE2Eは未実施。操作テストは [MANUAL_TEST_CHECKLIST.md](MANUAL_TEST_CHECKLIST.md) を参照。
+
+## 履歴の追加実装
+
+- `npm run typecheck`、`npm run lint`、変更ファイルのPrettier、`git diff --check` が成功。
+- Jest 6スイート・43件が成功。対象は `v2-chat-history`、`v2-chat`、`today-repository`、`activity-log-repository`、`activity-log-screen`、`v2-routes`。同一タイムスタンプを含むチャットページの境界と、指定日のV1日跨ぎ計画の読み取りを確認した。
+- iPhone実機の操作と、接続先のSupabaseを使った履歴表示は未実施。

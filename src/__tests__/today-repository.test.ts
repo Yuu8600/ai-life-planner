@@ -129,6 +129,38 @@ const actionRow = {
 };
 
 describe('SupabaseTodayRepository', () => {
+  it('reads a selected historical date and its overnight work without querying current settings', async () => {
+    const date = '2026-09-11';
+    const startAt = '2026-09-11T15:30:00.000Z';
+    const endAt = '2026-09-11T16:00:00.000Z';
+    const { from, dailyPlan, actions, repository } = createRepository({
+      dailyPlan: {
+        data: {
+          ...planRow,
+          plan_date: date,
+          window_start_at: '2026-09-11T09:00:00.000Z',
+          window_end_at: '2026-09-11T17:00:00.000Z',
+        },
+        error: null,
+      },
+      actions: {
+        data: [
+          { ...actionRow, task_id: null, start_at: startAt, end_at: endAt, status: 'completed' },
+        ],
+        error: null,
+      },
+    });
+
+    await expect(repository.getPlanForDate(date)).resolves.toMatchObject({
+      date,
+      actions: [{ startAt, endAt, status: 'completed', title: actionRow.title }],
+    });
+    expect(from.mock.calls).toEqual([['daily_plans'], ['planned_actions']]);
+    expect(dailyPlan.eq).toHaveBeenCalledWith('user_id', userId);
+    expect(dailyPlan.eq).toHaveBeenCalledWith('plan_date', date);
+    expect(actions.eq).toHaveBeenCalledWith('user_id', userId);
+  });
+
   it('returns a distinct no-Plan projection and still loads Today deadline Tasks', async () => {
     const { actions, dailyPlan, deadlineTasks, repository } = createRepository({
       deadlineTasks: {

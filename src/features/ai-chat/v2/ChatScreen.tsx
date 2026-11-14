@@ -30,6 +30,7 @@ export function ChatScreen({
   const [referencedDraft, setReferencedDraft] = useState<string>();
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const lock = useRef(false);
 
   const refreshUsage = useCallback(async () => {
@@ -73,7 +74,17 @@ export function ChatScreen({
 
   const refreshConversation = useCallback(
     async (id: string) => {
-      setConversation(await repository.open(id));
+      const fresh = await repository.open(id);
+      setConversation((previous) => {
+        const first = fresh.messages[0];
+        const overlap = first ? previous?.messages.findIndex((item) => item.id === first.id) : -1;
+        if (!previous || overlap === undefined || overlap < 0) return fresh;
+        return {
+          ...fresh,
+          olderCursor: previous.olderCursor,
+          messages: [...previous.messages.slice(0, overlap), ...fresh.messages],
+        };
+      });
     },
     [repository],
   );
@@ -100,6 +111,29 @@ export function ChatScreen({
     setReferencedDraft(undefined);
     setError('');
   };
+  async function loadOlder() {
+    const cursor = conversation?.olderCursor;
+    if (!current || !cursor || lock.current) return;
+    lock.current = true;
+    setLoadingOlder(true);
+    setError('');
+    try {
+      const page = await repository.listOlder(current.id, cursor);
+      setConversation(
+        (previous) =>
+          previous && {
+            ...previous,
+            messages: [...page.messages, ...previous.messages],
+            olderCursor: page.olderCursor,
+          },
+      );
+    } catch {
+      setError('以前のメッセージを読み込めませんでした。');
+    } finally {
+      lock.current = false;
+      setLoadingOlder(false);
+    }
+  }
   async function create() {
     if (lock.current || !newTitle?.trim()) return;
     lock.current = true;
@@ -151,7 +185,7 @@ export function ChatScreen({
             <ActionButton
               label="会話一覧"
               variant="secondary"
-              disabled={pending}
+              disabled={pending || loadingOlder}
               onPress={() => open()}
             />
           ) : (
@@ -182,6 +216,15 @@ export function ChatScreen({
       {error ? <Notice tone="error" message={error} /> : null}
       {current ? (
         <>
+          {conversation?.olderCursor ? (
+            <ActionButton
+              label="以前のメッセージを表示"
+              variant="secondary"
+              loading={loadingOlder}
+              disabled={pending}
+              onPress={() => void loadOlder()}
+            />
+          ) : null}
           {conversation?.messages.map((item) => (
             <Card key={item.id}>
               <Text
@@ -202,7 +245,7 @@ export function ChatScreen({
               <ActionButton
                 label="下書きを開く"
                 variant="secondary"
-                disabled={pending}
+                disabled={pending || loadingOlder}
                 onPress={() => setWorkingDraft(draft)}
               />
               {!draft.approvedAt ? (
@@ -213,7 +256,7 @@ export function ChatScreen({
                       : 'この下書きについて相談'
                   }
                   variant="ghost"
-                  disabled={pending}
+                  disabled={pending || loadingOlder}
                   onPress={() =>
                     setReferencedDraft(referencedDraft === draft.id ? undefined : draft.id)
                   }
@@ -239,7 +282,9 @@ export function ChatScreen({
           <ActionButton
             label="AIに送信"
             loading={pending}
-            disabled={!usage?.configured || usage.remainingMicros === 0 || !prompt.trim()}
+            disabled={
+              loadingOlder || !usage?.configured || usage.remainingMicros === 0 || !prompt.trim()
+            }
             onPress={() => void send()}
           />
           {workingDraft ? (
@@ -262,7 +307,7 @@ export function ChatScreen({
             key={thread.id}
             variant="secondary"
             label={thread.title}
-            disabled={pending}
+            disabled={pending || loadingOlder}
             onPress={() => open(thread)}
           />
         ))

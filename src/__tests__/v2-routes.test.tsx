@@ -30,6 +30,12 @@ jest.mock('@/services/supabase/repositories/SupabaseDailyPlanningRepository', ()
 jest.mock('@/services/supabase/repositories/SupabaseChatRepository', () => ({
   createSupabaseChatRepository: (id: string) => mockCreateChatRepository(id),
 }));
+jest.mock('@/services/supabase/repositories/SupabaseTodayRepository', () => ({
+  createSupabaseTodayRepository: () => ({}),
+}));
+jest.mock('@/services/supabase/repositories/SupabaseActivityLogRepository', () => ({
+  createSupabaseActivityLogRepository: () => ({}),
+}));
 jest.mock('@/features/planner/v2/DailyPlanningScreen', () => ({
   DailyPlanningScreen: ({ mode, initialDate }: { mode: string; initialDate?: string }) => (
     <MockText>{[mode, initialDate].filter(Boolean).join(' ')}</MockText>

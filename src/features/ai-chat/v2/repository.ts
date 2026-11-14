@@ -28,12 +28,15 @@ export type PlanProposal = {
 export type DraftItem = RecordProposal | PlanProposal;
 export type Draft = { id: string; revision: string; approvedAt: string | null; items: DraftItem[] };
 export type Thread = { id: string; title: string };
+export type MessageCursor = { id: string; createdAt: string };
+export type MessagePage = { messages: ChatMessage[]; olderCursor: MessageCursor | null };
 export type ChatMessage = { id: string; role: 'user' | 'assistant'; body: string };
 export type Usage = { configured: boolean; remainingMicros: number; month: string };
 export interface ChatRepository {
   listThreads(): Promise<Thread[]>;
   createThread(title: string): Promise<Thread>;
-  open(threadId: string): Promise<{ drafts: Draft[]; messages: ChatMessage[] }>;
+  open(threadId: string): Promise<MessagePage & { drafts: Draft[] }>;
+  listOlder(threadId: string, cursor: MessageCursor): Promise<MessagePage>;
   send(threadId: string, prompt: string, date?: string, draftId?: string): Promise<void>;
   usage(): Promise<Usage>;
   edit(draft: Draft, items: DraftItem[]): Promise<void>;

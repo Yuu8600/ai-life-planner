@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/features/auth';
+import { LegacyPlanHistory } from '@/features/planner/v2/LegacyPlanHistory';
+import { createSupabaseActivityLogRepository } from '@/services/supabase/repositories/SupabaseActivityLogRepository';
+import { createSupabaseTodayRepository } from '@/services/supabase/repositories/SupabaseTodayRepository';
 import { DailyPlanningScreen } from '@/features/planner/v2/DailyPlanningScreen';
 import { createExpoCalendarRepository } from '@/services/calendar/ExpoCalendarRepository';
 import { createSupabaseDailyPlanningRepository } from '@/services/supabase/repositories/SupabaseDailyPlanningRepository';
@@ -25,6 +28,16 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
         : null,
     [userId],
   );
+  const legacy = useMemo(
+    () =>
+      userId && mode === 'today'
+        ? {
+            plans: createSupabaseTodayRepository(userId),
+            activities: createSupabaseActivityLogRepository(userId),
+          }
+        : null,
+    [userId, mode],
+  );
   if (!deps) return null;
   return (
     <DailyPlanningScreen
@@ -34,6 +47,9 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
       initialDate={mode === 'today' ? date : undefined}
       review={mode === 'today' ? review : undefined}
       initialTaskId={mode === 'today' && typeof taskId === 'string' ? taskId : undefined}
+      renderLegacyHistory={
+        legacy ? (day) => <LegacyPlanHistory key={day} date={day} {...legacy} /> : undefined
+      }
       openSettings={() => router.push('/settings')}
     />
   );
