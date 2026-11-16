@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -17,6 +18,8 @@ type AppScreenProps = {
   scrollRef?: Ref<ScrollView>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   scroll?: boolean;
+  scrollEnabled?: boolean;
+  onScroll?: ScrollViewProps['onScroll'];
   testID?: string;
 };
 
@@ -26,6 +29,8 @@ export function AppScreen({
   scrollRef,
   contentContainerStyle,
   scroll = true,
+  scrollEnabled,
+  onScroll,
   testID,
 }: AppScreenProps) {
   if (!scroll) {
@@ -49,6 +54,9 @@ export function AppScreen({
     >
       <ScrollView
         ref={scrollRef}
+        scrollEnabled={scrollEnabled}
+        onScroll={onScroll}
+        scrollEventThrottle={onScroll ? 16 : undefined}
         style={footer ? { flex: 1 } : undefined}
         contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
         keyboardShouldPersistTaps="handled"

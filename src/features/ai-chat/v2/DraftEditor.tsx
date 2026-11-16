@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
@@ -104,7 +104,9 @@ export function DraftEditor({
             ) : null}
             {records.length ? (
               <ActionButton
-                label={confirmation ? '選択項目を承認' : '選択項目を確認'}
+                label={
+                  confirmation ? `${chosen.length}件を承認` : `${chosen.length}件の採用内容を確認`
+                }
                 disabled={!selected.length || dirty}
                 loading={pending}
                 onPress={() => {
@@ -157,10 +159,12 @@ export function DraftEditor({
                 </Text>
               ) : null}
               {!confirmation && !draft.approvedAt ? (
-                <ActionButton
-                  label={selected.includes(item.key) ? '✓ 採用する' : '採用する'}
+                <Pressable
+                  style={styles.selection}
+                  accessibilityRole="checkbox"
                   accessibilityLabel={`${item.title}を採用`}
-                  variant={selected.includes(item.key) ? 'primary' : 'secondary'}
+                  accessibilityState={{ checked: selected.includes(item.key), disabled: pending }}
+                  disabled={pending}
                   onPress={() =>
                     setSelected((values) =>
                       values.includes(item.key)
@@ -168,7 +172,11 @@ export function DraftEditor({
                         : [...values, item.key],
                     )
                   }
-                />
+                >
+                  <Text style={styles.selectionText}>
+                    {selected.includes(item.key) ? '☑ 採用する' : '☐ 採用する'}
+                  </Text>
+                </Pressable>
               ) : null}
             </>
           )}
@@ -236,3 +244,13 @@ export function DraftEditor({
     </ModalFrame>
   );
 }
+
+const styles = StyleSheet.create({
+  selection: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    paddingRight: spacing.lg,
+  },
+  selectionText: { ...typography.bodyStrong, color: colors.primary },
+});

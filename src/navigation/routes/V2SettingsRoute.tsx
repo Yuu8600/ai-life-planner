@@ -21,12 +21,8 @@ export default function V2SettingsRoute() {
   return (
     <SettingsScreen
       CloseControl={SettingsExitControl}
-      accountSection={
-        <>
-          {planner ? <PlannerGapSettings key={userId} repository={planner} /> : null}
-          <AccountSection />
-        </>
-      }
+      planningAccessory={planner ? <PlannerGapSettings key={userId} repository={planner} /> : null}
+      accountSection={<AccountSection />}
       onPressBack={() => router.back()}
       repository={repository}
     />

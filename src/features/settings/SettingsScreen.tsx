@@ -20,6 +20,7 @@ import { usePlanningSettings } from './usePlanningSettings';
 
 type SettingsScreenProps = {
   accountSection?: ReactNode;
+  planningAccessory?: ReactNode;
   CloseControl?: ComponentType<SettingsCloseControlProps>;
   sections?: typeof SETTING_SECTIONS;
   onPressBack: () => void;
@@ -28,6 +29,7 @@ type SettingsScreenProps = {
 
 export function SettingsScreen({
   accountSection,
+  planningAccessory,
   CloseControl = SettingsCloseControl,
   sections = SETTING_SECTIONS,
   onPressBack,
@@ -68,6 +70,7 @@ export function SettingsScreen({
             action={<CloseControl dirty={dirty} isSaving={isSaving} onPressBack={onPressBack} />}
           />
           {body}
+          {planningAccessory}
           {sections.map((section) => (
             <Card key={section.id}>
               <SectionHeader compact title={section.title} />

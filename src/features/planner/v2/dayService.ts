@@ -2,6 +2,7 @@ import {
   loadCalendarPlanningEvents,
   type CalendarEvent,
   type CalendarEventBufferRepository,
+  type CalendarEventBufferOverride,
   type CalendarRepository,
 } from '@/features/calendar';
 import { getPlanningWindow } from '@/features/today';
@@ -29,6 +30,8 @@ export async function loadDay(
   let external: DayInput['busy'] = [];
   let calendarError: string | null = null;
   let deviceEvents: CalendarEvent[] = [];
+  let timelineDeviceEvents: CalendarEvent[] = [];
+  let calendarOverrides: CalendarEventBufferOverride[] = [];
   try {
     const permission = await deps.calendar.getPermission();
     if (permission.status !== 'granted') {
@@ -44,6 +47,8 @@ export async function loadDay(
         settings.planningEndDayOffset,
       );
       deviceEvents = events.events;
+      timelineDeviceEvents = events.calculationEvents;
+      calendarOverrides = events.overrides;
       external = calculateFreeTime({
         ...settings,
         events: events.calculationEvents,
@@ -85,6 +90,8 @@ export async function loadDay(
     input,
     calendarError,
     deviceEvents,
+    timelineDeviceEvents,
+    calendarOverrides,
     allowed: !calendarError || allowLimited,
     calendarRevision: JSON.stringify([
       calendarError,

@@ -12,5 +12,5 @@ export default function GoalsRoute() {
     [userId],
   );
 
-  return <GoalsScreen repository={repository} />;
+  return <GoalsScreen compactActions repository={repository} />;
 }

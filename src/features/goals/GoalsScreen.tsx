@@ -18,9 +18,10 @@ import { GoalStatePanel } from './components/GoalStatePanel';
 
 type GoalsScreenProps = {
   repository: GoalRepository | null;
+  compactActions?: boolean;
 };
 
-export function GoalsScreen({ repository }: GoalsScreenProps) {
+export function GoalsScreen({ repository, compactActions = false }: GoalsScreenProps) {
   const {
     clearMutationError,
     createGoal,
@@ -84,7 +85,7 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
             <ActionButton
               accessibilityLabel="新しい目標を作成する"
               disabled={isMutating}
-              label="＋ 追加"
+              label={compactActions ? '目標を追加' : '＋ 追加'}
               onPress={openCreateForm}
               style={styles.addButton}
               variant="primary"
@@ -119,6 +120,7 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
           {goals.map((goal, index) => (
             <GoalListItem
               disabled={isMutating}
+              compactActions={compactActions}
               goal={toGoalListItemModel(goal)}
               isDeleting={pendingMutation === `delete:${goal.id}`}
               isLast={index === goals.length - 1}

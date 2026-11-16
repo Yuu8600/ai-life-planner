@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { Card } from '@/shared/components/Card';
@@ -26,6 +26,9 @@ export function ChatScreen({
   const [usageFailed, setUsageFailed] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [date, setDate] = useState('');
+  const [dateDraft, setDateDraft] = useState<string>();
+  const scroll = useRef<ScrollView>(null);
+  const inputJump = useRef(false);
   const [workingDraft, setWorkingDraft] = useState<Draft>();
   const [referencedDraft, setReferencedDraft] = useState<string>();
   const [error, setError] = useState('');
@@ -104,6 +107,7 @@ export function ChatScreen({
     };
   }, [current, repository]);
   const open = (thread?: Thread) => {
+    inputJump.current = Boolean(thread);
     setCurrent(thread);
     setConversation(undefined);
     setPrompt('');
@@ -171,172 +175,241 @@ export function ChatScreen({
     } catch (e) {
       setError(e instanceof Error ? e.message : 'メッセージを送信できませんでした。');
     } finally {
+      inputJump.current = true;
       await Promise.all([refreshConversation(current.id).catch(() => undefined), refreshUsage()]);
       lock.current = false;
       setPending(false);
     }
   }
+  useEffect(() => {
+    if (!conversation || !inputJump.current) return;
+    const frame = requestAnimationFrame(() => {
+      inputJump.current = false;
+      scroll.current?.scrollToEnd({ animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [conversation]);
+
+  const composer = current ? (
+    <View style={styles.composer}>
+      {referencedDraft ? <Text style={styles.small}>下書きの最新版について相談中</Text> : null}
+      <FormField label="相談内容">
+        <FormInput
+          multiline
+          value={prompt}
+          editable={!pending}
+          maxLength={1000}
+          onChangeText={setPrompt}
+          style={styles.input}
+          placeholder="メッセージを入力"
+        />
+      </FormField>
+      <View style={styles.actions}>
+        <ActionButton
+          label={date ? `対象日 ${date}` : '対象日（任意）'}
+          variant="ghost"
+          disabled={pending}
+          onPress={() => setDateDraft(date)}
+        />
+        <ActionButton
+          label="送信"
+          accessibilityLabel="AIに送信"
+          loading={pending}
+          disabled={
+            loadingOlder || !usage?.configured || usage.remainingMicros === 0 || !prompt.trim()
+          }
+          onPress={() => void send()}
+        />
+      </View>
+    </View>
+  ) : undefined;
   return (
-    <AppScreen contentContainerStyle={{ gap: spacing.md }}>
-      <ScreenHeader
-        title={current?.title ?? 'AI相談'}
-        action={
-          current ? (
-            <ActionButton
-              label="会話一覧"
-              variant="secondary"
-              disabled={pending || loadingOlder}
-              onPress={() => open()}
-            />
-          ) : (
-            <ActionButton label="新規会話" loading={pending} onPress={() => setNewTitle('')} />
-          )
-        }
-      />
-      {usage ? (
-        <Text style={{ color: colors.textSecondary }}>
-          {usage.configured
-            ? `残り推定 $${(usage.remainingMicros / 1_000_000).toFixed(3)} / $0.50（UTC月ごと）`
-            : 'AIは未設定です。'}
-          {'\n'}実際のOpenAI請求額を保証する上限ではありません。
-        </Text>
-      ) : usageFailed ? (
-        <View>
-          <Notice
-            tone="warning"
-            message="AIの接続と残り予算を確認できません。会話や下書きは閲覧できます。"
-          />
-          <ActionButton
-            label="AIの接続を再確認"
-            variant="ghost"
-            onPress={() => void refreshUsage()}
-          />
-        </View>
-      ) : null}
-      {error ? <Notice tone="error" message={error} /> : null}
-      {current ? (
-        <>
-          {conversation?.olderCursor ? (
-            <ActionButton
-              label="以前のメッセージを表示"
-              variant="secondary"
-              loading={loadingOlder}
-              disabled={pending}
-              onPress={() => void loadOlder()}
-            />
-          ) : null}
-          {conversation?.messages.map((item) => (
-            <Card key={item.id}>
-              <Text
-                accessibilityRole="header"
-                style={{ ...typography.label, color: colors.textSecondary }}
-              >
-                {item.role === 'user' ? 'あなた' : 'AI'}
-              </Text>
-              <Text style={{ ...typography.body, color: colors.textPrimary }}>{item.body}</Text>
-            </Card>
-          ))}
-          {conversation?.drafts.map((draft) => (
-            <Card key={draft.id} style={{ gap: spacing.sm }}>
-              <Text style={{ color: colors.textPrimary }}>
-                {draft.approvedAt ? '承認済み' : '提案の下書き'}　
-                {draft.items.map((item) => item.title).join('、')}
-              </Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.screen}
+    >
+      <AppScreen contentContainerStyle={{ gap: spacing.md }} footer={composer} scrollRef={scroll}>
+        <ScreenHeader
+          title={current?.title ?? 'AI相談'}
+          action={
+            current ? (
               <ActionButton
-                label="下書きを開く"
+                label="会話一覧"
                 variant="secondary"
                 disabled={pending || loadingOlder}
-                onPress={() => setWorkingDraft(draft)}
+                onPress={() => open()}
               />
-              {!draft.approvedAt ? (
-                <ActionButton
-                  label={
-                    referencedDraft === draft.id
-                      ? 'この下書きへの相談を解除'
-                      : 'この下書きについて相談'
-                  }
-                  variant="ghost"
-                  disabled={pending || loadingOlder}
-                  onPress={() =>
-                    setReferencedDraft(referencedDraft === draft.id ? undefined : draft.id)
-                  }
-                />
-              ) : null}
-            </Card>
-          ))}
-          <FormField
-            label="相談内容"
-            helper={referencedDraft ? '選択した下書きの最新版を添えて送信します。' : undefined}
-          >
-            <FormInput
-              multiline
-              value={prompt}
-              editable={!pending}
-              maxLength={1000}
-              onChangeText={setPrompt}
-            />
-          </FormField>
-          <FormField label="相談する日（任意・YYYY-MM-DD）">
-            <FormInput value={date} editable={!pending} maxLength={10} onChangeText={setDate} />
-          </FormField>
-          <ActionButton
-            label="AIに送信"
-            loading={pending}
-            disabled={
-              loadingOlder || !usage?.configured || usage.remainingMicros === 0 || !prompt.trim()
-            }
-            onPress={() => void send()}
-          />
-          {workingDraft ? (
-            <DraftEditor
-              key={workingDraft.id}
-              draft={workingDraft}
-              repository={repository}
-              close={() => setWorkingDraft(undefined)}
-              refreshed={() => refreshConversation(current.id)}
-              reviewPlan={(plan) => {
-                setWorkingDraft(undefined);
-                reviewPlan(plan);
-              }}
-            />
-          ) : null}
-        </>
-      ) : (
-        threads.map((thread) => (
-          <ActionButton
-            key={thread.id}
-            variant="secondary"
-            label={thread.title}
-            disabled={pending || loadingOlder}
-            onPress={() => open(thread)}
-          />
-        ))
-      )}
-      {newTitle !== undefined ? (
-        <ModalFrame
-          title="新規会話"
-          onClose={() => setNewTitle(undefined)}
-          closeDisabled={pending}
-          footer={
-            <ActionButton
-              label="会話を作成"
-              disabled={!newTitle.trim()}
-              loading={pending}
-              onPress={() => void create()}
-            />
+            ) : (
+              <ActionButton label="新規会話" loading={pending} onPress={() => setNewTitle('')} />
+            )
           }
-        >
-          <FormField label="会話名">
-            <FormInput
-              value={newTitle}
-              maxLength={100}
-              onChangeText={setNewTitle}
-              editable={!pending}
+        />
+        {usage ? (
+          <Text style={{ color: colors.textSecondary }}>
+            {usage.configured
+              ? `残り推定 $${(usage.remainingMicros / 1_000_000).toFixed(3)} / $0.50（UTC月ごと）`
+              : 'AIは未設定です。'}
+            {'\n'}実際のOpenAI請求額を保証する上限ではありません。
+          </Text>
+        ) : usageFailed ? (
+          <View>
+            <Notice
+              tone="warning"
+              message="AIの接続と残り予算を確認できません。会話や下書きは閲覧できます。"
             />
-          </FormField>
-          {error ? <Notice tone="error" message={error} /> : null}
-        </ModalFrame>
-      ) : null}
-    </AppScreen>
+            <ActionButton
+              label="AIの接続を再確認"
+              variant="ghost"
+              onPress={() => void refreshUsage()}
+            />
+          </View>
+        ) : null}
+        {error ? <Notice tone="error" message={error} /> : null}
+        {current ? (
+          <>
+            {conversation?.olderCursor ? (
+              <ActionButton
+                label="以前のメッセージを表示"
+                variant="secondary"
+                loading={loadingOlder}
+                disabled={pending}
+                onPress={() => void loadOlder()}
+              />
+            ) : null}
+            {conversation?.messages.map((item) => (
+              <Card
+                key={item.id}
+                style={item.role === 'user' ? styles.userMessage : styles.assistantMessage}
+              >
+                <Text
+                  accessibilityRole="header"
+                  style={{ ...typography.label, color: colors.textSecondary }}
+                >
+                  {item.role === 'user' ? 'あなた' : 'AI'}
+                </Text>
+                <Text style={{ ...typography.body, color: colors.textPrimary }}>{item.body}</Text>
+              </Card>
+            ))}
+            {conversation?.drafts.map((draft) => (
+              <Card key={draft.id} style={{ gap: spacing.sm }}>
+                <Text style={{ color: colors.textPrimary }}>
+                  {draft.approvedAt ? '承認済み' : '提案の下書き'}　
+                  {draft.items.map((item) => item.title).join('、')}
+                </Text>
+                <ActionButton
+                  label="下書きを開く"
+                  variant="secondary"
+                  disabled={pending || loadingOlder}
+                  onPress={() => setWorkingDraft(draft)}
+                />
+                {!draft.approvedAt ? (
+                  <ActionButton
+                    label={
+                      referencedDraft === draft.id
+                        ? 'この下書きへの相談を解除'
+                        : 'この下書きについて相談'
+                    }
+                    variant="ghost"
+                    disabled={pending || loadingOlder}
+                    onPress={() =>
+                      setReferencedDraft(referencedDraft === draft.id ? undefined : draft.id)
+                    }
+                  />
+                ) : null}
+              </Card>
+            ))}
+            {workingDraft ? (
+              <DraftEditor
+                key={workingDraft.id}
+                draft={workingDraft}
+                repository={repository}
+                close={() => setWorkingDraft(undefined)}
+                refreshed={() => refreshConversation(current.id)}
+                reviewPlan={(plan) => {
+                  setWorkingDraft(undefined);
+                  reviewPlan(plan);
+                }}
+              />
+            ) : null}
+          </>
+        ) : (
+          threads.map((thread) => (
+            <ActionButton
+              key={thread.id}
+              variant="secondary"
+              label={thread.title}
+              disabled={pending || loadingOlder}
+              onPress={() => open(thread)}
+            />
+          ))
+        )}
+        {dateDraft !== undefined ? (
+          <ModalFrame
+            title="対象日"
+            onClose={() => setDateDraft(undefined)}
+            footer={
+              <ActionButton
+                label="この条件を使う"
+                onPress={() => {
+                  setDate(dateDraft.trim());
+                  setDateDraft(undefined);
+                }}
+              />
+            }
+          >
+            <FormField label="日付（YYYY-MM-DD）" helper="空欄にすると対象日を指定しません。">
+              <FormInput value={dateDraft} maxLength={10} onChangeText={setDateDraft} />
+            </FormField>
+          </ModalFrame>
+        ) : null}
+        {newTitle !== undefined ? (
+          <ModalFrame
+            title="新規会話"
+            onClose={() => setNewTitle(undefined)}
+            closeDisabled={pending}
+            footer={
+              <ActionButton
+                label="会話を作成"
+                disabled={!newTitle.trim()}
+                loading={pending}
+                onPress={() => void create()}
+              />
+            }
+          >
+            <FormField label="会話名">
+              <FormInput
+                value={newTitle}
+                maxLength={100}
+                onChangeText={setNewTitle}
+                editable={!pending}
+              />
+            </FormField>
+            {error ? <Notice tone="error" message={error} /> : null}
+          </ModalFrame>
+        ) : null}
+      </AppScreen>
+    </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  composer: {
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderSubtle,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  input: { maxHeight: 120 },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  small: { ...typography.caption, color: colors.primary },
+  userMessage: { backgroundColor: colors.primarySoft, marginLeft: spacing.xl, gap: spacing.xs },
+  assistantMessage: { marginRight: spacing.xl, gap: spacing.xs },
+});

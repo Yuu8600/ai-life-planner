@@ -60,6 +60,7 @@ export function TaskFormModal({
   const [weekdays, setWeekdays] = useState(task?.recurrence?.weekdays ?? []);
   const [recurrenceError, setRecurrenceError] = useState('');
   const usesWeekdays = recurrence === 'weekdays' || recurrence === 'weekly';
+  const [showGoalOptions, setShowGoalOptions] = useState(false);
   const initialDeadline = useRef(values.deadline);
   const [fieldErrors, setFieldErrors] = useState<TaskFormErrors>({});
   const submitLock = useRef(false);
@@ -122,7 +123,7 @@ export function TaskFormModal({
   return (
     <ModalFrame
       title={isEditing ? 'タスクを編集' : '新しいタスク'}
-      description="実行時間と関連するGoalを登録します。"
+      description={planningTimezone ? undefined : '実行時間と関連するGoalを登録します。'}
       onClose={onClose}
       closeLabel="タスクフォームを閉じる"
       closeDisabled={isSubmitting}
@@ -232,48 +233,71 @@ export function TaskFormModal({
           ) : null}
         </>
       ) : null}
-      <View style={styles.field}>
-        <Text style={styles.label}>関連するGoal（任意）</Text>
-        {isLoadingGoalOptions ? (
-          <Text accessibilityLiveRegion="polite" style={styles.helperText}>
-            Goal候補を読み込んでいます。
-          </Text>
-        ) : null}
-        {goalOptionsError ? (
-          <View style={styles.goalErrorRow}>
-            <Text accessibilityRole="alert" style={styles.goalErrorText}>
-              {goalOptionsError}
+      {planningTimezone ? (
+        <ActionButton
+          label={
+            showGoalOptions
+              ? 'Goalの候補を閉じる'
+              : (displayedGoalOptions.find(({ id }) => id === values.goalId)?.title ??
+                '関連するGoalを選ぶ（任意）')
+          }
+          accessibilityLabel="関連するGoalを選ぶ"
+          variant="secondary"
+          expanded={showGoalOptions}
+          disabled={isSubmitting}
+          onPress={() => setShowGoalOptions(!showGoalOptions)}
+        />
+      ) : null}
+      {!planningTimezone || showGoalOptions || fieldErrors.goalId ? (
+        <View style={styles.field}>
+          <Text style={styles.label}>関連するGoal（任意）</Text>
+          {isLoadingGoalOptions ? (
+            <Text accessibilityLiveRegion="polite" style={styles.helperText}>
+              Goal候補を読み込んでいます。
             </Text>
-            <Pressable
-              accessibilityLabel="Goal候補を再読み込み"
-              accessibilityRole="button"
-              disabled={isSubmitting || isLoadingGoalOptions}
-              onPress={onRetryGoalOptions}
-              style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
-            >
-              <Text style={styles.retryLabel}>再読み込み</Text>
-            </Pressable>
-          </View>
-        ) : null}
-        <View accessibilityRole="radiogroup" style={styles.goalOptions}>
-          <GoalOption
-            disabled={isSubmitting}
-            label="Goalなし"
-            onPress={() => updateValue('goalId', '')}
-            selected={!values.goalId}
-          />
-          {displayedGoalOptions.map((goal) => (
+          ) : null}
+          {goalOptionsError ? (
+            <View style={styles.goalErrorRow}>
+              <Text accessibilityRole="alert" style={styles.goalErrorText}>
+                {goalOptionsError}
+              </Text>
+              <Pressable
+                accessibilityLabel="Goal候補を再読み込み"
+                accessibilityRole="button"
+                disabled={isSubmitting || isLoadingGoalOptions}
+                onPress={onRetryGoalOptions}
+                style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
+              >
+                <Text style={styles.retryLabel}>再読み込み</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          <View accessibilityRole="radiogroup" style={styles.goalOptions}>
             <GoalOption
               disabled={isSubmitting}
-              key={goal.id}
-              label={goal.title}
-              onPress={() => updateValue('goalId', goal.id)}
-              selected={values.goalId === goal.id}
+              label="Goalなし"
+              onPress={() => {
+                updateValue('goalId', '');
+                setShowGoalOptions(false);
+              }}
+              selected={!values.goalId}
             />
-          ))}
+            {displayedGoalOptions.map((goal) => (
+              <GoalOption
+                disabled={isSubmitting}
+                key={goal.id}
+                label={goal.title}
+                onPress={() => {
+                  updateValue('goalId', goal.id);
+                  setShowGoalOptions(false);
+                }}
+                selected={values.goalId === goal.id}
+              />
+            ))}
+          </View>
+          {fieldErrors.goalId ? <Text style={styles.fieldError}>{fieldErrors.goalId}</Text> : null}
         </View>
-        {fieldErrors.goalId ? <Text style={styles.fieldError}>{fieldErrors.goalId}</Text> : null}
-      </View>
+      ) : null}
 
       {errorMessage ? <Notice tone="error" message={errorMessage} /> : null}
     </ModalFrame>

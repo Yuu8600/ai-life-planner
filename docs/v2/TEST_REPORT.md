@@ -50,3 +50,10 @@ npm run test:ci -- --runTestsByPath \
 - `npm run typecheck`、`npm run lint`、変更ファイルのPrettier、`git diff --check` が成功。
 - Jest 6スイート・43件が成功。対象は `v2-chat-history`、`v2-chat`、`today-repository`、`activity-log-repository`、`activity-log-screen`、`v2-routes`。同一タイムスタンプを含むチャットページの境界と、指定日のV1日跨ぎ計画の読み取りを確認した。
 - iPhone実機の操作と、接続先のSupabaseを使った履歴表示は未実施。
+
+## V2 UI改修
+
+- `npm run typecheck`、`npm run lint`、変更ファイルのPrettier、`git diff --check` が成功。
+- `npm run test:ci` は74スイート・728件成功。画面テストでは予定種別の描画、ドラッグ候補時刻、保存前の承認、衝突した数値入力の拒否、Calendarから選択日を渡す操作、AI提案の選択と承認を確認した。
+- iOS向けRelease用のJavaScriptバンドル生成に成功。既存のQAネイティブビルドに組み込み、接続先がローカル専用であることを検証した。iPhone 17eのV2 QA専用シミュレータで起動とToday表示を確認した。
+- 端末でのドラッグ、端付近の自動スクロール、VoiceOver、拡大文字、小画面での操作感は [V2 UI改修の手動テスト](MANUAL_TEST_CHECKLIST.md#v2-ui改修) を参照。

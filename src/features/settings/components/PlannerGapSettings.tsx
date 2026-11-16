@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { Card } from '@/shared/components/Card';
 import { FormField, FormInput } from '@/shared/components/FormField';
+import { SectionHeader } from '@/shared/components/SectionHeader';
 import { Notice } from '@/shared/components/Notice';
 import { spacing } from '@/shared/theme';
 import type { DailyPlanningRepository } from '@/features/planner/v2/repository';
@@ -44,6 +45,7 @@ export function PlannerGapSettings({ repository }: { repository: DailyPlanningRe
   }
   return (
     <Card style={{ gap: spacing.sm }}>
+      <SectionHeader compact title="作業枠の間隔" />
       <FormField
         label="異なるTask間の余裕（分）"
         helper="0〜240分。新たに配置する作業枠に適用します。"
@@ -59,7 +61,7 @@ export function PlannerGapSettings({ repository }: { repository: DailyPlanningRe
         />
       </FormField>
       <ActionButton
-        label="余裕時間を保存"
+        label="作業枠の間隔を保存"
         variant="secondary"
         disabled={!valid || value === original}
         loading={pending}

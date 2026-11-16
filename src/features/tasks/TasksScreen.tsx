@@ -108,7 +108,7 @@ export function TasksScreen({
             <ActionButton
               accessibilityLabel="新しいタスクを作成する"
               disabled={isMutating}
-              label="＋ 追加"
+              label={planningTimezone ? 'タスクを追加' : '＋ 追加'}
               onPress={openCreateForm}
               style={styles.addButton}
               variant="primary"
@@ -169,6 +169,7 @@ export function TasksScreen({
             return (
               <TaskListItem
                 disabled={isMutating}
+                compactActions={Boolean(planningTimezone)}
                 isDeleting={pendingMutation === `delete:${task.id}`}
                 isLast={index === visibleTasks.length - 1}
                 key={task.id}

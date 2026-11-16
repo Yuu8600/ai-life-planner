@@ -8,6 +8,7 @@ import type { TaskSummary } from '../types';
 
 type TaskListItemProps = {
   disabled?: boolean;
+  compactActions?: boolean;
   isDeleting?: boolean;
   isLast?: boolean;
   overdue?: boolean;
@@ -19,6 +20,7 @@ type TaskListItemProps = {
 };
 export function TaskListItem({
   disabled = false,
+  compactActions = false,
   isDeleting = false,
   overdue,
   onComplete,
@@ -38,7 +40,18 @@ export function TaskListItem({
           : 'neutral';
   return (
     <Card testID={`task-card-${task.id}`} style={{ gap: spacing.sm }}>
-      <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>{task.title}</Text>
+      {compactActions ? (
+        <ActionButton
+          label={task.title}
+          accessibilityLabel={`${task.title}を編集する`}
+          disabled={disabled}
+          variant="ghost"
+          onPress={onEdit}
+          style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
+        />
+      ) : (
+        <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>{task.title}</Text>
+      )}
       <View
         style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, alignItems: 'baseline' }}
       >
@@ -80,6 +93,17 @@ export function TaskListItem({
         </View>
         <ItemActions
           title={task.title}
+          hideEdit={compactActions}
+          additional={
+            compactActions && onComplete ? (
+              <ActionButton
+                label="タスクを完了にする"
+                variant="ghost"
+                disabled={disabled}
+                onPress={onComplete}
+              />
+            ) : undefined
+          }
           disabled={disabled}
           isDeleting={isDeleting}
           onEdit={onEdit}
@@ -87,9 +111,9 @@ export function TaskListItem({
         />
       </View>
       {overdue ? <Badge label="期限切れ・自動配置を保留" tone="warning" /> : null}
-      {onComplete || onReplan ? (
+      {(!compactActions && onComplete) || onReplan ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          {onComplete ? (
+          {onComplete && !compactActions ? (
             <ActionButton
               label="タスクを完了にする"
               variant="ghost"
@@ -97,7 +121,7 @@ export function TaskListItem({
               onPress={onComplete}
             />
           ) : null}
-          {overdue ? (
+          {overdue && !compactActions ? (
             <ActionButton label="期限を編集" variant="ghost" disabled={disabled} onPress={onEdit} />
           ) : null}
           {onReplan ? (

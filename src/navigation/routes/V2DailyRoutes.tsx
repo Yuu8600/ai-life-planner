@@ -41,7 +41,7 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
   if (!deps) return null;
   return (
     <DailyPlanningScreen
-      key={`${userId}-${review ?? ''}`}
+      key={`${userId}-${review ?? ''}-${mode === 'today' ? (date ?? '') : ''}`}
       deps={deps}
       mode={mode}
       initialDate={mode === 'today' ? date : undefined}
@@ -49,6 +49,12 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
       initialTaskId={mode === 'today' && typeof taskId === 'string' ? taskId : undefined}
       renderLegacyHistory={
         legacy ? (day) => <LegacyPlanHistory key={day} date={day} {...legacy} /> : undefined
+      }
+      openDayPlan={(day) =>
+        router.navigate({
+          pathname: '/today',
+          params: { date: day, taskId: undefined, review: undefined },
+        })
       }
       openSettings={() => router.push('/settings')}
     />
