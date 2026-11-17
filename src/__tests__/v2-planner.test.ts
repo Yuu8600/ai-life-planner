@@ -79,6 +79,21 @@ it('excludes past deadlines and runs scheduled weekdays with Monday week boundar
   expect(weeklyCompletedDays('weekly', '2026-11-23', [completed])).toBe(0);
 });
 
+it('leaves unestimated tasks out of new placement and keeps their existing sessions usable', () => {
+  const saved = createDailyPlan(day);
+  const unestimated = { ...day, tasks: [{ ...task, duration: null }] };
+  const fresh = createDailyPlan(unestimated);
+  expect(fresh.sessions).toEqual([]);
+  expect(fresh.unplaced).toEqual([
+    { taskId: task.id, reason: 'タスクの詳細で所要時間を登録してください。' },
+  ]);
+  const updated = changeDailyPlan(unestimated, saved, {
+    kind: 'complete',
+    id: saved.sessions[0].id,
+  });
+  expect(updated.sessions[0]).toMatchObject({ id: saved.sessions[0].id, status: 'completed' });
+});
+
 it('creates a preview, locks manual edits and records work separately from the Task', () => {
   const input = { ...day, tasks: [{ ...task, duration: 180 }] };
   const original = createDailyPlan(input);

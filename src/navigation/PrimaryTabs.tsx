@@ -89,7 +89,9 @@ export default function PrimaryTabs() {
         tabBarButton: (props) => <TabButton {...props} />,
       }}
     >
-      {(web ? demoRoutes : nativeRoutes).map((name) => {
+      {(web ? demoRoutes : ([...nativeRoutes, 'goals'] as const)).map((name) => {
+        if (!web && name === 'goals')
+          return <Tabs.Screen key={name} name={name} options={{ href: null, title: '目標' }} />;
         const tab =
           !web && name === 'ai'
             ? { title: 'AI相談', accessibilityLabel: 'AI相談タブ' }
@@ -123,7 +125,6 @@ export default function PrimaryTabs() {
           />
         );
       })}
-      {!web ? <Tabs.Screen name="goals" options={{ href: null, title: '目標' }} /> : null}
     </Tabs>
   );
 }

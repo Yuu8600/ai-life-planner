@@ -18,13 +18,14 @@ function SignedInTasks({ userId }: { userId: string }) {
     }),
     [userId],
   );
-  const { timezone, revision } = useV25Date(settings);
+  const { timezone, revision, now } = useV25Date(settings);
   return (
     <TasksScreen
       key={entry ?? filter ?? 'tasks'}
       repository={repository}
       refreshToken={revision}
       planningTimezone={timezone}
+      now={now}
       recommendationMode
       initialFilter={filter === 'overdue' ? 'overdue' : undefined}
       onOpenGoals={() => router.navigate('/goals')}

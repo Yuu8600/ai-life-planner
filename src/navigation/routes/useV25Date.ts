@@ -51,6 +51,7 @@ export function useV25Date(settings: SettingsRepository) {
 
   return {
     timezone,
+    now,
     date: timezone ? getLocalDate(now, timezone) : null,
     revision,
     error,
