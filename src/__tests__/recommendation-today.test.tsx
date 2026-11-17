@@ -94,14 +94,16 @@ it('recommends and saves completion with a failed calendar and loads the result 
   await waitFor(() => expect(repository.record).toHaveBeenCalledTimes(1));
   await screen.unmount();
   const restarted = await render(<TodayRecommendationsScreen {...props} />);
-  expect(restarted.getByText('完了済み（1）')).toBeTruthy();
+  expect(restarted.queryByText('手帳を見直す')).toBeNull();
+  await fireEvent.press(restarted.getByRole('button', { name: '実行履歴（今日1件）' }));
   await fireEvent.press(restarted.getByRole('checkbox', { name: '手帳を見直すを未完了に戻す' }));
   expect(repository.undo).toHaveBeenCalledWith(date, 'task', 'task', 'completed');
+  await fireEvent.press(restarted.getByRole('button', { name: '実行履歴を閉じる' }));
   await waitFor(() =>
     expect(restarted.getByRole('checkbox', { name: '手帳を見直すを完了' })).toBeTruthy(),
   );
   await fireEvent.press(restarted.getByRole('button', { name: '手帳を見直すを今日は見送る' }));
-  await fireEvent.press(restarted.getByRole('button', { name: '手帳を見直すの見送りを取り消す' }));
+  await fireEvent.press(restarted.getByRole('button', { name: '元に戻す' }));
   expect(repository.undo).toHaveBeenCalledWith(date, 'task', 'task', 'skipped');
 });
 

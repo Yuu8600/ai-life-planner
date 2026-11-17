@@ -5,6 +5,7 @@ import type {
 } from '@/features/recommendations/repository';
 import { CompletionCheckbox } from '@/shared/components/CompletionCheckbox';
 import { getTaskErrorMessage } from './errors';
+import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -23,7 +24,7 @@ import { TaskStatePanel } from './components/TaskStatePanel';
 import { TASK_FILTERS } from './filters';
 import { matchesTaskFilter, toTaskSummary } from './presentation';
 import type { CreateTaskInput, Task, TaskRepository } from './repositories/TaskRepository';
-import type { TaskFilter, TaskFilterId } from './types';
+import type { TaskFilterId } from './types';
 import { useTasks } from './useTasks';
 
 type TasksScreenProps = {
@@ -41,12 +42,6 @@ type TasksScreenProps = {
   refreshToken?: number;
   repository: TaskRepository | null;
 };
-
-const recommendationFilters: readonly TaskFilter[] = [
-  { id: 'open', label: '未完了' },
-  { id: 'all', label: 'すべて' },
-  { id: 'completed', label: '完了済み' },
-];
 
 export function TasksScreen({
   intro,
@@ -81,9 +76,8 @@ export function TasksScreen({
     updateTask,
   } = useTasks(repository, refreshToken);
   const [mountedAt] = useState(() => new Date());
-  const [activeFilter, setActiveFilter] = useState<TaskFilterId>(
-    recommendationMode ? 'open' : (initialFilter ?? 'all'),
-  );
+  const [activeFilter, setActiveFilter] = useState<TaskFilterId>(initialFilter ?? 'all');
+  const [showCompleted, setShowCompleted] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null | undefined>(undefined);
   const today = planningTimezone ? getLocalDate(now ?? mountedAt, planningTimezone) : undefined;
   const [daily, setDaily] = useState<{ date: string; results: RecommendationResult[] }>();
@@ -132,12 +126,10 @@ export function TasksScreen({
   };
   const visibleTasks = tasks.filter((task) => {
     if (!recommendationMode) return matchesTaskFilter(task, activeFilter, now);
-    return (
-      activeFilter === 'all' ||
-      (activeFilter === 'completed' ? isComplete(task) : !isComplete(task))
-    );
+    return !isComplete(task);
   });
-  if (recommendationMode && initialFilter === 'overdue' && activeFilter === 'open') {
+  const completedTasks = recommendationMode ? tasks.filter(isComplete) : [];
+  if (recommendationMode && initialFilter === 'overdue') {
     visibleTasks.sort((a, b) => Number(isOverdue(b)) - Number(isOverdue(a)));
   }
   const isMutating = pendingMutation !== null || actionBusy;
@@ -217,6 +209,63 @@ export function TasksScreen({
     );
   };
 
+  function taskRow(task: Task) {
+    const deadline = deadlineOf(task);
+    const checked = isComplete(task);
+    const skipped = !checked && results.get(task.id) === 'skipped';
+    const recurring = (task.recurrence?.kind ?? 'once') !== 'once';
+    const detail = [
+      !checked && isOverdue(task) ? `期限切れ ${deadline}` : deadline ? `期限 ${deadline}` : null,
+      recurring ? (checked ? '今日の実施済み' : '繰り返し') : null,
+      skipped ? '今日の見送り' : null,
+    ]
+      .filter(Boolean)
+      .join(' ・ ');
+    return (
+      <View
+        key={task.id}
+        style={[styles.taskRow, { borderColor: theme.colors.borderSubtle }]}
+        testID={`task-card-${task.id}`}
+      >
+        {skipped ? (
+          <ActionButton
+            label="戻す"
+            accessibilityLabel={`${task.title}の見送りを取り消す`}
+            variant="ghost"
+            disabled={isMutating || !!dailyError || !!dayError}
+            onPress={() => void toggle(task)}
+          />
+        ) : (
+          <CompletionCheckbox
+            checked={checked}
+            label={`${task.title}を${checked ? '未完了に戻す' : '完了'}`}
+            disabled={!today || daily?.date !== today || isMutating || !!dailyError || !!dayError}
+            onPress={() => void toggle(task)}
+          />
+        )}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${task.title}を編集する`}
+          disabled={isMutating}
+          onPress={() => {
+            setShowCompleted(false);
+            openEditForm(task);
+          }}
+          style={({ pressed }) => [styles.rowTitle, pressed && { opacity: 0.65 }]}
+        >
+          <Text style={{ ...theme.typography.bodyStrong, color: theme.colors.textPrimary }}>
+            {task.title}
+          </Text>
+          {detail ? (
+            <Text style={{ ...theme.typography.secondary, color: theme.colors.textSecondary }}>
+              {detail}
+            </Text>
+          ) : null}
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <AppScreen testID="tasks-screen">
       <ScreenHeader
@@ -236,15 +285,22 @@ export function TasksScreen({
       />
 
       {intro}
-      {onOpenGoals ? (
-        <ActionButton label="目標を見る" variant="secondary" onPress={onOpenGoals} />
-      ) : null}
-      <TaskFilters
-        activeFilter={activeFilter}
-        filters={recommendationMode ? recommendationFilters : TASK_FILTERS}
-        onChange={setActiveFilter}
-      />
-
+      {recommendationMode ? (
+        <View style={styles.secondaryActions}>
+          <ActionButton
+            label={`完了済み（${completedTasks.length}）`}
+            variant="ghost"
+            onPress={() => setShowCompleted(true)}
+          />
+          {onOpenGoals ? <ActionButton label="目標" variant="ghost" onPress={onOpenGoals} /> : null}
+        </View>
+      ) : (
+        <TaskFilters
+          activeFilter={activeFilter}
+          filters={TASK_FILTERS}
+          onChange={setActiveFilter}
+        />
+      )}
       {recommendationMode && (dayError || dailyError || actionMessage) ? (
         <Notice
           tone="error"
@@ -299,9 +355,13 @@ export function TasksScreen({
         />
       ) : visibleTasks.length === 0 ? (
         <TaskStatePanel
-          message="別のフィルターを選ぶと、ほかのタスクを確認できます。"
+          message={
+            recommendationMode
+              ? '完了したタスクは「完了済み」で確認できます。'
+              : '別のフィルターを選ぶと、ほかのタスクを確認できます。'
+          }
           testID="tasks-filter-empty-state"
-          title="該当するタスクはありません"
+          title={recommendationMode ? '未完了のタスクはありません' : '該当するタスクはありません'}
         />
       ) : (
         <View style={recommendationMode ? styles.compactList : styles.list}>
@@ -309,68 +369,7 @@ export function TasksScreen({
             const deadline = deadlineOf(task);
             const overdue =
               task.status !== 'completed' && !!(today && deadline && deadline < today);
-            if (recommendationMode) {
-              const checked = isComplete(task);
-              const skipped = !checked && results.get(task.id) === 'skipped';
-              const recurring = (task.recurrence?.kind ?? 'once') !== 'once';
-              const detail = [
-                !checked && isOverdue(task)
-                  ? `期限切れ ${deadline}`
-                  : deadline
-                    ? `期限 ${deadline}`
-                    : null,
-                recurring ? (checked ? '今日の実施済み' : '繰り返し') : null,
-                skipped ? '今日の見送り' : null,
-              ]
-                .filter(Boolean)
-                .join(' ・ ');
-              return (
-                <View
-                  key={task.id}
-                  style={[styles.taskRow, { borderColor: theme.colors.borderSubtle }]}
-                  testID={`task-card-${task.id}`}
-                >
-                  {skipped ? (
-                    <ActionButton
-                      label="戻す"
-                      accessibilityLabel={`${task.title}の見送りを取り消す`}
-                      variant="ghost"
-                      disabled={isMutating || !!dailyError || !!dayError}
-                      onPress={() => void toggle(task)}
-                    />
-                  ) : (
-                    <CompletionCheckbox
-                      checked={checked}
-                      label={`${task.title}を${checked ? '未完了に戻す' : '完了'}`}
-                      disabled={
-                        !today || daily?.date !== today || isMutating || !!dailyError || !!dayError
-                      }
-                      onPress={() => void toggle(task)}
-                    />
-                  )}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${task.title}を編集する`}
-                    disabled={isMutating}
-                    onPress={() => openEditForm(task)}
-                    style={({ pressed }) => [styles.rowTitle, pressed && { opacity: 0.65 }]}
-                  >
-                    <Text
-                      style={{ ...theme.typography.bodyStrong, color: theme.colors.textPrimary }}
-                    >
-                      {task.title}
-                    </Text>
-                    {detail ? (
-                      <Text
-                        style={{ ...theme.typography.secondary, color: theme.colors.textSecondary }}
-                      >
-                        {detail}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                </View>
-              );
-            }
+            if (recommendationMode) return taskRow(task);
             return (
               <TaskListItem
                 disabled={isMutating}
@@ -406,6 +405,23 @@ export function TasksScreen({
         <Notice tone="error" message={mutationError} />
       ) : null}
 
+      {showCompleted ? (
+        <ModalFrame
+          title="完了済み"
+          closeLabel="完了済みを閉じる"
+          onClose={() => setShowCompleted(false)}
+        >
+          {actionMessage || dailyError ? (
+            <Notice tone="error" message={actionMessage || dailyError} />
+          ) : null}
+          {completedTasks.length ? (
+            completedTasks.map(taskRow)
+          ) : (
+            <Text style={{ color: theme.colors.textSecondary }}>完了したタスクはありません。</Text>
+          )}
+        </ModalFrame>
+      ) : null}
+
       {editingTask !== undefined ? (
         <TaskFormModal
           errorMessage={mutationError}
@@ -438,6 +454,7 @@ export function TasksScreen({
 
 const styles = StyleSheet.create({
   list: { gap: spacing.md, minWidth: 0 },
+  secondaryActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   compactList: { marginTop: spacing.sm, minWidth: 0 },
   taskRow: {
     flexDirection: 'row',

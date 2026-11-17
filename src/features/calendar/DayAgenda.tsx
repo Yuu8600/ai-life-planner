@@ -198,9 +198,9 @@ export function DayAgenda({
         />
       ) : null}
       {actionError ? <Notice tone="error" message={actionError} /> : null}
-      {onOpenCalendar ? (
+      {onOpenCalendar && events.length > 3 ? (
         <ActionButton
-          label={events.length > 3 ? `予定をすべて見る（${events.length}件）` : '予定を開く'}
+          label={`予定をすべて見る（${events.length}件）`}
           variant="ghost"
           onPress={onOpenCalendar}
         />

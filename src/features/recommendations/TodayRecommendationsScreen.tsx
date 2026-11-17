@@ -19,7 +19,6 @@ import { useTheme } from '@/shared/theme';
 import { recommend, targetKey, type Candidate } from './recommend';
 import {
   DEFAULT_CONDITIONS,
-  isEffort,
   type ActionStep,
   type Conditions,
   type Outcome,
@@ -27,11 +26,6 @@ import {
   type RecommendationResult,
 } from './repository';
 
-const availability = [
-  { value: 'light', label: '忙しい' },
-  { value: 'normal', label: 'ふつう' },
-  { value: 'focus', label: '余裕あり' },
-];
 const durations = [15, 30, 60] as const;
 const durationOptions = durations.map((minutes) => ({
   value: String(minutes),
@@ -77,8 +71,12 @@ export function TodayRecommendationsScreen({
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
-  const [conditions, setConditions] = useState(initialConditions);
+  const [conditions, setConditions] = useState<Conditions>({
+    ...initialConditions,
+    effort: 'normal',
+  });
   const [shownCount, setShownCount] = useState(4);
+  const [lastChange, setLastChange] = useState<string>();
   const [showHistory, setShowHistory] = useState(false);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
@@ -105,7 +103,8 @@ export function TodayRecommendationsScreen({
 
   const fallback = choices?.startWith;
   const recentResults =
-    current?.results.filter((item) => item.date >= addLocalDays(date, -6)) ?? [];
+    current?.results.filter((item) => item.date < date && item.date >= addLocalDays(date, -6)) ??
+    [];
 
   useEffect(() => {
     let active = true;
@@ -147,6 +146,7 @@ export function TodayRecommendationsScreen({
     writeLock.current = true;
     setBusy(true);
     setFeedback(undefined);
+    setLastChange(undefined);
     try {
       const message = await operation();
       loadVersion.current++;
@@ -181,6 +181,7 @@ export function TodayRecommendationsScreen({
         );
         return { ...previous, results: [saved, ...results] };
       });
+      setLastChange(targetKey(candidate.kind, candidate.id));
       return outcome === 'completed' ? '完了を記録しました。' : '今日の見送りを記録しました。';
     });
   }
@@ -229,8 +230,22 @@ export function TodayRecommendationsScreen({
   }
 
   const text = { ...typography.secondary, color: colors.textSecondary };
+  const latest = todayResults.find((item) => targetKey(item.kind, item.targetId) === lastChange);
   const message = feedback ? (
-    <Notice message={feedback.message} tone={feedback.error ? 'error' : 'success'} />
+    <Notice
+      message={feedback.message}
+      tone={feedback.error ? 'error' : 'success'}
+      action={
+        latest && !showHistory ? (
+          <ActionButton
+            label="元に戻す"
+            variant="ghost"
+            disabled={busy}
+            onPress={() => void undo(latest)}
+          />
+        ) : undefined
+      }
+    />
   ) : null;
   const items = choices?.candidates ?? [];
   const actionDisabled = busy || !!loadError;
@@ -320,17 +335,6 @@ export function TodayRecommendationsScreen({
       <Card style={{ gap: spacing.sm }}>
         <SectionHeader compact title="今から何する？" />
         <OptionGroup
-          label="今日の余裕"
-          disabled={busy}
-          options={availability}
-          selectedValue={conditions.effort}
-          onChange={(value) => {
-            if (!isEffort(value)) return;
-            const minutes = { light: 15, normal: 30, focus: 60 } as const;
-            changeConditions({ effort: value, minutes: minutes[value] });
-          }}
-        />
-        <OptionGroup
           label="使える時間"
           disabled={busy}
           options={durationOptions}
@@ -343,8 +347,7 @@ export function TodayRecommendationsScreen({
           }
         />
       </Card>
-      <SectionHeader title="今日のおすすめ" />
-      {feedback?.scope === 'recommendation' ? message : null}
+      {!showHistory && feedback?.scope === 'recommendation' ? message : null}
       {loadError ? (
         <Notice
           message={loadError}
@@ -386,8 +389,11 @@ export function TodayRecommendationsScreen({
           onPress={() => openStep(fallback.taskId, conditions.minutes)}
         />
       ) : null}
-      {renderResults('completed', '完了済み')}
-      {renderResults('skipped', '今日の見送り')}
+      <ActionButton
+        label={todayResults.length ? `実行履歴（今日${todayResults.length}件）` : '実行履歴'}
+        variant="ghost"
+        onPress={() => setShowHistory(true)}
+      />
       {choices?.overdue.length ? (
         <ActionButton
           label={`期限を見直す（${choices.overdue.length}件）`}
@@ -415,18 +421,27 @@ export function TodayRecommendationsScreen({
       />
       {feedback?.scope === 'quickAdd' ? message : null}
       {agenda}
-      <ActionButton label="実行履歴を見る" variant="ghost" onPress={() => setShowHistory(true)} />
       {showHistory ? (
-        <ModalFrame title="実行履歴" onClose={() => setShowHistory(false)}>
+        <ModalFrame
+          title="実行履歴"
+          closeLabel="実行履歴を閉じる"
+          onClose={() => setShowHistory(false)}
+        >
+          {feedback?.scope === 'recommendation' ? message : null}
+          {renderResults('completed', '今日の完了')}
+          {renderResults('skipped', '今日の見送り')}
           {recentResults.length ? (
-            recentResults.map((item) => (
-              <Text key={`${item.date}:${targetKey(item.kind, item.targetId)}`} style={text}>
-                {item.date} ・ {item.outcome === 'completed' ? '完了' : '見送り'} ・ {item.title}
-              </Text>
-            ))
-          ) : (
+            <>
+              <SectionHeader compact title="過去の記録" />
+              {recentResults.map((item) => (
+                <Text key={`${item.date}:${targetKey(item.kind, item.targetId)}`} style={text}>
+                  {item.date} ・ {item.outcome === 'completed' ? '完了' : '見送り'} ・ {item.title}
+                </Text>
+              ))}
+            </>
+          ) : !todayResults.length ? (
             <Text style={text}>直近7日間の記録はありません。</Text>
-          )}
+          ) : null}
         </ModalFrame>
       ) : null}
     </AppScreen>
