@@ -56,7 +56,9 @@ export function TaskListItem({
         style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, alignItems: 'baseline' }}
       >
         <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>
-          所要時間 {task.estimatedMinutes}分
+          {task.estimatedMinutes === null
+            ? '所要時間未設定'
+            : `所要時間 ${task.estimatedMinutes}分`}
         </Text>
         <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
           {task.deadlineLabel}

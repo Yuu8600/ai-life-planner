@@ -6,7 +6,7 @@ export type TaskStatus = 'completed' | 'pending' | 'scheduled' | 'skipped';
 export type Task = {
   createdAt: string;
   deadline: string | null;
-  estimatedMinutes: number;
+  estimatedMinutes: number | null;
   localDeadline?: string | null;
   recurrence?: { kind: Recurrence; weekdays: number[] };
   goalId: string | null;

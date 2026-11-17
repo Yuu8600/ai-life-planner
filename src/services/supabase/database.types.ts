@@ -9,6 +9,57 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      action_steps: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          effort: string | null
+          estimated_minutes: number | null
+          id: string
+          repeatable: boolean
+          task_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          effort?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          repeatable?: boolean
+          task_id: string
+          title: string
+          user_id?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          effort?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          repeatable?: boolean
+          task_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_steps_task_id_user_id_fkey"
+            columns: ["task_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "action_steps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_logs: {
         Row: {
           action_title: string
@@ -306,12 +357,56 @@ export type Database = {
         }
         Relationships: []
       }
+      recommendation_results: {
+        Row: {
+          created_at: string
+          goal_id: string | null
+          local_date: string
+          outcome: string
+          target_id: string
+          target_kind: string
+          task_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          goal_id?: string | null
+          local_date: string
+          outcome: string
+          target_id: string
+          target_kind: string
+          task_id: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          goal_id?: string | null
+          local_date?: string
+          outcome?: string
+          target_id?: string
+          target_kind?: string
+          task_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_results_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           created_at: string
           deadline: string | null
           deadline_local: string | null
-          estimated_minutes: number
+          estimated_minutes: number | null
           goal_id: string | null
           id: string
           priority: string
@@ -326,7 +421,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           deadline_local?: string | null
-          estimated_minutes: number
+          estimated_minutes?: number | null
           goal_id?: string | null
           id?: string
           priority: string
@@ -341,7 +436,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           deadline_local?: string | null
-          estimated_minutes?: number
+          estimated_minutes?: number | null
           goal_id?: string | null
           id?: string
           priority?: string
@@ -626,6 +721,15 @@ export type Database = {
       }
       planning_instant: {
         Args: { p_local: string; p_timezone: string }
+        Returns: string
+      }
+      record_recommendation_result: {
+        Args: {
+          p_date: string
+          p_id: string
+          p_kind: string
+          p_outcome: string
+        }
         Returns: string
       }
       replace_daily_plan:

@@ -40,8 +40,8 @@ function toTask(row: TaskRow, expectedUserId: string): Task {
     !UUID_PATTERN.test(row.user_id) ||
     !hasValidGoalId ||
     !row.title.trim() ||
-    !Number.isInteger(row.estimated_minutes) ||
-    row.estimated_minutes <= 0 ||
+    (row.estimated_minutes !== null &&
+      (!Number.isInteger(row.estimated_minutes) || row.estimated_minutes <= 0)) ||
     !hasValidDeadline ||
     !isTaskPriority(row.priority) ||
     !isTaskStatus(row.status)
