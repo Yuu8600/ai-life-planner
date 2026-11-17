@@ -6,7 +6,14 @@ import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
 import { colors, spacing, typography } from '@/shared/theme';
-import type { ChatRepository, Draft, DraftItem, PlanProposal, RecordProposal } from './repository';
+import type {
+  ChatRepository,
+  Draft,
+  DraftItem,
+  PlanProposal,
+  RecordProposal,
+  StepProposal,
+} from './repository';
 
 function isDate(value: string) {
   const parsed = new Date(value);
@@ -19,13 +26,11 @@ function isDate(value: string) {
 function inputValid(item: DraftItem) {
   if (!item.title.trim()) return false;
   if (item.kind === 'plan') return isDate(item.date);
-  if (item.deadline && !isDate(item.deadline)) return false;
+  if (item.kind !== 'step' && item.deadline && !isDate(item.deadline)) return false;
   return (
     item.kind === 'goal' ||
-    (item.minutes !== null &&
-      Number.isInteger(item.minutes) &&
-      item.minutes >= 1 &&
-      item.minutes <= 1440)
+    item.minutes === null ||
+    (Number.isInteger(item.minutes) && item.minutes >= 1 && item.minutes <= 1440)
   );
 }
 const priorityLabels = { low: '低', medium: '中', high: '高' };
@@ -57,7 +62,9 @@ export function DraftEditor({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const dirty = JSON.stringify(items) !== JSON.stringify(draft.items);
-  const records = items.filter((item): item is RecordProposal => item.kind !== 'plan');
+  const records = items.filter(
+    (item): item is RecordProposal | StepProposal => item.kind !== 'plan',
+  );
   const chosen = records.filter((item) => selected.includes(item.key));
 
   function update(item: DraftItem) {
@@ -71,7 +78,12 @@ export function DraftEditor({
       setError('名前、日付、作業時間を確認してください。');
       return;
     }
-    if (approve && chosen.some((item) => item.goalKey && !selected.includes(item.goalKey))) {
+    if (
+      approve &&
+      chosen.some(
+        (item) => item.kind === 'task' && item.goalKey && !selected.includes(item.goalKey),
+      )
+    ) {
       setError('採用するTaskが参照するGoalも選択してください。');
       return;
     }
@@ -132,7 +144,14 @@ export function DraftEditor({
       {(confirmation ? chosen : items).map((item) => (
         <View key={item.key} style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
           <Text style={{ ...typography.sectionTitle, color: colors.textPrimary }}>
-            {item.kind === 'plan' ? '計画' : item.kind === 'goal' ? 'Goal' : 'Task'}　{item.title}
+            {item.kind === 'plan'
+              ? '計画'
+              : item.kind === 'goal'
+                ? '目標'
+                : item.kind === 'step'
+                  ? '小さな行動'
+                  : 'タスク'}
+            　{item.title}
           </Text>
           {item.kind === 'plan' ? (
             <>
@@ -146,14 +165,23 @@ export function DraftEditor({
             </>
           ) : (
             <>
-              {item.before ? (
+              {item.kind !== 'step' && item.before ? (
                 <Text style={{ color: colors.textSecondary }}>変更前　{detail(item.before)}</Text>
               ) : null}
               <Text style={{ color: colors.textPrimary }}>
-                {item.before ? '変更後　' : ''}
-                {detail(item)}
+                {item.kind === 'step'
+                  ? `所要時間の目安　${item.minutes === null ? '未設定' : `${item.minutes}分`}`
+                  : `${item.before ? '変更後　' : ''}${detail(item)}`}
               </Text>
-              {item.goalKey ? (
+              {item.parentTitle ? (
+                <Text style={{ color: colors.textSecondary }}>
+                  {item.kind === 'step' ? '関連タスク' : '関連目標'}　{item.parentTitle}
+                </Text>
+              ) : null}
+              {item.reason ? (
+                <Text style={{ color: colors.textSecondary }}>{item.reason}</Text>
+              ) : null}
+              {item.kind === 'task' && item.goalKey ? (
                 <Text style={{ color: colors.textSecondary }}>
                   関連Goal　{items.find((goal) => goal.key === item.goalKey)?.title ?? '不明'}
                 </Text>
@@ -202,30 +230,34 @@ export function DraftEditor({
                 </FormField>
               ) : (
                 <>
-                  <OptionGroup
-                    label="優先度"
-                    disabled={pending}
-                    selectedValue={item.priority}
-                    options={[
-                      { value: 'low', label: '低' },
-                      { value: 'medium', label: '中' },
-                      { value: 'high', label: '高' },
-                    ]}
-                    onChange={(value) =>
-                      update({
-                        ...item,
-                        priority: value === 'high' || value === 'low' ? value : 'medium',
-                      })
-                    }
-                  />
-                  <FormField label="期限（YYYY-MM-DD）">
-                    <FormInput
-                      value={item.deadline ?? ''}
-                      onChangeText={(value) => update({ ...item, deadline: value || null })}
-                    />
-                  </FormField>
-                  {item.kind === 'task' ? (
-                    <FormField label="基本作業時間（分）">
+                  {item.kind !== 'step' ? (
+                    <>
+                      <OptionGroup
+                        label="優先度"
+                        disabled={pending}
+                        selectedValue={item.priority}
+                        options={[
+                          { value: 'low', label: '低' },
+                          { value: 'medium', label: '中' },
+                          { value: 'high', label: '高' },
+                        ]}
+                        onChange={(value) =>
+                          update({
+                            ...item,
+                            priority: value === 'high' || value === 'low' ? value : 'medium',
+                          })
+                        }
+                      />
+                      <FormField label="期限（YYYY-MM-DD）">
+                        <FormInput
+                          value={item.deadline ?? ''}
+                          onChangeText={(value) => update({ ...item, deadline: value || null })}
+                        />
+                      </FormField>
+                    </>
+                  ) : null}
+                  {item.kind === 'task' || item.kind === 'step' ? (
+                    <FormField label="所要時間の目安（分・任意）">
                       <FormInput
                         keyboardType="number-pad"
                         value={item.minutes === null ? '' : String(item.minutes)}

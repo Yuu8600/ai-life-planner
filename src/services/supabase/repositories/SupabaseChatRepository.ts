@@ -105,10 +105,16 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
         })),
       };
     },
-    async send(threadId, prompt, date, draftId) {
+    async send(threadId, prompt, date, draftId, focus) {
       const result = await client.functions.invoke('v2-chat', {
         method: 'POST',
-        body: { threadId, prompt, date, draftId },
+        body: {
+          threadId,
+          prompt,
+          date,
+          draftId,
+          focus: focus && { kind: focus.kind, id: focus.id },
+        },
       });
       if (result.error) await chatError(result.error);
     },

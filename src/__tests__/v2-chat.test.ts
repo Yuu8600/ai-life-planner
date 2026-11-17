@@ -90,3 +90,61 @@ it('returns only a request ID after storing a reply and draft with bounded usage
     ],
   });
 });
+
+it('binds focused Step drafts to an owned task and ignores unrelated model operations', async () => {
+  const parentId = '72b49c1e-231f-42c0-b4e5-caae8ea3ce62';
+  const modelItems = [
+    { kind: 'step', key: 'a', title: '単語を5個復習する', minutes: null, reason: '短く始めやすい' },
+    { kind: 'task', key: 'b', title: '範囲外のタスク' },
+  ];
+  const fetcher = jest.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith('/auth/v1/user')) return Response.json({ id });
+    if (url.includes('/v2_threads?')) return Response.json([{ id }]);
+    if (url.includes('/tasks?') && url.includes(parentId)) {
+      expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer mock');
+      return Response.json([{ id: parentId, title: '英語学習', updated_at: '2026-11-18T00:00Z' }]);
+    }
+    if (url.includes('/rpc/v2_reserve_ai')) return Response.json(true);
+    if (url.includes('/rpc/v2_finish_ai')) return new Response(null, { status: 204 });
+    if (url.startsWith('https://api.openai.com'))
+      return Response.json({
+        output: [
+          {
+            content: [
+              {
+                type: 'output_text',
+                text: JSON.stringify({ reply: '下書きを作りました。', items: modelItems }),
+              },
+            ],
+          },
+        ],
+      });
+    return Response.json([]);
+  });
+  const handler = createChatHandler({
+    env: (key) => environment[key],
+    fetcher: fetcher as typeof fetch,
+    makeId: () => id,
+  });
+  const response = await handler(
+    new Request('https://example.invalid/v2-chat', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer mock' },
+      body: JSON.stringify({
+        threadId: id,
+        prompt: '小さな行動を考えて',
+        focus: { kind: 'task', id: parentId },
+      }),
+    }),
+  );
+  expect(response.status).toBe(200);
+  const persisted = fetcher.mock.calls.find(([url]) => url.includes('/rpc/v2_finish_ai'))?.[1];
+  expect(JSON.parse(String(persisted?.body)).p_items).toEqual([
+    expect.objectContaining({
+      kind: 'step',
+      taskId: parentId,
+      parentUpdatedAt: '2026-11-18T00:00Z',
+      minutes: null,
+    }),
+  ]);
+});

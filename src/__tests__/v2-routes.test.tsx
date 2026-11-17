@@ -4,18 +4,40 @@ import { Text as MockText } from 'react-native';
 import AiRoute from '@/app/(tabs)/ai';
 import CalendarRoute from '@/app/(tabs)/calendar';
 import TodayRoute from '@/app/(tabs)/today';
+import AdvancedPlannerRoute from '@/app/advanced-planner';
 import type { PlanProposal } from '@/features/ai-chat/v2/repository';
 
 const userId = '11111111-1111-4111-8111-111111111111';
 const mockUseAuth = jest.fn();
-const mockNavigate = jest.fn();
+const mockPush = jest.fn();
 const mockCreateDailyRepository = jest.fn((_id: string) => ({}));
 const mockCreateChatRepository = jest.fn((_id: string) => ({}));
 const mockParams = { date: '2026-11-16', taskId: 'task', review: 'review' };
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
-  useRouter: () => ({ navigate: mockNavigate }),
+  useRouter: () => ({ push: mockPush }),
+  useFocusEffect: jest.fn(),
+}));
+jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => ({
+  createSupabaseSettingsRepository: () => ({
+    getProfilePlanningSettings: () => Promise.resolve({ timezone: 'Asia/Tokyo' }),
+  }),
+}));
+jest.mock('@/services/supabase/repositories/SupabaseFixedEventRepository', () => ({
+  createSupabaseFixedEventRepository: () => ({}),
+}));
+jest.mock('@/services/supabase/repositories/SupabaseTaskRepository', () => ({
+  createSupabaseTaskRepository: () => ({}),
+}));
+jest.mock('@/services/supabase/repositories/SupabaseRecommendationRepository', () => ({
+  createSupabaseRecommendationRepository: () => ({}),
+}));
+jest.mock('@/features/calendar/DayAgenda', () => ({
+  DayAgenda: () => <MockText>予定だけを表示</MockText>,
+}));
+jest.mock('@/features/recommendations/TodayRecommendationsScreen', () => ({
+  TodayRecommendationsScreen: () => <MockText>今日のおすすめ</MockText>,
 }));
 jest.mock('@/features/auth', () => ({ useAuth: () => mockUseAuth() }));
 jest.mock('@/services/calendar/ExpoCalendarRepository', () => ({
@@ -70,6 +92,7 @@ it('requires a session for V2 planning and chat', async () => {
       <TodayRoute />
       <CalendarRoute />
       <AiRoute />
+      <AdvancedPlannerRoute />
     </>,
   );
   expect(screen.toJSON()).toBeNull();
@@ -77,7 +100,7 @@ it('requires a session for V2 planning and chat', async () => {
   expect(mockCreateChatRepository).not.toHaveBeenCalled();
 });
 
-it('scopes V2 repositories to the signed-in user and sends AI drafts to Today review', async () => {
+it('opens everyday routes without loading Planner and sends AI plan drafts to advanced review', async () => {
   mockUseAuth.mockReturnValue({ session: { user: { id: userId } } });
   const screen = await render(
     <>
@@ -86,13 +109,20 @@ it('scopes V2 repositories to the signed-in user and sends AI drafts to Today re
       <AiRoute />
     </>,
   );
-  expect(screen.getByText('today 2026-11-16')).toBeTruthy();
-  expect(screen.getByText('calendar')).toBeTruthy();
-  expect(mockCreateDailyRepository).toHaveBeenCalledWith(userId);
+  expect(screen.getByText('今日のおすすめ')).toBeTruthy();
+  expect(screen.getByText('予定だけを表示')).toBeTruthy();
+  expect(mockCreateDailyRepository).not.toHaveBeenCalled();
   expect(mockCreateChatRepository).toHaveBeenCalledWith(userId);
   await fireEvent.press(screen.getByText('確認'));
-  expect(mockNavigate).toHaveBeenCalledWith({
-    pathname: '/today',
+  expect(mockPush).toHaveBeenCalledWith({
+    pathname: '/advanced-planner',
     params: { date: mockParams.date, taskId: mockParams.taskId, review: expect.any(String) },
   });
+});
+
+it('retains the advanced Planner route with the existing account and date', async () => {
+  mockUseAuth.mockReturnValue({ session: { user: { id: userId } } });
+  const screen = await render(<AdvancedPlannerRoute />);
+  expect(screen.getByText('today 2026-11-16')).toBeTruthy();
+  expect(mockCreateDailyRepository).toHaveBeenCalledWith(userId);
 });

@@ -9,13 +9,15 @@ import { Notice } from '@/shared/components/Notice';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, spacing, typography } from '@/shared/theme';
 import { DraftEditor } from './DraftEditor';
-import type { ChatRepository, Draft, PlanProposal, Thread, Usage } from './repository';
+import type { ChatFocus, ChatRepository, Draft, PlanProposal, Thread, Usage } from './repository';
 
 export function ChatScreen({
   repository,
   reviewPlan,
+  focus,
 }: {
   repository: ChatRepository;
+  focus?: ChatFocus;
   reviewPlan: (plan: PlanProposal) => void;
 }) {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -24,7 +26,10 @@ export function ChatScreen({
   const [conversation, setConversation] = useState<Awaited<ReturnType<ChatRepository['open']>>>();
   const [usage, setUsage] = useState<Usage>();
   const [usageFailed, setUsageFailed] = useState(false);
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState(() =>
+    focus ? `「${focus.title.slice(0, 200)}」を進める小さな行動を3〜5件提案してください。` : '',
+  );
+  const [activeFocus, setActiveFocus] = useState(focus);
   const [date, setDate] = useState('');
   const [dateDraft, setDateDraft] = useState<string>();
   const scroll = useRef<ScrollView>(null);
@@ -35,6 +40,7 @@ export function ChatScreen({
   const [pending, setPending] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const lock = useRef(false);
+  const threadCreatedBySend = useRef<string | undefined>(undefined);
 
   const refreshUsage = useCallback(async () => {
     try {
@@ -92,7 +98,7 @@ export function ChatScreen({
     [repository],
   );
   useEffect(() => {
-    if (!current) return;
+    if (!current || threadCreatedBySend.current === current.id) return;
     let active = true;
     void repository.open(current.id).then(
       (value) => {
@@ -108,9 +114,11 @@ export function ChatScreen({
   }, [current, repository]);
   const open = (thread?: Thread) => {
     inputJump.current = Boolean(thread);
+    threadCreatedBySend.current = undefined;
     setCurrent(thread);
     setConversation(undefined);
     setPrompt('');
+    setActiveFocus(undefined);
     setDate('');
     setReferencedDraft(undefined);
     setError('');
@@ -156,7 +164,7 @@ export function ChatScreen({
     }
   }
   async function send() {
-    if (!current || !prompt.trim() || lock.current) return;
+    if (!prompt.trim() || lock.current) return;
     if (
       date &&
       (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
@@ -169,14 +177,36 @@ export function ChatScreen({
     lock.current = true;
     setPending(true);
     setError('');
+    let thread = current;
     try {
-      await repository.send(current.id, prompt.trim(), date || undefined, referencedDraft);
+      if (!thread) {
+        thread = await repository.createThread(
+          activeFocus?.title.slice(0, 100) ?? prompt.trim().slice(0, 40),
+        );
+        threadCreatedBySend.current = thread.id;
+        setCurrent(thread);
+        void refreshThreads();
+      }
+      if (activeFocus) {
+        await repository.send(
+          thread.id,
+          prompt.trim(),
+          date || undefined,
+          referencedDraft,
+          activeFocus,
+        );
+      } else {
+        await repository.send(thread.id, prompt.trim(), date || undefined, referencedDraft);
+      }
       setPrompt('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'メッセージを送信できませんでした。');
     } finally {
       inputJump.current = true;
-      await Promise.all([refreshConversation(current.id).catch(() => undefined), refreshUsage()]);
+      await Promise.all([
+        thread && refreshConversation(thread.id).catch(() => undefined),
+        refreshUsage(),
+      ]);
       lock.current = false;
       setPending(false);
     }
@@ -190,9 +220,10 @@ export function ChatScreen({
     return () => cancelAnimationFrame(frame);
   }, [conversation]);
 
-  const composer = current ? (
+  const composer = (
     <View style={styles.composer}>
       {referencedDraft ? <Text style={styles.small}>下書きの最新版について相談中</Text> : null}
+      {activeFocus ? <Text style={styles.small}>相談の対象　{activeFocus.title}</Text> : null}
       <FormField label="相談内容">
         <FormInput
           multiline
@@ -222,7 +253,7 @@ export function ChatScreen({
         />
       </View>
     </View>
-  ) : undefined;
+  );
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -249,7 +280,7 @@ export function ChatScreen({
             {usage.configured
               ? `残り推定 $${(usage.remainingMicros / 1_000_000).toFixed(3)} / $0.50（UTC月ごと）`
               : 'AIは未設定です。'}
-            {'\n'}実際のOpenAI請求額を保証する上限ではありません。
+            {usage.configured ? '\n請求額はOpenAI側で確認してください。' : ''}
           </Text>
         ) : usageFailed ? (
           <View>

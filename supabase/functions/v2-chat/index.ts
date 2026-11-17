@@ -9,6 +9,12 @@ const asList = (value: unknown) => (Array.isArray(value) ? value.map(asObject) :
 const string = (value: unknown) => (typeof value === 'string' ? value : '');
 const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+function validMinutes(value: unknown) {
+  return (
+    value === null ||
+    (typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 1440)
+  );
+}
 const headers = { 'cache-control': 'no-store' };
 const response = (data: unknown, status = 200) => Response.json(data, { status, headers });
 const fail = (code: string, status: number) => response({ code }, status);
@@ -114,15 +120,22 @@ export function createChatHandler({
     const prompt = string(body.prompt).trim();
     const date = string(body.date);
     const draftId = string(body.draftId);
+    const focus = asObject(body.focus);
+    const focusId = string(focus.id);
+    const focusKind = string(focus.kind);
     if (
       !uuid.test(thread) ||
       !prompt ||
       prompt.length > 1000 ||
       (date && !datePattern.test(date)) ||
-      (draftId && !uuid.test(draftId))
+      (draftId && !uuid.test(draftId)) ||
+      (body.focus !== undefined && (!uuid.test(focusId) || !['task', 'goal'].includes(focusKind)))
     )
       return fail('REQUEST', 400);
 
+    const goalSelect = 'select=id,title,priority,deadline,updated_at&status=eq.active';
+    const taskSelect =
+      'select=id,title,priority,deadline,deadline_local,estimated_minutes,updated_at&status=not.in.(completed,skipped)';
     const context = await (async () => {
       const [threadRows, messages, drafts, goals, tasks, profile, day] = await Promise.all([
         db(`/rest/v1/v2_threads?select=id&id=eq.${thread}`),
@@ -134,12 +147,16 @@ export function createChatHandler({
               `/rest/v1/v2_drafts?select=items&id=eq.${draftId}&thread_id=eq.${thread}&approved_at=is.null`,
             )
           : [],
-        db(
-          '/rest/v1/goals?select=id,title,priority,deadline,updated_at&status=eq.active&order=updated_at.desc&limit=12',
-        ),
-        db(
-          '/rest/v1/tasks?select=id,title,priority,deadline,deadline_local,estimated_minutes,updated_at&status=neq.completed&order=updated_at.desc&limit=16',
-        ),
+        focusId
+          ? focusKind === 'goal'
+            ? db(`/rest/v1/goals?${goalSelect}&id=eq.${focusId}`)
+            : []
+          : db(`/rest/v1/goals?${goalSelect}&order=updated_at.desc&limit=12`),
+        focusId
+          ? focusKind === 'task'
+            ? db(`/rest/v1/tasks?${taskSelect}&id=eq.${focusId}`)
+            : []
+          : db(`/rest/v1/tasks?${taskSelect}&order=updated_at.desc&limit=16`),
         db('/rest/v1/profiles?select=timezone&limit=1'),
         date ? db(`/rest/v1/v2_plans?select=state&plan_date=eq.${date}`) : [],
       ]);
@@ -156,12 +173,43 @@ export function createChatHandler({
         const find = (name: string) => parts.find((part) => part.type === name)?.value;
         return `${find('year')}-${find('month')}-${find('day')}`;
       };
+      if (focusId && asList(focusKind === 'task' ? tasks : goals).length !== 1)
+        throw new UpstreamError(403, 'CONTEXT');
+      const draftItems = asList(asList(drafts)[0]?.items).slice(0, 8);
+      const taskParents = [
+        ...new Set(
+          draftItems
+            .filter((item) => item.kind === 'step')
+            .map((item) => string(item.taskId))
+            .filter((id) => uuid.test(id)),
+        ),
+      ];
+      const goalParents = [
+        ...new Set(draftItems.map((item) => string(item.goalId)).filter((id) => uuid.test(id))),
+      ];
+      const [draftTasks, draftGoals] = await Promise.all([
+        !focusId && taskParents.length
+          ? db(`/rest/v1/tasks?${taskSelect}&id=in.(${taskParents.join(',')})`)
+          : [],
+        !focusId && goalParents.length
+          ? db(`/rest/v1/goals?${goalSelect}&id=in.(${goalParents.join(',')})`)
+          : [],
+      ]);
       const relevant = (rows: unknown, max: number) =>
         asList(rows)
-          .filter((row) => string(row.title).trim() && prompt.includes(string(row.title).trim()))
+          .filter(
+            (row) =>
+              row.id === focusId ||
+              (string(row.title).trim() && prompt.includes(string(row.title).trim())),
+          )
           .slice(0, max);
-      const goalRows = relevant(goals, 4);
-      const taskRows = relevant(tasks, 5).map((row): RecordValue => ({
+      const includeParents = (rows: RecordValue[], parents: unknown) =>
+        [...new Map([...asList(parents), ...rows].map((row) => [row.id, row])).values()].slice(
+          0,
+          8,
+        );
+      const goalRows = includeParents(relevant(goals, 4), draftGoals);
+      const taskRows = includeParents(relevant(tasks, 5), draftTasks).map((row): RecordValue => ({
         id: row.id,
         title: row.title,
         priority: row.priority,
@@ -179,30 +227,32 @@ export function createChatHandler({
         tasks: taskRows,
         date,
         timezone,
+        focus: focusId ? { kind: focusKind, id: focusId } : null,
         messages: asList(messages)
           .reverse()
           .map((row) => ({ role: row.role, body: string(row.body).slice(0, 500) })),
-        draft: asList(asList(drafts)[0]?.items)
-          .slice(0, 8)
-          .map((item) => ({
-            key: string(item.key).slice(0, 40),
-            kind: item.kind,
-            title: string(item.title).slice(0, 200),
-            priority: item.priority,
-            deadline: item.deadline,
-            minutes: item.minutes,
-            goalKey: item.goalKey,
-            targetId: item.targetId,
-            date: item.date,
-            taskId: item.taskId,
-          })),
+        draft: draftItems.map((item) => ({
+          key: string(item.key).slice(0, 40),
+          kind: item.kind,
+          title: string(item.title).slice(0, 200),
+          priority: item.priority,
+          deadline: item.deadline,
+          minutes: item.minutes,
+          goalKey: item.goalKey,
+          goalId: item.goalId,
+          targetId: item.targetId,
+          date: item.date,
+          taskId: item.taskId,
+          reason: item.reason,
+        })),
         sessions: states,
       };
     })().catch((error: unknown) => error);
     if (context instanceof Error)
       return fail('CONTEXT', context instanceof UpstreamError ? context.status : 503);
     const system =
-      'あなたは日本語の計画相談アシスタントです。会話と文脈を参照し、外部操作は行わない。JSONのみ返す。形式: {"reply":"回答","items":[{"key":"短い一意のID","kind":"goal または task","title":"名称","priority":"low/medium/high","deadline":null,"minutes":30,"goalKey":null,"targetId":null}]}. 提案不要なら items は空。期限はYYYY-MM-DDまたはnull。更新対象は文脈にある実IDのみ。Taskを新しいGoalへ紐付ける時はgoalKeyで参照。計画の生成や調整は kind=plan、title、date（指定された日）、targetId（文脈のTask ID、全体の調整なら null）で提案し、回答にも説明を含める。';
+      'あなたは日本語の計画相談アシスタントです。会話と文脈を参照し、外部操作は行わない。JSONのみ返す。形式: {"reply":"回答","items":[{"key":"短い一意のID","kind":"goal または task","title":"名称","priority":"low/medium/high","deadline":null,"minutes":30,"goalKey":null,"targetId":null}]}. 提案不要なら items は空。期限はYYYY-MM-DDまたはnull。更新対象は文脈にある実IDのみ。Taskを新しいGoalへ紐付ける時はgoalKeyで参照。計画の生成や調整は kind=plan、title、date（指定された日）、targetId（文脈のTask ID、全体の調整なら null）で提案し、回答にも説明を含める。' +
+      '小さな行動を依頼された場合は3〜5件の具体的ですぐ着手できる候補を提案する。文脈の既存Taskの下には kind=step、taskId、title、minutes、reason（短い理由）。文脈の既存Goalの下には kind=task、goalId、title、minutes、reason。見積もれないminutesはnull。focusがある場合は指定されたTaskかGoalに紐づく候補だけにする。';
     const input = JSON.stringify({ prompt, context });
     const bytes = new TextEncoder().encode(system + input).length + 1024;
     if (bytes > 24_000) return fail('CONTEXT_SIZE', 400);
@@ -259,35 +309,59 @@ export function createChatHandler({
           .map((entry) => string(entry.text))
           .join('');
         const decoded = asObject(JSON.parse(content));
-        const raw = asList(decoded.items).slice(0, 8);
+        const raw = asList(decoded.items).slice(0, focusId ? 5 : 8);
         const sources = asObject(context);
         const seen = new Set<string>();
         items = raw.flatMap((item): RecordValue[] => {
           const key = string(item.key);
           const title = string(item.title).trim().slice(0, 200);
           const kind = item.kind;
+          if (!/^[a-zA-Z0-9_-]{1,40}$/.test(key) || seen.has(key) || !title) return [];
+          if (focusKind === 'task' && kind !== 'step') return [];
+          if (focusKind === 'goal' && kind !== 'task') return [];
+          const reason = string(item.reason).trim().slice(0, 200) || null;
+          const minutes = item.minutes == null ? null : item.minutes;
+          if (kind === 'step') {
+            const taskId = focusKind === 'task' ? focusId : string(item.taskId);
+            const parent = asList(sources.tasks).find((row) => row.id === taskId);
+            if (!parent || !validMinutes(minutes)) return [];
+            seen.add(key);
+            return [
+              {
+                key,
+                kind,
+                title,
+                minutes,
+                reason,
+                taskId,
+                parentTitle: parent.title,
+                parentUpdatedAt: parent.updated_at,
+              },
+            ];
+          }
           if (kind === 'plan') {
             const taskId = string(item.targetId);
             if (
               !date ||
               string(item.date) !== date ||
-              !title ||
-              !/^[a-zA-Z0-9_-]{1,40}$/.test(key) ||
-              seen.has(key) ||
               (taskId && !asList(sources.tasks).some((row) => row.id === taskId))
             )
               return [];
             seen.add(key);
             return [{ key, kind, title, date, taskId: taskId || null }];
           }
-          if (
-            !/^[a-zA-Z0-9_-]{1,40}$/.test(key) ||
-            seen.has(key) ||
-            !title ||
-            (kind !== 'goal' && kind !== 'task')
-          )
-            return [];
-          const targetId = string(item.targetId);
+          if (kind !== 'goal' && kind !== 'task') return [];
+          const targetId = focusKind === 'goal' ? '' : string(item.targetId);
+          const goalId =
+            kind === 'task' && !targetId
+              ? focusKind === 'goal'
+                ? focusId
+                : string(item.goalId)
+              : '';
+          const parent = goalId
+            ? asList(sources.goals).find((row) => row.id === goalId)
+            : undefined;
+          if (goalId && !parent) return [];
           const prior = asList(kind === 'goal' ? sources.goals : sources.tasks).find(
             (row) => row.id === targetId,
           );
@@ -300,9 +374,7 @@ export function createChatHandler({
               new Date(deadline).toISOString().slice(0, 10) !== deadline)
           )
             return [];
-          const minutes = Number(item.minutes);
-          if (kind === 'task' && (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440))
-            return [];
+          if (kind === 'task' && !validMinutes(minutes)) return [];
           seen.add(key);
           return [
             {
@@ -314,7 +386,11 @@ export function createChatHandler({
                 ? item.priority
                 : 'medium',
               minutes: kind === 'task' ? minutes : null,
-              goalKey: kind === 'task' ? string(item.goalKey) || null : null,
+              goalKey: kind === 'task' && !goalId ? string(item.goalKey) || null : null,
+              goalId: goalId || null,
+              parentTitle: parent?.title ?? null,
+              parentUpdatedAt: parent?.updated_at ?? null,
+              reason,
               targetId: targetId || null,
               before: prior ?? null,
               expectedUpdatedAt: prior?.updated_at ?? null,
