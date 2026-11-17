@@ -1,4 +1,4 @@
-import { getLocalDate } from '@/features/today';
+import { addLocalDays, getLocalDate } from '@/features/today';
 import { Notice } from '@/shared/components/Notice';
 import { useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -17,11 +17,15 @@ import { TaskStatePanel } from './components/TaskStatePanel';
 import { TASK_FILTERS } from './filters';
 import { matchesTaskFilter, toTaskSummary } from './presentation';
 import type { CreateTaskInput, Task, TaskRepository } from './repositories/TaskRepository';
-import type { TaskFilterId } from './types';
+import type { TaskFilter, TaskFilterId } from './types';
 import { useTasks } from './useTasks';
 
 type TasksScreenProps = {
   intro?: ReactNode;
+  recommendationMode?: boolean;
+  initialFilter?: TaskFilterId;
+  onOpenSteps?: (taskId: string) => void;
+  onOpenGoals?: () => void;
   planningTimezone?: string;
   onReplanTask?: (taskId: string, date: string) => void;
   now?: Date;
@@ -29,8 +33,20 @@ type TasksScreenProps = {
   repository: TaskRepository | null;
 };
 
+const recommendationFilters: readonly TaskFilter[] = [
+  { id: 'open', label: '未完了' },
+  { id: 'near', label: '期限が近い' },
+  { id: 'recurring', label: '繰り返し' },
+  { id: 'overdue', label: '期限切れ' },
+  { id: 'all', label: 'すべて' },
+];
+
 export function TasksScreen({
   intro,
+  recommendationMode = false,
+  initialFilter,
+  onOpenSteps,
+  onOpenGoals,
   now,
   planningTimezone,
   onReplanTask,
@@ -54,11 +70,31 @@ export function TasksScreen({
     updateTask,
   } = useTasks(repository, refreshToken);
   const [mountedAt] = useState(() => new Date());
-  const [activeFilter, setActiveFilter] = useState<TaskFilterId>('all');
+  const [activeFilter, setActiveFilter] = useState<TaskFilterId>(
+    initialFilter ?? (recommendationMode ? 'open' : 'all'),
+  );
   const [editingTask, setEditingTask] = useState<Task | null | undefined>(undefined);
+  const today = planningTimezone ? getLocalDate(now ?? mountedAt, planningTimezone) : undefined;
   const visibleTasks = useMemo(
-    () => tasks.filter((task) => matchesTaskFilter(task, activeFilter, now)),
-    [activeFilter, tasks, now],
+    () =>
+      tasks.filter((task) => {
+        if (!recommendationMode || activeFilter === 'all')
+          return matchesTaskFilter(task, activeFilter, now);
+        if (task.status === 'completed' || task.status === 'skipped') return false;
+        if (activeFilter === 'open') return true;
+        if (activeFilter === 'recurring')
+          return Boolean(task.recurrence && task.recurrence.kind !== 'once');
+        const deadline =
+          task.localDeadline ??
+          (task.deadline && planningTimezone
+            ? getLocalDate(task.deadline, planningTimezone)
+            : null);
+        if (!deadline || !today) return false;
+        if (activeFilter === 'overdue')
+          return (task.recurrence?.kind ?? 'once') === 'once' && deadline < today;
+        return deadline >= today && deadline <= addLocalDays(today, 7);
+      }),
+    [tasks, activeFilter, recommendationMode, now, planningTimezone, today],
   );
   const isMutating = pendingMutation !== null;
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
@@ -108,7 +144,7 @@ export function TasksScreen({
             <ActionButton
               accessibilityLabel="新しいタスクを作成する"
               disabled={isMutating}
-              label={planningTimezone ? 'タスクを追加' : '＋ 追加'}
+              label={planningTimezone || recommendationMode ? 'タスクを追加' : '＋ 追加'}
               onPress={openCreateForm}
               style={styles.addButton}
               variant="primary"
@@ -118,7 +154,14 @@ export function TasksScreen({
       />
 
       {intro}
-      <TaskFilters activeFilter={activeFilter} filters={TASK_FILTERS} onChange={setActiveFilter} />
+      {onOpenGoals ? (
+        <ActionButton label="目標を見る" variant="secondary" onPress={onOpenGoals} />
+      ) : null}
+      <TaskFilters
+        activeFilter={activeFilter}
+        filters={recommendationMode ? recommendationFilters : TASK_FILTERS}
+        onChange={setActiveFilter}
+      />
 
       <GoalOptionsNotice
         isLoading={isLoadingGoalOptions}
@@ -143,7 +186,11 @@ export function TasksScreen({
         />
       ) : tasks.length === 0 ? (
         <TaskStatePanel
-          message="「タスクを追加」から、取り組む行動と所要時間を登録しましょう。登録したタスクはPlannerで計画にできます。"
+          message={
+            recommendationMode
+              ? '「タスクを追加」から、取り組みたいことを名前だけで登録できます。'
+              : '「タスクを追加」から、取り組む行動と所要時間を登録しましょう。登録したタスクはPlannerで計画にできます。'
+          }
           testID="tasks-empty-state"
           title="まだタスクがありません"
         />
@@ -156,29 +203,34 @@ export function TasksScreen({
       ) : (
         <View style={styles.list}>
           {visibleTasks.map((task, index) => {
-            const today = planningTimezone
-              ? getLocalDate(now ?? mountedAt, planningTimezone)
-              : undefined;
             const deadline =
               task.localDeadline ??
               (task.deadline && planningTimezone
                 ? getLocalDate(task.deadline, planningTimezone)
                 : null);
             const overdue =
-              task.status !== 'completed' && Boolean(today && deadline && deadline < today);
+              task.status !== 'completed' &&
+              Boolean(today && deadline && deadline < today) &&
+              (!recommendationMode || (task.recurrence?.kind ?? 'once') === 'once');
             return (
               <TaskListItem
                 disabled={isMutating}
-                compactActions={Boolean(planningTimezone)}
+                compactActions={recommendationMode || Boolean(planningTimezone)}
+                recommendationMode={recommendationMode}
                 isDeleting={pendingMutation === `delete:${task.id}`}
                 isLast={index === visibleTasks.length - 1}
                 key={task.id}
                 onDelete={() => confirmDelete(task)}
                 onEdit={() => openEditForm(task)}
-                task={toTaskSummary(task, goalOptions)}
+                task={toTaskSummary(
+                  recommendationMode ? { ...task, localDeadline: deadline } : task,
+                  goalOptions,
+                )}
                 overdue={overdue}
                 onComplete={
-                  planningTimezone && task.status !== 'completed'
+                  (planningTimezone || recommendationMode) &&
+                  task.status !== 'completed' &&
+                  (!recommendationMode || (task.recurrence?.kind ?? 'once') === 'once')
                     ? () => void updateTask(task.id, { status: 'completed' })
                     : undefined
                 }
@@ -207,6 +259,15 @@ export function TasksScreen({
           onSubmit={saveTask}
           task={editingTask}
           planningTimezone={planningTimezone}
+          recommendationMode={recommendationMode}
+          onOpenSteps={
+            editingTask && onOpenSteps
+              ? () => {
+                  setEditingTask(undefined);
+                  onOpenSteps(editingTask.id);
+                }
+              : undefined
+          }
         />
       ) : null}
     </AppScreen>

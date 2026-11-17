@@ -32,6 +32,8 @@ type TaskFormModalProps = {
   onSubmit: (input: CreateTaskInput) => Promise<boolean>;
   task: Task | null;
   planningTimezone?: string;
+  recommendationMode?: boolean;
+  onOpenSteps?: () => void;
 };
 
 export function TaskFormModal({
@@ -45,6 +47,8 @@ export function TaskFormModal({
   onSubmit,
   task,
   planningTimezone,
+  recommendationMode = false,
+  onOpenSteps,
 }: TaskFormModalProps) {
   const [values, setValues] = useState<TaskFormValues>(() =>
     createTaskFormValues(
@@ -54,12 +58,14 @@ export function TaskFormModal({
             localDeadline: task.localDeadline ?? getLocalDate(task.deadline, planningTimezone),
           }
         : (task ?? undefined),
+      recommendationMode,
     ),
   );
   const [recurrence, setRecurrence] = useState<Recurrence>(task?.recurrence?.kind ?? 'once');
   const [weekdays, setWeekdays] = useState(task?.recurrence?.weekdays ?? []);
   const [recurrenceError, setRecurrenceError] = useState('');
   const usesWeekdays = recurrence === 'weekdays' || recurrence === 'weekly';
+  const [showDetails, setShowDetails] = useState(!recommendationMode || task !== null);
   const [showGoalOptions, setShowGoalOptions] = useState(false);
   const initialDeadline = useRef(values.deadline);
   const [fieldErrors, setFieldErrors] = useState<TaskFormErrors>({});
@@ -80,27 +86,34 @@ export function TaskFormModal({
     if (isSubmitting || submitLock.current) return;
 
     const allowedGoalIds = new Set(displayedGoalOptions.map((goal) => goal.id));
-    const validation = validateTaskForm(values, allowedGoalIds);
+    const validation = validateTaskForm(
+      values,
+      allowedGoalIds,
+      recommendationMode || task?.estimatedMinutes === null,
+    );
 
     if (!validation.input) {
       setFieldErrors(validation.errors);
       return;
     }
 
-    if (planningTimezone && usesWeekdays && weekdays.length === 0) {
+    if ((planningTimezone || recommendationMode) && usesWeekdays && weekdays.length === 0) {
       setRecurrenceError('曜日を1日以上選んでください。');
       return;
     }
     submitLock.current = true;
 
     try {
-      if (planningTimezone) {
+      if (planningTimezone || recommendationMode) {
         const date = values.deadline.trim();
-        const deadline = date
-          ? new Date(
-              Date.parse(getUtcDayBounds(addLocalDays(date, 1), planningTimezone).startAt) - 1,
-            ).toISOString()
-          : null;
+        const deadline =
+          task && date === initialDeadline.current
+            ? task.deadline
+            : date && planningTimezone
+              ? new Date(
+                  Date.parse(getUtcDayBounds(addLocalDays(date, 1), planningTimezone).startAt) - 1,
+                ).toISOString()
+              : validation.input.deadline;
         await onSubmit({
           ...validation.input,
           deadline,
@@ -123,7 +136,9 @@ export function TaskFormModal({
   return (
     <ModalFrame
       title={isEditing ? 'タスクを編集' : '新しいタスク'}
-      description={planningTimezone ? undefined : '実行時間と関連するGoalを登録します。'}
+      description={
+        planningTimezone || recommendationMode ? undefined : '実行時間と関連するGoalを登録します。'
+      }
       onClose={onClose}
       closeLabel="タスクフォームを閉じる"
       closeDisabled={isSubmitting}
@@ -150,155 +165,188 @@ export function TaskFormModal({
         />
       </FormField>
 
-      <FormField error={fieldErrors.estimatedMinutes} label="所要時間（分・必須）">
-        <FormInput
-          accessibilityLabel="タスクの所要時間"
-          editable={!isSubmitting}
-          keyboardType="number-pad"
-          onChangeText={(value) => updateValue('estimatedMinutes', value)}
-          placeholder="30"
-          value={values.estimatedMinutes}
+      {onOpenSteps ? (
+        <ActionButton
+          label="小さな行動を見る・追加する"
+          variant="secondary"
+          disabled={isSubmitting}
+          onPress={onOpenSteps}
         />
-      </FormField>
-
-      <DeadlineField
-        accessibilityLabel="タスクの期限"
-        disabled={isSubmitting}
-        error={fieldErrors.deadline}
-        onChange={(value) => updateValue('deadline', value)}
-        value={values.deadline}
-      />
-
-      <OptionGroup
-        disabled={isSubmitting}
-        error={fieldErrors.priority}
-        label="優先度"
-        onChange={(value) => updateValue('priority', value)}
-        options={TASK_PRIORITIES}
-        selectedValue={values.priority}
-      />
-
-      <OptionGroup
-        disabled={isSubmitting}
-        error={fieldErrors.status}
-        label="状態"
-        onChange={(value) => updateValue('status', value)}
-        options={TASK_STATUSES}
-        selectedValue={values.status}
-      />
-
-      {planningTimezone ? (
+      ) : null}
+      {recommendationMode && !isEditing ? (
+        <ActionButton
+          label={showDetails ? '詳細設定を閉じる' : '詳細設定（任意）'}
+          expanded={showDetails}
+          disabled={isSubmitting}
+          onPress={() => setShowDetails(!showDetails)}
+          variant="ghost"
+        />
+      ) : null}
+      {showDetails ? (
         <>
-          <OptionGroup
-            label="繰り返し"
+          <FormField
+            error={fieldErrors.estimatedMinutes}
+            label={
+              recommendationMode || task?.estimatedMinutes === null
+                ? '所要時間（分・任意）'
+                : '所要時間（分・必須）'
+            }
+          >
+            <FormInput
+              accessibilityLabel="タスクの所要時間"
+              editable={!isSubmitting}
+              keyboardType="number-pad"
+              onChangeText={(value) => updateValue('estimatedMinutes', value)}
+              placeholder={recommendationMode ? '未設定' : '30'}
+              value={values.estimatedMinutes}
+            />
+          </FormField>
+
+          <DeadlineField
+            accessibilityLabel="タスクの期限"
             disabled={isSubmitting}
-            selectedValue={recurrence}
-            onChange={(value) => {
-              setRecurrence(value as Recurrence);
-              setRecurrenceError('');
-            }}
-            options={[
-              { value: 'once', label: '単発' },
-              { value: 'daily', label: '毎日' },
-              { value: 'weekdays', label: '曜日指定' },
-              { value: 'weekly', label: `週${weekdays.length || 'N'}回` },
-            ]}
+            error={fieldErrors.deadline}
+            onChange={(value) => updateValue('deadline', value)}
+            value={values.deadline}
           />
-          {usesWeekdays ? (
-            <FormField label="実行する曜日" error={recurrenceError}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-                {['月', '火', '水', '木', '金', '土', '日'].map((label, index) => {
-                  const day = index + 1;
-                  const checked = weekdays.includes(day);
-                  return (
-                    <Pressable
-                      key={day}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked }}
-                      disabled={isSubmitting}
-                      style={[styles.goalOption, checked && styles.selectedOption]}
-                      onPress={() => {
-                        setWeekdays(
-                          checked ? weekdays.filter((value) => value !== day) : [...weekdays, day],
-                        );
-                        setRecurrenceError('');
-                      }}
-                    >
-                      <Text style={styles.optionLabel}>{label}</Text>
-                    </Pressable>
-                  );
-                })}
+
+          <OptionGroup
+            disabled={isSubmitting}
+            error={fieldErrors.priority}
+            label="優先度"
+            onChange={(value) => updateValue('priority', value)}
+            options={TASK_PRIORITIES}
+            selectedValue={values.priority}
+          />
+
+          {!recommendationMode || isEditing ? (
+            <OptionGroup
+              disabled={isSubmitting}
+              error={fieldErrors.status}
+              label="状態"
+              onChange={(value) => updateValue('status', value)}
+              options={TASK_STATUSES}
+              selectedValue={values.status}
+            />
+          ) : null}
+
+          {planningTimezone || recommendationMode ? (
+            <>
+              <OptionGroup
+                label="繰り返し"
+                disabled={isSubmitting}
+                selectedValue={recurrence}
+                onChange={(value) => {
+                  setRecurrence(value as Recurrence);
+                  setRecurrenceError('');
+                }}
+                options={[
+                  { value: 'once', label: '単発' },
+                  { value: 'daily', label: '毎日' },
+                  { value: 'weekdays', label: '曜日指定' },
+                  { value: 'weekly', label: `週${weekdays.length || 'N'}回` },
+                ]}
+              />
+              {usesWeekdays ? (
+                <FormField label="実行する曜日" error={recurrenceError}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                    {['月', '火', '水', '木', '金', '土', '日'].map((label, index) => {
+                      const day = index + 1;
+                      const checked = weekdays.includes(day);
+                      return (
+                        <Pressable
+                          key={day}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked }}
+                          disabled={isSubmitting}
+                          style={[styles.goalOption, checked && styles.selectedOption]}
+                          onPress={() => {
+                            setWeekdays(
+                              checked
+                                ? weekdays.filter((value) => value !== day)
+                                : [...weekdays, day],
+                            );
+                            setRecurrenceError('');
+                          }}
+                        >
+                          <Text style={styles.optionLabel}>{label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </FormField>
+              ) : null}
+            </>
+          ) : null}
+          {planningTimezone || recommendationMode ? (
+            <ActionButton
+              label={
+                showGoalOptions
+                  ? 'Goalの候補を閉じる'
+                  : (displayedGoalOptions.find(({ id }) => id === values.goalId)?.title ??
+                    '関連するGoalを選ぶ（任意）')
+              }
+              accessibilityLabel="関連するGoalを選ぶ"
+              variant="secondary"
+              expanded={showGoalOptions}
+              disabled={isSubmitting}
+              onPress={() => setShowGoalOptions(!showGoalOptions)}
+            />
+          ) : null}
+          {(!planningTimezone && !recommendationMode) || showGoalOptions || fieldErrors.goalId ? (
+            <View style={styles.field}>
+              <Text style={styles.label}>関連するGoal（任意）</Text>
+              {isLoadingGoalOptions ? (
+                <Text accessibilityLiveRegion="polite" style={styles.helperText}>
+                  Goal候補を読み込んでいます。
+                </Text>
+              ) : null}
+              {goalOptionsError ? (
+                <View style={styles.goalErrorRow}>
+                  <Text accessibilityRole="alert" style={styles.goalErrorText}>
+                    {goalOptionsError}
+                  </Text>
+                  <Pressable
+                    accessibilityLabel="Goal候補を再読み込み"
+                    accessibilityRole="button"
+                    disabled={isSubmitting || isLoadingGoalOptions}
+                    onPress={onRetryGoalOptions}
+                    style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
+                  >
+                    <Text style={styles.retryLabel}>再読み込み</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              <View accessibilityRole="radiogroup" style={styles.goalOptions}>
+                <GoalOption
+                  disabled={isSubmitting}
+                  label="Goalなし"
+                  onPress={() => {
+                    updateValue('goalId', '');
+                    setShowGoalOptions(false);
+                  }}
+                  selected={!values.goalId}
+                />
+                {displayedGoalOptions.map((goal) => (
+                  <GoalOption
+                    disabled={isSubmitting}
+                    key={goal.id}
+                    label={goal.title}
+                    onPress={() => {
+                      updateValue('goalId', goal.id);
+                      setShowGoalOptions(false);
+                    }}
+                    selected={values.goalId === goal.id}
+                  />
+                ))}
               </View>
-            </FormField>
+              {fieldErrors.goalId ? (
+                <Text style={styles.fieldError}>{fieldErrors.goalId}</Text>
+              ) : null}
+            </View>
           ) : null}
         </>
       ) : null}
-      {planningTimezone ? (
-        <ActionButton
-          label={
-            showGoalOptions
-              ? 'Goalの候補を閉じる'
-              : (displayedGoalOptions.find(({ id }) => id === values.goalId)?.title ??
-                '関連するGoalを選ぶ（任意）')
-          }
-          accessibilityLabel="関連するGoalを選ぶ"
-          variant="secondary"
-          expanded={showGoalOptions}
-          disabled={isSubmitting}
-          onPress={() => setShowGoalOptions(!showGoalOptions)}
-        />
-      ) : null}
-      {!planningTimezone || showGoalOptions || fieldErrors.goalId ? (
-        <View style={styles.field}>
-          <Text style={styles.label}>関連するGoal（任意）</Text>
-          {isLoadingGoalOptions ? (
-            <Text accessibilityLiveRegion="polite" style={styles.helperText}>
-              Goal候補を読み込んでいます。
-            </Text>
-          ) : null}
-          {goalOptionsError ? (
-            <View style={styles.goalErrorRow}>
-              <Text accessibilityRole="alert" style={styles.goalErrorText}>
-                {goalOptionsError}
-              </Text>
-              <Pressable
-                accessibilityLabel="Goal候補を再読み込み"
-                accessibilityRole="button"
-                disabled={isSubmitting || isLoadingGoalOptions}
-                onPress={onRetryGoalOptions}
-                style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
-              >
-                <Text style={styles.retryLabel}>再読み込み</Text>
-              </Pressable>
-            </View>
-          ) : null}
-          <View accessibilityRole="radiogroup" style={styles.goalOptions}>
-            <GoalOption
-              disabled={isSubmitting}
-              label="Goalなし"
-              onPress={() => {
-                updateValue('goalId', '');
-                setShowGoalOptions(false);
-              }}
-              selected={!values.goalId}
-            />
-            {displayedGoalOptions.map((goal) => (
-              <GoalOption
-                disabled={isSubmitting}
-                key={goal.id}
-                label={goal.title}
-                onPress={() => {
-                  updateValue('goalId', goal.id);
-                  setShowGoalOptions(false);
-                }}
-                selected={values.goalId === goal.id}
-              />
-            ))}
-          </View>
-          {fieldErrors.goalId ? <Text style={styles.fieldError}>{fieldErrors.goalId}</Text> : null}
-        </View>
-      ) : null}
-
       {errorMessage ? <Notice tone="error" message={errorMessage} /> : null}
     </ModalFrame>
   );

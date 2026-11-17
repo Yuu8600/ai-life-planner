@@ -12,6 +12,7 @@ type TaskListItemProps = {
   isDeleting?: boolean;
   isLast?: boolean;
   overdue?: boolean;
+  recommendationMode?: boolean;
   onComplete?: () => void;
   onReplan?: () => void;
   onDelete: () => void;
@@ -23,6 +24,7 @@ export function TaskListItem({
   compactActions = false,
   isDeleting = false,
   overdue,
+  recommendationMode,
   onComplete,
   onReplan,
   onDelete,
@@ -112,7 +114,12 @@ export function TaskListItem({
           onDelete={onDelete}
         />
       </View>
-      {overdue ? <Badge label="期限切れ・自動配置を保留" tone="warning" /> : null}
+      {overdue ? (
+        <Badge
+          label={recommendationMode ? '期限を見直す' : '期限切れ・自動配置を保留'}
+          tone="warning"
+        />
+      ) : null}
       {(!compactActions && onComplete) || onReplan ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           {onComplete && !compactActions ? (

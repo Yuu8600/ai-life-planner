@@ -25,6 +25,7 @@ type GoalFormModalProps = {
   goal: Goal | null;
   isSubmitting: boolean;
   onClose: () => void;
+  onOpenAI?: () => void;
   onSubmit: (input: GoalFormInput) => Promise<boolean>;
 };
 
@@ -33,6 +34,7 @@ export function GoalFormModal({
   goal,
   isSubmitting,
   onClose,
+  onOpenAI,
   onSubmit,
 }: GoalFormModalProps) {
   const [values, setValues] = useState<GoalFormValues>(() =>
@@ -135,6 +137,14 @@ export function GoalFormModal({
         selectedValue={values.status}
       />
 
+      {onOpenAI ? (
+        <ActionButton
+          label="AIで小さな行動を考える"
+          variant="secondary"
+          disabled={isSubmitting}
+          onPress={onOpenAI}
+        />
+      ) : null}
       {errorMessage ? <Notice tone="error" message={errorMessage} /> : null}
     </ModalFrame>
   );

@@ -51,6 +51,7 @@ export function DailyPlanningScreen({
   initialDate,
   review,
   openSettings,
+  closeAdvanced,
   renderLegacyHistory,
   openDayPlan,
 }: {
@@ -60,6 +61,7 @@ export function DailyPlanningScreen({
   initialDate?: string;
   review?: string;
   openSettings: () => void;
+  closeAdvanced?: () => void;
   openDayPlan?: (date: string) => void;
   renderLegacyHistory?: (date: string) => ReactNode;
 }) {
@@ -274,7 +276,13 @@ export function DailyPlanningScreen({
     >
       <ScreenHeader
         title={mode === 'today' ? '今日の計画' : 'カレンダー'}
-        action={<ActionButton variant="ghost" label="設定" onPress={openSettings} />}
+        action={
+          closeAdvanced ? (
+            <ActionButton variant="ghost" label="戻る" onPress={closeAdvanced} />
+          ) : (
+            <ActionButton variant="ghost" label="設定" onPress={openSettings} />
+          )
+        }
       />
       {today ? (
         <View style={styles.row}>

@@ -16,6 +16,7 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
     taskId?: string;
     date?: string;
     review?: string;
+    plannerMode?: string;
   }>();
   const deps = useMemo(
     () =>
@@ -41,10 +42,10 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
   if (!deps) return null;
   return (
     <DailyPlanningScreen
-      key={`${userId}-${review ?? ''}-${mode === 'today' ? (date ?? '') : ''}`}
+      key={`${userId}-${mode}-${review ?? ''}-${date ?? ''}`}
       deps={deps}
       mode={mode}
-      initialDate={mode === 'today' ? date : undefined}
+      initialDate={date}
       review={mode === 'today' ? review : undefined}
       initialTaskId={mode === 'today' && typeof taskId === 'string' ? taskId : undefined}
       renderLegacyHistory={
@@ -52,18 +53,17 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
       }
       openDayPlan={(day) =>
         router.navigate({
-          pathname: '/today',
-          params: { date: day, taskId: undefined, review: undefined },
+          pathname: '/advanced-planner',
+          params: { date: day, taskId: undefined, review: undefined, plannerMode: undefined },
         })
       }
       openSettings={() => router.push('/settings')}
+      closeAdvanced={() => (router.canGoBack() ? router.back() : router.replace('/today'))}
     />
   );
 }
 
-export function TodayRoute() {
-  return <DailyRoute mode="today" />;
-}
-export function CalendarRoute() {
-  return <DailyRoute mode="calendar" />;
+export default function AdvancedPlannerRoute() {
+  const { plannerMode } = useLocalSearchParams<{ plannerMode?: string }>();
+  return <DailyRoute mode={plannerMode === 'calendar' ? 'calendar' : 'today'} />;
 }

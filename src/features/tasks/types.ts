@@ -18,4 +18,5 @@ export type TaskFilter = {
   label: string;
 };
 
-export type TaskFilterId = 'all' | 'today' | 'unscheduled';
+export type TaskFilterId =
+  'all' | 'today' | 'unscheduled' | 'open' | 'near' | 'recurring' | 'overdue';

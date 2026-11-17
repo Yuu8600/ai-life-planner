@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
@@ -18,11 +18,13 @@ export function EventEditor({
   timezone,
   close,
   save,
+  fixedOnly = false,
 }: {
   date: string;
   timezone: string;
   close: () => void;
   save: (event: LocalEvent) => Promise<void>;
+  fixedOnly?: boolean;
 }) {
   const [kind, setKind] = useState<'fixed' | 'flexible'>('fixed');
   const [title, setTitle] = useState('');
@@ -33,7 +35,10 @@ export function EventEditor({
   const [after, setAfter] = useState('0');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const lock = useRef(false);
   async function submit() {
+    if (lock.current) return;
+    lock.current = true;
     setPending(true);
     setError('');
     try {
@@ -58,6 +63,7 @@ export function EventEditor({
     } catch (e) {
       setError(e instanceof Error ? e.message : '予定を保存できませんでした。');
     } finally {
+      lock.current = false;
       setPending(false);
     }
   }
@@ -68,16 +74,18 @@ export function EventEditor({
       closeDisabled={pending}
       footer={<ActionButton label="予定を保存" loading={pending} onPress={() => void submit()} />}
     >
-      <OptionGroup
-        label="予定の種類"
-        options={[
-          { label: '固定予定', value: 'fixed' },
-          { label: '柔軟な生活予定', value: 'flexible' },
-        ]}
-        selectedValue={kind}
-        disabled={pending}
-        onChange={(value) => setKind(value === 'fixed' ? 'fixed' : 'flexible')}
-      />
+      {!fixedOnly ? (
+        <OptionGroup
+          label="予定の種類"
+          options={[
+            { label: '固定予定', value: 'fixed' },
+            { label: '柔軟な生活予定', value: 'flexible' },
+          ]}
+          selectedValue={kind}
+          disabled={pending}
+          onChange={(value) => setKind(value === 'fixed' ? 'fixed' : 'flexible')}
+        />
+      ) : null}
       <FormField label="予定名">
         <FormInput maxLength={200} value={title} onChangeText={setTitle} />
       </FormField>
@@ -87,7 +95,7 @@ export function EventEditor({
       <FormField label="終了（HH:MM）">
         <FormInput placeholder="13:00" value={to} onChangeText={setTo} />
       </FormField>
-      {kind === 'fixed' ? (
+      {fixedOnly ? null : kind === 'fixed' ? (
         <>
           <FormField label="前の移動時間（分）">
             <FormInput keyboardType="number-pad" value={before} onChangeText={setBefore} />

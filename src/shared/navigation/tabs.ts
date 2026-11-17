@@ -9,10 +9,14 @@ export const TAB_CONFIG = {
 export const SIDEBAR_MIN_WIDTH = 1024;
 export const TAB_LABEL_SIZE = 12;
 
-export function getBottomTabLayout(availableWidth: number, fontScale: number) {
-  const labelWidth = availableWidth / Object.keys(TAB_CONFIG).length - 10;
+export function getBottomTabLayout(
+  availableWidth: number,
+  fontScale: number,
+  tabCount = Object.keys(TAB_CONFIG).length,
+) {
+  const labelWidth = availableWidth / tabCount - 10;
   const charactersPerLine = Math.max(1, Math.floor(labelWidth / (TAB_LABEL_SIZE * fontScale)));
-  const lines = Math.ceil(3 / charactersPerLine);
+  const lines = Math.ceil((tabCount === 4 ? 4 : 3) / charactersPerLine);
   // Keep the accessible name and Large Content Viewer when the labels would
   // take more space than a compact bar can offer at the largest text sizes.
   const showLabels = fontScale <= 2.6 || lines === 1;

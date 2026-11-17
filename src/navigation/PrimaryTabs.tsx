@@ -28,7 +28,9 @@ const icons = {
   ai: require('../../assets/navigation/ai.png'),
 };
 
-const routes = Object.keys(TAB_CONFIG) as (keyof typeof TAB_CONFIG)[];
+const demoRoutes = Object.keys(TAB_CONFIG) as (keyof typeof TAB_CONFIG)[];
+
+const nativeRoutes = ['today', 'tasks', 'calendar', 'ai'] as const;
 
 function subscribeToWidth(notify: () => void) {
   const subscription = Dimensions.addEventListener('change', notify);
@@ -57,7 +59,11 @@ export default function PrimaryTabs() {
   const insets = useSafeAreaInsets();
   const web = Platform.OS === 'web';
   const sidebar = useSyncExternalStore(subscribeToWidth, usesSidebar, usesSidebarOnServer);
-  const bottom = getBottomTabLayout(width - 2 * Math.max(insets.left, insets.right), fontScale);
+  const bottom = getBottomTabLayout(
+    width - 2 * Math.max(insets.left, insets.right),
+    fontScale,
+    web ? demoRoutes.length : nativeRoutes.length,
+  );
 
   return (
     <Tabs
@@ -83,34 +89,41 @@ export default function PrimaryTabs() {
         tabBarButton: (props) => <TabButton {...props} />,
       }}
     >
-      {routes.map((name) => (
-        <Tabs.Screen
-          key={name}
-          name={name}
-          options={{
-            title: TAB_CONFIG[name].title,
-            tabBarAccessibilityLabel: TAB_CONFIG[name].accessibilityLabel,
-            tabBarButtonTestID: `primary-tab-${name}`,
-            tabBarLabel: ({ color }) => (
-              <Text
-                key={fontScale}
-                style={[styles.label, sidebar ? styles.sideLabel : styles.bottomLabel, { color }]}
-              >
-                {TAB_CONFIG[name].title}
-              </Text>
-            ),
-            tabBarIcon: ({ color, focused }) => (
-              <View style={[styles.iconFrame, focused && styles.selectedIcon]}>
-                <Image
-                  source={icons[name]}
-                  resizeMode="contain"
-                  style={[styles.icon, { tintColor: color }]}
-                />
-              </View>
-            ),
-          }}
-        />
-      ))}
+      {(web ? demoRoutes : nativeRoutes).map((name) => {
+        const tab =
+          !web && name === 'ai'
+            ? { title: 'AI相談', accessibilityLabel: 'AI相談タブ' }
+            : TAB_CONFIG[name];
+        return (
+          <Tabs.Screen
+            key={name}
+            name={name}
+            options={{
+              title: tab.title,
+              tabBarAccessibilityLabel: tab.accessibilityLabel,
+              tabBarButtonTestID: `primary-tab-${name}`,
+              tabBarLabel: ({ color }) => (
+                <Text
+                  key={fontScale}
+                  style={[styles.label, sidebar ? styles.sideLabel : styles.bottomLabel, { color }]}
+                >
+                  {tab.title}
+                </Text>
+              ),
+              tabBarIcon: ({ color, focused }) => (
+                <View style={[styles.iconFrame, focused && styles.selectedIcon]}>
+                  <Image
+                    source={icons[name]}
+                    resizeMode="contain"
+                    style={[styles.icon, { tintColor: color }]}
+                  />
+                </View>
+              ),
+            }}
+          />
+        );
+      })}
+      {!web ? <Tabs.Screen name="goals" options={{ href: null, title: '目標' }} /> : null}
     </Tabs>
   );
 }

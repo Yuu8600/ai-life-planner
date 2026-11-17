@@ -11,6 +11,7 @@ const mockTasksScreen = jest.fn(({ repository }: { repository: unknown }) => (
 
 jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
+  useLocalSearchParams: () => ({}),
   useRouter: () => ({ navigate: jest.fn() }),
 }));
 
@@ -27,7 +28,9 @@ jest.mock('@/services/supabase/repositories/SupabaseTaskRepository', () => ({
 }));
 
 jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => ({
-  createSupabaseSettingsRepository: jest.fn(() => ({ getProfilePlanningSettings: jest.fn() })),
+  createSupabaseSettingsRepository: jest.fn(() => ({
+    getProfilePlanningSettings: jest.fn().mockResolvedValue({ timezone: 'Asia/Tokyo' }),
+  })),
 }));
 
 beforeEach(() => {
@@ -40,7 +43,7 @@ describe('Tasks route composition', () => {
 
     const screen = await render(<TasksRoute />);
 
-    expect(screen.getByTestId('tasks-route-probe').props.children).toBe('without-repository');
+    expect(screen.toJSON()).toBeNull();
     expect(mockCreateRepository).not.toHaveBeenCalled();
   });
 

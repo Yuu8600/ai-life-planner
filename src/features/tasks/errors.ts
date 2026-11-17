@@ -27,6 +27,9 @@ export function getTaskErrorMessage(error: unknown): string {
     return '入力内容がタスクの登録条件を満たしていません。';
   }
 
+  if (['PGRST301', 'PGRST302', 'PGRST303', '28P01'].includes(code)) {
+    return '認証を確認できません。設定からログインし直してください。';
+  }
   if (code === '42501') {
     return 'このタスクを操作する権限がありません。再度ログインしてください。';
   }

@@ -29,3 +29,6 @@ export type {
   CalendarEventBufferOverride,
   CalendarEventBufferRepository,
 } from './eventBuffers';
+
+export { DayAgenda } from './DayAgenda';
+export type { FixedEventRepository } from './FixedEventRepository';
