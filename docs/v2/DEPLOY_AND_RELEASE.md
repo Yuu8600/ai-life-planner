@@ -49,6 +49,25 @@ npx supabase functions deploy v2-chat --project-ref "$V2_PROJECT_REF"
 
 開発ビルドの `.env` にテスト用の `EXPO_PUBLIC_SUPABASE_URL` と `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` を指定する。テストアカウントでGoals・Tasks・カレンダー・作業枠を確認する。別アカウントでもデータが分離されることを確認する。
 
+#### MacのQA専用シミュレータで計画が読み込めないとき
+
+「今日」と「予定」が両方失敗する場合は、QA用アプリの接続先を確認する。このMacのQA専用ローカルSupabaseは `http://127.0.0.1:55321`。開発用ビルドも同じアプリIDを使うため、同じシミュレータで `npm run ios` を実行すると、インストール済みのQAビルドが置き換わる。QA環境を使うときはローカル専用バンドルを入れたビルドから起動する。
+
+このMacに検証済みのビルドが残っている場合は、次の手順で復旧できる。QA専用端末を起動してから実行する。
+
+```sh
+qa="$(cat /tmp/ai-life-planner-v2-qa-simulator)" &&
+  test "$qa" = 9B2D577C-DD2A-4867-9A90-BC958CDC4B7A &&
+  qa_build="$(cat /tmp/ai-life-planner-v2-plan-fix-dir)" &&
+  test -f "$qa_build/AILifePlanner.app/main.jsbundle" &&
+  xcrun simctl install "$qa" "$qa_build/AILifePlanner.app" &&
+  xcrun simctl launch --terminate-running-process "$qa" com.uyu.ailifeplanner
+```
+
+一時ファイルが消えている場合は、ローカルSupabaseのURLと公開キーを明示してiOSバンドルを再生成する。Expoのenv自動読み込みを `EXPO_NO_DOTENV=1` で無効にし、Metroキャッシュをリセットする。インストール前にバンドルにローカルURLが入っていることを確認する。上書きインストールでアプリデータは保持される。
+
+両タブのエラーを調べる場合は、実行ログの `[V2 planning]` と処理名・コードを確認する。`plan.source` は計画RPC、`calendar.permission` は端末権限、`calendar.read` はiPhone予定取得の失敗を示す。
+
 ### 3. AIを使う場合だけSecretsを設定する
 
 Supabase Dashboardで対象プロジェクトの **Edge Functions → Secrets** を開き、以下を登録する。CLIを使う場合は値をリポジトリ外の非公開envファイルに入れ、`npx supabase secrets set --project-ref "$V2_PROJECT_REF" --env-file /path/to/private-v2.env` を実行する。APIキーは `.env` や `EXPO_PUBLIC_` 変数に入れない。

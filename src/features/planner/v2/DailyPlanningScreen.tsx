@@ -33,6 +33,7 @@ import {
   timelineWindow,
   type TimelineEntry,
 } from './timelineEntries';
+import { reportPlanningIssue } from './planningDiagnostics';
 import { WorkSessionDetails } from './WorkSessionDetails';
 import type { PlanChange, WorkSession } from './types';
 
@@ -74,6 +75,7 @@ export function DailyPlanningScreen({
   const [limitedDate, setLimitedDate] = useState<string>();
   const [refresh, setRefresh] = useState(0);
   const [error, setError] = useState('');
+  const [calendarPermissionError, setCalendarPermissionError] = useState('');
   const [pending, setPending] = useState(false);
   const [preview, setPreview] = useState<PlanPreview>();
   const [legacyDate, setLegacyDate] = useState<string>();
@@ -112,21 +114,26 @@ export function DailyPlanningScreen({
     if (!focused) return;
     let active = true;
     void (async () => {
+      let operation = 'plan.settings';
       try {
         const settings = await deps.repository.getSettings();
         const current = getPlanningDate(new Date(), settings);
         const date = selected ?? current;
         if (!active) return;
         setToday(current);
+        operation = 'plan.load';
         const day = await loadDay(deps, date, limitedDate === date);
         if (!active) return;
         const reviewRequested =
           review && date === initialDate && confirmedRequest.current !== review;
+        operation = 'plan.initial';
         const result = reviewRequested ? day : await generateFirstPlan(deps, day);
         if (!active) return;
         setLoaded(result);
         setError('');
+        setCalendarPermissionError('');
         if (reviewRequested && result.allowed) {
+          operation = 'plan.preview';
           confirmedRequest.current = review;
           setPreview(
             result.saved
@@ -135,7 +142,8 @@ export function DailyPlanningScreen({
           );
         }
       } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : '計画を読み込めませんでした。');
+        if (!active) return;
+        setError(reportPlanningIssue(operation, e) ?? '計画を読み込めませんでした。');
       }
     })();
     return () => {
@@ -191,7 +199,7 @@ export function DailyPlanningScreen({
       reload();
     } catch (e) {
       setPreview(undefined);
-      setError(e instanceof Error ? e.message : '計画を保存できませんでした。');
+      setError(reportPlanningIssue('plan.approve', e) ?? '計画を保存できませんでした。');
       if (review) confirmedRequest.current = undefined;
     } finally {
       committing.current = false;
@@ -201,7 +209,7 @@ export function DailyPlanningScreen({
   const time = (value: string) =>
     day ? formatPlanningTime(value, day.input.date, day.input.timezone) : '';
   const dropError = (e: unknown) =>
-    setError(e instanceof Error ? e.message : '予定を更新できませんでした。');
+    setError(reportPlanningIssue('plan.event', e) ?? '予定を更新できませんでした。');
   const conflicts = saved && day ? calendarConflicts(saved, day.input.busy) : [];
   const selectedSession = saved?.sessions.find((item) => item.id === detailId);
   const showTask = (id: string) => {
@@ -298,7 +306,7 @@ export function DailyPlanningScreen({
       {error ? <ActionButton label="再読み込み" variant="secondary" onPress={reload} /> : null}
       {day?.calendarError ? (
         <>
-          <Notice tone="warning" message={day.calendarError} />
+          <Notice tone="warning" message={calendarPermissionError || day.calendarError} />
           <View style={styles.row}>
             <ActionButton
               label="許可を確認"
@@ -306,12 +314,15 @@ export function DailyPlanningScreen({
               onPress={() =>
                 void deps.calendar
                   .requestPermission()
-                  .then((result) => {
+                  .then(async (result) => {
                     if (result.status === 'denied' && !result.canAskAgain)
-                      void Linking.openSettings();
+                      await Linking.openSettings();
                     reload();
                   })
-                  .catch(dropError)
+                  .catch((error: unknown) => {
+                    reportPlanningIssue('calendar.requestPermission', error);
+                    setCalendarPermissionError('iPhoneカレンダーの許可を確認できませんでした。');
+                  })
               }
             />
             {!day.allowed ? (

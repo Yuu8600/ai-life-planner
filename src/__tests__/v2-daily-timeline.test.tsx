@@ -5,6 +5,7 @@ import { Dimensions } from 'react-native';
 import type { CalendarEvent } from '@/features/calendar';
 import { DailyPlanningScreen } from '@/features/planner/v2/DailyPlanningScreen';
 import type { DailyPlanningDependencies } from '@/features/planner/v2/dayService';
+import { PlanningRequestError } from '@/features/planner/v2/planningDiagnostics';
 import type { DailyPlan, WorkSession } from '@/features/planner/v2/types';
 
 jest.mock('expo-router', () => ({
@@ -169,3 +170,76 @@ it('takes the selected date from Calendar to Today without exposing work editing
   expect(screen.queryByTestId('v2-day-timeline')).toBeNull();
   expect(screen.getByRole('button', { name: '予定を追加' })).toBeTruthy();
 });
+
+it.each(['today', 'calendar'] as const)(
+  'surfaces a PostgREST read failure in %s without exposing provider data',
+  async (mode) => {
+    const { deps } = fixture();
+    const failure = {
+      code: 'PGRST202',
+      message: 'Cannot find function at https://private.example',
+      details: 'private task and token',
+    };
+    deps.repository.load = jest
+      .fn()
+      .mockRejectedValue(
+        mode === 'calendar' ? new PlanningRequestError('plan.source', failure) : failure,
+      );
+    const permission = jest.spyOn(deps.calendar, 'getPermission');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const screen = await render(
+        <DailyPlanningScreen deps={deps} mode={mode} initialDate={day} openSettings={jest.fn()} />,
+      );
+      expect(await screen.findByText(/アプリの接続先とV2のDB設定/)).toBeTruthy();
+      expect(permission).not.toHaveBeenCalled();
+      const diagnostic = warn.mock.calls.find(([prefix]) => prefix === '[V2 planning]');
+      expect(diagnostic).toEqual([
+        '[V2 planning]',
+        {
+          operation: mode === 'calendar' ? 'plan.source' : 'plan.load',
+          code: 'PGRST202',
+          reason: 'Required database schema or RPC unavailable',
+        },
+      ]);
+    } finally {
+      warn.mockRestore();
+    }
+  },
+);
+
+it.each(['today', 'calendar'] as const)(
+  'keeps saved data visible in %s when calendar access is granted but event reading fails',
+  async (mode) => {
+    const { deps } = fixture();
+    deps.calendar.listEvents = jest.fn().mockRejectedValue(new Error('private event title'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const screen = await render(
+        <DailyPlanningScreen
+          deps={deps}
+          mode={mode}
+          initialDate={day}
+          openSettings={jest.fn()}
+          openDayPlan={jest.fn()}
+        />,
+      );
+      expect(await screen.findByText('iPhoneカレンダーの取得に失敗しました。')).toBeTruthy();
+      if (mode === 'today') {
+        expect(
+          within(screen.getByTestId('v2-day-timeline')).getByLabelText(/読書、10:00〜10:30/),
+        ).toBeTruthy();
+      } else {
+        expect(screen.getByText('面談')).toBeTruthy();
+      }
+      expect(screen.queryByText('計画を読み込めませんでした。')).toBeNull();
+      expect(warn).toHaveBeenCalledWith('[V2 planning]', {
+        operation: 'calendar.read',
+        code: undefined,
+        reason: 'Unclassified error',
+      });
+    } finally {
+      warn.mockRestore();
+    }
+  },
+);

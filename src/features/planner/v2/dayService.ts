@@ -8,6 +8,7 @@ import {
 import { getPlanningWindow } from '@/features/today';
 import { calculateFreeTime } from '../index';
 import { changeDailyPlan, createDailyPlan } from './engine';
+import { reportPlanningIssue } from './planningDiagnostics';
 import { PlanConflictError, type DailyPlanningRepository } from './repository';
 import type { DailyPlan, DayInput, PlanChange } from './types';
 
@@ -32,11 +33,13 @@ export async function loadDay(
   let deviceEvents: CalendarEvent[] = [];
   let timelineDeviceEvents: CalendarEvent[] = [];
   let calendarOverrides: CalendarEventBufferOverride[] = [];
+  let calendarOperation = 'calendar.permission';
   try {
     const permission = await deps.calendar.getPermission();
     if (permission.status !== 'granted') {
       calendarError = 'iPhoneカレンダーの読み取りを許可してください。';
     } else {
+      calendarOperation = 'calendar.read';
       const events = await loadCalendarPlanningEvents(
         deps.calendar,
         date,
@@ -57,8 +60,12 @@ export async function loadDay(
         timezone,
       }).busyIntervals;
     }
-  } catch {
-    calendarError = 'iPhoneカレンダーの取得に失敗しました。';
+  } catch (error) {
+    reportPlanningIssue(calendarOperation, error);
+    calendarError =
+      calendarOperation === 'calendar.permission'
+        ? 'iPhoneカレンダーの許可状態を確認できませんでした。'
+        : 'iPhoneカレンダーの取得に失敗しました。';
   }
   const busy = [
     ...external,

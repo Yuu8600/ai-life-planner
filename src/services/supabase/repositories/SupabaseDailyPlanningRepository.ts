@@ -1,3 +1,4 @@
+import { PlanningRequestError } from '@/features/planner/v2/planningDiagnostics';
 import { addLocalDays, getLocalDate } from '@/features/today';
 import {
   PlanConflictError,
@@ -55,15 +56,22 @@ export function createSupabaseDailyPlanningRepository(userId: string): DailyPlan
   const settingsRepository = createSupabaseSettingsRepository(userId);
   async function source(date: string) {
     const result = await client.rpc('v2_plan_source', { p_date: date });
-    if (result.error) throw result.error;
+    if (result.error) throw new PlanningRequestError('plan.source', result.error);
     return result.data;
   }
+  async function getSettings() {
+    try {
+      return await settingsRepository.getProfilePlanningSettings();
+    } catch (error) {
+      throw new PlanningRequestError('plan.settings', error);
+    }
+  }
   return {
-    getSettings: () => settingsRepository.getProfilePlanningSettings(),
+    getSettings,
     async load(date) {
       const before = await source(date);
       const [settings, profile, tasks, events, plans] = await Promise.all([
-        settingsRepository.getProfilePlanningSettings(),
+        getSettings(),
         client.from('profiles').select('v2_task_gap_minutes').eq('id', userId).single(),
         client.from('tasks').select('*').eq('user_id', userId).order('id'),
         client
@@ -81,10 +89,10 @@ export function createSupabaseDailyPlanningRepository(userId: string): DailyPlan
           .lte('plan_date', addLocalDays(date, 6))
           .order('plan_date'),
       ]);
-      if (profile.error) throw profile.error;
-      if (tasks.error) throw tasks.error;
-      if (events.error) throw events.error;
-      if (plans.error) throw plans.error;
+      if (profile.error) throw new PlanningRequestError('plan.taskGap', profile.error);
+      if (tasks.error) throw new PlanningRequestError('plan.tasks', tasks.error);
+      if (events.error) throw new PlanningRequestError('plan.events', events.error);
+      if (plans.error) throw new PlanningRequestError('plan.savedPlans', plans.error);
       const after = await source(date);
       if (before !== after || !after) throw new PlanConflictError();
       const history = plans.data.map(readPlan);
@@ -118,7 +126,7 @@ export function createSupabaseDailyPlanningRepository(userId: string): DailyPlan
         args as Database['public']['Functions']['v2_save_plan']['Args'],
       );
       if (error?.code === '40001') throw new PlanConflictError();
-      if (error) throw error;
+      if (error) throw new PlanningRequestError('plan.save', error);
     },
     async addEvent(date, event) {
       const { error } = await client.from('v2_events').insert({
@@ -136,7 +144,7 @@ export function createSupabaseDailyPlanningRepository(userId: string): DailyPlan
     },
     async removeEvent(id) {
       const { error } = await client.from('v2_events').delete().eq('user_id', userId).eq('id', id);
-      if (error) throw error;
+      if (error) throw new PlanningRequestError('plan.removeEvent', error);
     },
     async getGap() {
       const { data, error } = await client
