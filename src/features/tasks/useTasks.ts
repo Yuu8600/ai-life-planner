@@ -155,7 +155,10 @@ export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
     (input: CreateTaskInput) =>
       runMutation('create', async (activeRepository) => {
         const createdTask = await activeRepository.create(input);
-        setTasks((current) => [createdTask, ...current]);
+        setTasks((current) => [
+          createdTask,
+          ...current.filter((task) => task.id !== createdTask.id),
+        ]);
       }),
     [runMutation],
   );

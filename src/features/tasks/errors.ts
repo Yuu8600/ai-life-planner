@@ -10,14 +10,31 @@ export class TaskNotFoundError extends Error {
   }
 }
 
+export class TaskCreateResultError extends Error {
+  constructor(readonly result: 'saved' | 'unconfirmed') {
+    super(result === 'saved' ? 'Saved task could not be read' : 'Task save could not be confirmed');
+    this.name = 'TaskCreateResultError';
+  }
+}
+
 export function getTaskErrorMessage(error: unknown): string {
   if (error instanceof TaskNotFoundError) {
     return '対象のタスクが見つかりません。画面を更新してください。';
   }
 
+  if (error instanceof TaskCreateResultError) {
+    return error.result === 'saved'
+      ? 'タスクは保存されましたが、表示を更新できませんでした。タスク一覧を再読み込みしてください。'
+      : 'タスクの保存結果を確認できませんでした。通信状況を確認し、一覧を再読み込みしてください。';
+  }
+
   const candidate = error as ErrorWithCode;
   const code = typeof candidate?.code === 'string' ? candidate.code : '';
   const message = typeof candidate?.message === 'string' ? candidate.message.toLowerCase() : '';
+
+  if (code === '23502' && message.includes('estimated_minutes')) {
+    return '接続先のDBは所要時間の未設定に対応していません。V2.5用の接続先とマイグレーションを確認してください。';
+  }
 
   if (code === '23503') {
     return '選択したGoalへ関連付けできません。Goalを再読み込みして選び直してください。';

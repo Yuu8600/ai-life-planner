@@ -194,7 +194,9 @@ export function TodayRecommendationsScreen({
       });
       setTitle('');
       setSnapshot((previous) =>
-        previous ? { ...previous, tasks: [task, ...previous.tasks] } : previous,
+        previous
+          ? { ...previous, tasks: [task, ...previous.tasks.filter((item) => item.id !== task.id)] }
+          : previous,
       );
       return 'タスクを追加しました。';
     });
