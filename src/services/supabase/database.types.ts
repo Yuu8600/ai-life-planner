@@ -363,6 +363,7 @@ export type Database = {
           goal_id: string | null
           local_date: string
           outcome: string
+          previous_task_status: string | null
           target_id: string
           target_kind: string
           task_id: string
@@ -374,6 +375,7 @@ export type Database = {
           goal_id?: string | null
           local_date: string
           outcome: string
+          previous_task_status?: string | null
           target_id: string
           target_kind: string
           task_id: string
@@ -385,6 +387,7 @@ export type Database = {
           goal_id?: string | null
           local_date?: string
           outcome?: string
+          previous_task_status?: string | null
           target_id?: string
           target_kind?: string
           task_id?: string
@@ -786,6 +789,15 @@ export type Database = {
               saved_action_count: number
             }[]
           }
+      undo_recommendation_result: {
+        Args: {
+          p_date: string
+          p_expected: string
+          p_id: string
+          p_kind: string
+        }
+        Returns: undefined
+      }
       update_planned_action_status: {
         Args: { p_action_id: string; p_target_status: string }
         Returns: {

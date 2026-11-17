@@ -42,6 +42,7 @@ export interface RecommendationRepository {
   addStep(taskId: string, input: StepInput): Promise<ActionStep>;
   updateStep(id: string, input: StepInput): Promise<ActionStep>;
   removeStep(id: string): Promise<void>;
+  undo(date: string, kind: TargetKind, id: string, expected: Outcome | 'reopen'): Promise<void>;
   record(date: string, kind: TargetKind, id: string, outcome: Outcome): Promise<Outcome>;
 }
 

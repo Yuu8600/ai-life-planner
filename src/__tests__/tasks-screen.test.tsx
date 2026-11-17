@@ -285,3 +285,64 @@ describe('Clear deletion controls', () => {
     await waitFor(() => expect(screen.queryByText('TOEIC Listening')).toBeNull());
   });
 });
+
+it('keeps a recurring task checked for the day and clears it from the completed filter on undo', async () => {
+  const date = '2026-11-18';
+  const dailyTask: Task = { ...task, recurrence: { kind: 'weekly', weekdays: [3] } };
+  let completed = false;
+  const recommendations = {
+    listSteps: jest.fn(),
+    addStep: jest.fn(),
+    updateStep: jest.fn(),
+    removeStep: jest.fn(),
+    listResults: jest.fn(async () =>
+      completed
+        ? [
+            {
+              date,
+              kind: 'task' as const,
+              targetId: task.id,
+              taskId: task.id,
+              outcome: 'completed' as const,
+              title: task.title,
+              goalId,
+            },
+          ]
+        : [],
+    ),
+    record: jest.fn(async () => {
+      completed = true;
+      return 'completed' as const;
+    }),
+    undo: jest.fn(async () => {
+      completed = false;
+    }),
+  };
+  const repository = createRepository({ list: jest.fn(async () => [dailyTask]) });
+  const screen = await render(
+    <TasksScreen
+      repository={repository}
+      recommendationMode
+      recommendations={recommendations}
+      planningTimezone="Asia/Tokyo"
+      now={new Date(date + 'T04:00Z')}
+    />,
+  );
+  await fireEvent.press(await screen.findByRole('checkbox', { name: 'TOEIC Listeningを完了' }));
+  expect(recommendations.record).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
+  await fireEvent.press(screen.getByRole('button', { name: '完了済みのタスクを表示' }));
+  expect(await screen.findByText(/今日の実施済み/)).toBeTruthy();
+  await fireEvent.press(screen.getByRole('checkbox', { name: 'TOEIC Listeningを未完了に戻す' }));
+  expect(recommendations.undo).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
+  expect(await screen.findByText('該当するタスクはありません')).toBeTruthy();
+  expect(repository.update).not.toHaveBeenCalled();
+
+  await fireEvent.press(screen.getByRole('button', { name: '未完了のタスクを表示' }));
+  await fireEvent.press(await screen.findByRole('button', { name: 'TOEIC Listeningを編集する' }));
+  expect(screen.queryByText('状態')).toBeNull();
+  expect(
+    screen.getByRole('radio', { name: '繰り返し（任意） 曜日を選ぶ' }).props.accessibilityState
+      .checked,
+  ).toBe(true);
+  expect(screen.getByRole('button', { name: 'タスクを削除' })).toBeTruthy();
+});

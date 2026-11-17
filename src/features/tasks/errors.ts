@@ -36,6 +36,10 @@ export function getTaskErrorMessage(error: unknown): string {
     return '接続先のDBは所要時間の未設定に対応していません。V2.5用の接続先とマイグレーションを確認してください。';
   }
 
+  if (code === '40001' || (code === '22023' && message.includes('recommendation day changed'))) {
+    return '表示中の状態が変わりました。一覧を再読み込みしてください。';
+  }
+
   if (code === '23503') {
     return '選択したGoalへ関連付けできません。Goalを再読み込みして選び直してください。';
   }

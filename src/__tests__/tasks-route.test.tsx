@@ -27,6 +27,10 @@ jest.mock('@/services/supabase/repositories/SupabaseTaskRepository', () => ({
   createSupabaseTaskRepository: (userId: string) => mockCreateRepository(userId),
 }));
 
+jest.mock('@/services/supabase/repositories/SupabaseRecommendationRepository', () => ({
+  createSupabaseRecommendationRepository: jest.fn(() => ({})),
+}));
+
 jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => ({
   createSupabaseSettingsRepository: jest.fn(() => ({
     getProfilePlanningSettings: jest.fn().mockResolvedValue({ timezone: 'Asia/Tokyo' }),

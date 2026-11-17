@@ -27,14 +27,14 @@ export default function V2SettingsRoute() {
       planningAccessory={
         planner ? (
           <Card>
-            <SectionHeader title="高度なPlanner" />
+            <SectionHeader title="高度な計画" />
             <ActionButton
-              label="時間割Plannerを開く"
+              label="時間割を開く"
               variant="secondary"
               onPress={() => router.push('/advanced-planner')}
             />
             <ActionButton
-              label="Plannerの固定・生活予定を管理"
+              label="固定・生活予定を管理"
               variant="ghost"
               onPress={() =>
                 router.push({ pathname: '/advanced-planner', params: { plannerMode: 'calendar' } })

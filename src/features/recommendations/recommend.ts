@@ -36,6 +36,7 @@ type Input = {
   results: readonly RecommendationResult[];
   conditions: Conditions;
   excluded?: ReadonlySet<string>;
+  expandedToday?: boolean;
 };
 
 const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
@@ -62,7 +63,16 @@ function compare(a: RankedCandidate, b: RankedCandidate) {
   );
 }
 
-export function recommend({ date, timezone, tasks, steps, results, conditions, excluded }: Input) {
+export function recommend({
+  date,
+  timezone,
+  tasks,
+  steps,
+  results,
+  conditions,
+  excluded,
+  expandedToday,
+}: Input) {
   const tomorrow = addLocalDays(date, 1);
   const dayOfWeek = new Date(date + 'T00:00Z').getUTCDay();
   const resolved = new Set<string>();
@@ -110,7 +120,7 @@ export function recommend({ date, timezone, tasks, steps, results, conditions, e
       else if (deadline === tomorrow) reasons.push('明日が期限');
       if (recurrence === 'daily') reasons.push('毎日のタスク');
       if (scheduledDays) reasons.push(`毎週${weekdays[dayOfWeek]}曜`);
-      if (task.priority === 'high') reasons.push('優先度：高');
+      if (task.priority === 'high') reasons.push(expandedToday ? '重要度：高' : '優先度：高');
       if (lastDone && lastDone <= addLocalDays(date, -7)) reasons.push(`前回の完了：${lastDone}`);
       if (step?.effort)
         reasons.push(
@@ -131,7 +141,7 @@ export function recommend({ date, timezone, tasks, steps, results, conditions, e
         priority: task.priority,
         created: step?.createdAt ?? task.createdAt,
         urgent: deadline === date || deadline === tomorrow,
-        reason: reasons.join(' ・ '),
+        reason: (expandedToday ? reasons.slice(0, 2) : reasons).join(' ・ '),
       };
     }
 
@@ -140,7 +150,10 @@ export function recommend({ date, timezone, tasks, steps, results, conditions, e
         !step.completed &&
         !resolved.has(targetKey('step', step.id)) &&
         !excluded?.has(targetKey('step', step.id)) &&
-        (!step.effort || conditions.effort === 'normal' || step.effort === conditions.effort),
+        (!step.effort ||
+          conditions.effort === 'normal' ||
+          (expandedToday && conditions.effort === 'focus') ||
+          step.effort === conditions.effort),
     );
     const actionCandidates = taskSteps.map(candidate).sort(compare);
     const direct = excluded?.has(taskKey) ? [] : [candidate()];
@@ -148,7 +161,8 @@ export function recommend({ date, timezone, tasks, steps, results, conditions, e
     // A fitting step gives the user a concrete starting point. Unknown time stays labelled.
     const best =
       options.find((item) => item.minutes !== null && item.minutes <= conditions.minutes) ??
-      options.find((item) => item.minutes === null);
+      options.find((item) => item.minutes === null) ??
+      (expandedToday ? direct.find((item) => item.urgent) : undefined);
     if (best) eligible.push(best);
     else if (options.length) tooLong.push(options[0]);
   }
@@ -157,7 +171,11 @@ export function recommend({ date, timezone, tasks, steps, results, conditions, e
   tooLong.sort(compare);
   const chosen: Candidate[] = [];
   const usedGoals = new Set<string>();
-  while (chosen.length < 3 && eligible.length) {
+  while (chosen.length < (expandedToday ? 5 : 3) && eligible.length) {
+    if (expandedToday && chosen.length === 4) {
+      chosen.push(...eligible);
+      break;
+    }
     const urgent = eligible[0].urgent;
     const diverseIndex = eligible.findIndex(
       (item) => item.urgent === urgent && item.goalId !== null && !usedGoals.has(item.goalId),

@@ -123,3 +123,16 @@ it('ranks an action with an older completion first and shows its recorded date',
     reason: expect.stringContaining('前回の完了：2026-11-10'),
   });
 });
+
+it('keeps urgent work visible on a busy day and exposes candidates beyond the first four', () => {
+  const tasks = [
+    task('urgent', { localDeadline: '2026-11-19', estimatedMinutes: 90 }),
+    ...['a', 'b', 'c', 'd', 'e'].map((id) => task(id, { estimatedMinutes: 15 })),
+  ];
+  const { candidates } = run({ tasks, expandedToday: true });
+  expect(candidates[0]).toMatchObject({
+    id: 'urgent',
+    reason: expect.stringContaining('明日が期限'),
+  });
+  expect(candidates).toHaveLength(6);
+});

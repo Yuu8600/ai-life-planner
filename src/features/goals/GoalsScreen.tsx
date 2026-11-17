@@ -119,7 +119,7 @@ export function GoalsScreen({
         />
       ) : goals.length === 0 ? (
         <GoalStatePanel
-          message="「目標を追加」から、達成したいことを登録しましょう。次にTasksで具体的な行動を登録します。"
+          message="「目標を追加」から、達成したいことを登録しましょう。タスクの編集画面から目標に紐付けられます。"
           testID="goals-empty-state"
           title="まだ目標がありません"
         />

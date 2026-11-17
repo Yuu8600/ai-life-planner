@@ -55,6 +55,9 @@ it('recommends and saves completion with a failed calendar and loads the result 
     addStep: jest.fn(),
     removeStep: jest.fn(),
     updateStep: jest.fn(),
+    undo: jest.fn(async () => {
+      results = [];
+    }),
     record: jest.fn(async (date, kind, targetId, outcome) => {
       results = [
         { date, kind, targetId, outcome, taskId: existing.id, title: existing.title, goalId: null },
@@ -86,13 +89,20 @@ it('recommends and saves completion with a failed calendar and loads the result 
   };
   const screen = await render(<TodayRecommendationsScreen {...props} />);
   expect(screen.getByText('端末の予定を読み込めませんでした。')).toBeTruthy();
-  await fireEvent.press(screen.getByRole('button', { name: '今から何する？' }));
-  await fireEvent.press(screen.getAllByRole('button', { name: '手帳を見直すを完了' }).at(-1)!);
+  expect(screen.getByText('今から何する？')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('checkbox', { name: '手帳を見直すを完了' }));
   await waitFor(() => expect(repository.record).toHaveBeenCalledTimes(1));
   await screen.unmount();
   const restarted = await render(<TodayRecommendationsScreen {...props} />);
-  expect(restarted.getByText('今日の完了 1件')).toBeTruthy();
-  expect(restarted.queryByRole('button', { name: '手帳を見直すを完了' })).toBeNull();
+  expect(restarted.getByText('完了済み（1）')).toBeTruthy();
+  await fireEvent.press(restarted.getByRole('checkbox', { name: '手帳を見直すを未完了に戻す' }));
+  expect(repository.undo).toHaveBeenCalledWith(date, 'task', 'task', 'completed');
+  await waitFor(() =>
+    expect(restarted.getByRole('checkbox', { name: '手帳を見直すを完了' })).toBeTruthy(),
+  );
+  await fireEvent.press(restarted.getByRole('button', { name: '手帳を見直すを今日は見送る' }));
+  await fireEvent.press(restarted.getByRole('button', { name: '手帳を見直すの見送りを取り消す' }));
+  expect(repository.undo).toHaveBeenCalledWith(date, 'task', 'task', 'skipped');
 });
 
 it('quick-adds a title without manufacturing an estimate', async () => {
@@ -114,6 +124,7 @@ it('quick-adds a title without manufacturing an estimate', async () => {
         removeStep: jest.fn(),
         updateStep: jest.fn(),
         record: jest.fn(),
+        undo: jest.fn(),
       }}
       date={date}
       timezone={timezone}

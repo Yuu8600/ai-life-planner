@@ -1,13 +1,19 @@
-import { addLocalDays, getLocalDate } from '@/features/today';
+import { getLocalDate } from '@/features/today';
+import type {
+  RecommendationRepository,
+  RecommendationResult,
+} from '@/features/recommendations/repository';
+import { CompletionCheckbox } from '@/shared/components/CompletionCheckbox';
+import { getTaskErrorMessage } from './errors';
 import { Notice } from '@/shared/components/Notice';
-import { useMemo, useState, type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
-import { spacing } from '@/shared/theme';
+import { spacing, useTheme } from '@/shared/theme';
 
 import { GoalOptionsNotice } from './components/GoalOptionsNotice';
 import { TaskFilters } from './components/TaskFilters';
@@ -23,6 +29,9 @@ import { useTasks } from './useTasks';
 type TasksScreenProps = {
   intro?: ReactNode;
   recommendationMode?: boolean;
+  recommendations?: RecommendationRepository;
+  dayError?: string;
+  retryDay?: () => void;
   initialFilter?: TaskFilterId;
   onOpenSteps?: (taskId: string) => void;
   onOpenGoals?: () => void;
@@ -35,15 +44,16 @@ type TasksScreenProps = {
 
 const recommendationFilters: readonly TaskFilter[] = [
   { id: 'open', label: '未完了' },
-  { id: 'near', label: '期限が近い' },
-  { id: 'recurring', label: '繰り返し' },
-  { id: 'overdue', label: '期限切れ' },
   { id: 'all', label: 'すべて' },
+  { id: 'completed', label: '完了済み' },
 ];
 
 export function TasksScreen({
   intro,
   recommendationMode = false,
+  recommendations,
+  dayError,
+  retryDay,
   initialFilter,
   onOpenSteps,
   onOpenGoals,
@@ -53,6 +63,7 @@ export function TasksScreen({
   refreshToken = 0,
   repository,
 }: TasksScreenProps) {
+  const theme = useTheme();
   const {
     clearMutationError,
     createTask,
@@ -71,33 +82,98 @@ export function TasksScreen({
   } = useTasks(repository, refreshToken);
   const [mountedAt] = useState(() => new Date());
   const [activeFilter, setActiveFilter] = useState<TaskFilterId>(
-    initialFilter ?? (recommendationMode ? 'open' : 'all'),
+    recommendationMode ? 'open' : (initialFilter ?? 'all'),
   );
   const [editingTask, setEditingTask] = useState<Task | null | undefined>(undefined);
   const today = planningTimezone ? getLocalDate(now ?? mountedAt, planningTimezone) : undefined;
-  const visibleTasks = useMemo(
-    () =>
-      tasks.filter((task) => {
-        if (!recommendationMode || activeFilter === 'all')
-          return matchesTaskFilter(task, activeFilter, now);
-        if (task.status === 'completed' || task.status === 'skipped') return false;
-        if (activeFilter === 'open') return true;
-        if (activeFilter === 'recurring')
-          return Boolean(task.recurrence && task.recurrence.kind !== 'once');
-        const deadline =
-          task.localDeadline ??
-          (task.deadline && planningTimezone
-            ? getLocalDate(task.deadline, planningTimezone)
-            : null);
-        if (!deadline || !today) return false;
-        if (activeFilter === 'overdue')
-          return (task.recurrence?.kind ?? 'once') === 'once' && deadline < today;
-        return deadline >= today && deadline <= addLocalDays(today, 7);
-      }),
-    [tasks, activeFilter, recommendationMode, now, planningTimezone, today],
+  const [daily, setDaily] = useState<{ date: string; results: RecommendationResult[] }>();
+  const [dailyError, setDailyError] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
+  const [dailyAttempt, setDailyAttempt] = useState(0);
+  const actionLock = useRef(false);
+  useEffect(() => {
+    if (!recommendations || !today) return;
+    let active = true;
+    void recommendations.listResults(today, today).then(
+      (results) => {
+        if (!active) return;
+        setDaily({ date: today, results });
+        setDailyError('');
+      },
+      (error) => {
+        if (active) setDailyError(getTaskErrorMessage(error));
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [recommendations, today, dailyAttempt, refreshToken]);
+
+  function deadlineOf(task: Task) {
+    return (
+      task.localDeadline ??
+      (task.deadline && planningTimezone ? getLocalDate(task.deadline, planningTimezone) : null)
+    );
+  }
+
+  const results = new Map(
+    (daily?.date === today ? (daily?.results ?? []) : [])
+      .filter((result) => result.kind === 'task')
+      .map((result) => [result.targetId, result.outcome]),
   );
-  const isMutating = pendingMutation !== null;
+  const isComplete = (task: Task) =>
+    task.status === 'completed' || results.get(task.id) === 'completed';
+  const isOverdue = (task: Task) => {
+    const deadline = deadlineOf(task);
+    return (
+      (task.recurrence?.kind ?? 'once') === 'once' && !!(deadline && today && deadline < today)
+    );
+  };
+  const visibleTasks = tasks.filter((task) => {
+    if (!recommendationMode) return matchesTaskFilter(task, activeFilter, now);
+    return (
+      activeFilter === 'all' ||
+      (activeFilter === 'completed' ? isComplete(task) : !isComplete(task))
+    );
+  });
+  if (recommendationMode && initialFilter === 'overdue' && activeFilter === 'open') {
+    visibleTasks.sort((a, b) => Number(isOverdue(b)) - Number(isOverdue(a)));
+  }
+  const isMutating = pendingMutation !== null || actionBusy;
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
+
+  async function toggle(task: Task) {
+    if (!recommendations || !today || daily?.date !== today || actionLock.current || isMutating)
+      return;
+    const outcome = results.get(task.id);
+    actionLock.current = true;
+    setActionBusy(true);
+    setActionMessage('');
+    try {
+      if (isComplete(task)) {
+        await recommendations.undo(
+          today,
+          'task',
+          task.id,
+          outcome === 'completed' ? 'completed' : 'reopen',
+        );
+      } else if (outcome === 'skipped') {
+        await recommendations.undo(today, 'task', task.id, 'skipped');
+      } else {
+        await recommendations.record(today, 'task', task.id, 'completed');
+      }
+      const fresh = await recommendations.listResults(today, today);
+      setDaily({ date: today, results: fresh });
+    } catch (error) {
+      setActionMessage(getTaskErrorMessage(error));
+      setDailyAttempt((value) => value + 1);
+    } finally {
+      retry();
+      actionLock.current = false;
+      setActionBusy(false);
+    }
+  }
 
   const openCreateForm = () => {
     if (isMutating || !repository) return;
@@ -112,7 +188,10 @@ export function TasksScreen({
   };
 
   const saveTask = async (input: CreateTaskInput): Promise<boolean> => {
-    const saved = editingTask ? await updateTask(editingTask.id, input) : await createTask(input);
+    const { status, ...editable } = input;
+    const saved = editingTask
+      ? await updateTask(editingTask.id, recommendationMode ? editable : { ...editable, status })
+      : await createTask(input);
 
     if (saved) setEditingTask(undefined);
     return saved;
@@ -127,7 +206,10 @@ export function TasksScreen({
       [
         { style: 'cancel', text: 'キャンセル' },
         {
-          onPress: () => void deleteTask(task.id),
+          onPress: () =>
+            void deleteTask(task.id).then((deleted) => {
+              if (deleted && editingTask?.id === task.id) setEditingTask(undefined);
+            }),
           style: 'destructive',
           text: '削除',
         },
@@ -163,11 +245,32 @@ export function TasksScreen({
         onChange={setActiveFilter}
       />
 
-      <GoalOptionsNotice
-        isLoading={isLoadingGoalOptions}
-        message={goalOptionsError}
-        onRetry={retryGoalOptions}
-      />
+      {recommendationMode && (dayError || dailyError || actionMessage) ? (
+        <Notice
+          tone="error"
+          message={dayError || dailyError || actionMessage}
+          action={
+            <ActionButton
+              label="再読み込み"
+              variant="secondary"
+              onPress={() => {
+                setActionMessage('');
+                retryDay?.();
+                setDailyAttempt((value) => value + 1);
+                retry();
+              }}
+            />
+          }
+        />
+      ) : null}
+
+      {!recommendationMode ? (
+        <GoalOptionsNotice
+          isLoading={isLoadingGoalOptions}
+          message={goalOptionsError}
+          onRetry={retryGoalOptions}
+        />
+      ) : null}
 
       {isLoading ? (
         <TaskStatePanel
@@ -201,17 +304,73 @@ export function TasksScreen({
           title="該当するタスクはありません"
         />
       ) : (
-        <View style={styles.list}>
+        <View style={recommendationMode ? styles.compactList : styles.list}>
           {visibleTasks.map((task, index) => {
-            const deadline =
-              task.localDeadline ??
-              (task.deadline && planningTimezone
-                ? getLocalDate(task.deadline, planningTimezone)
-                : null);
+            const deadline = deadlineOf(task);
             const overdue =
-              task.status !== 'completed' &&
-              Boolean(today && deadline && deadline < today) &&
-              (!recommendationMode || (task.recurrence?.kind ?? 'once') === 'once');
+              task.status !== 'completed' && !!(today && deadline && deadline < today);
+            if (recommendationMode) {
+              const checked = isComplete(task);
+              const skipped = !checked && results.get(task.id) === 'skipped';
+              const recurring = (task.recurrence?.kind ?? 'once') !== 'once';
+              const detail = [
+                !checked && isOverdue(task)
+                  ? `期限切れ ${deadline}`
+                  : deadline
+                    ? `期限 ${deadline}`
+                    : null,
+                recurring ? (checked ? '今日の実施済み' : '繰り返し') : null,
+                skipped ? '今日の見送り' : null,
+              ]
+                .filter(Boolean)
+                .join(' ・ ');
+              return (
+                <View
+                  key={task.id}
+                  style={[styles.taskRow, { borderColor: theme.colors.borderSubtle }]}
+                  testID={`task-card-${task.id}`}
+                >
+                  {skipped ? (
+                    <ActionButton
+                      label="戻す"
+                      accessibilityLabel={`${task.title}の見送りを取り消す`}
+                      variant="ghost"
+                      disabled={isMutating || !!dailyError || !!dayError}
+                      onPress={() => void toggle(task)}
+                    />
+                  ) : (
+                    <CompletionCheckbox
+                      checked={checked}
+                      label={`${task.title}を${checked ? '未完了に戻す' : '完了'}`}
+                      disabled={
+                        !today || daily?.date !== today || isMutating || !!dailyError || !!dayError
+                      }
+                      onPress={() => void toggle(task)}
+                    />
+                  )}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${task.title}を編集する`}
+                    disabled={isMutating}
+                    onPress={() => openEditForm(task)}
+                    style={({ pressed }) => [styles.rowTitle, pressed && { opacity: 0.65 }]}
+                  >
+                    <Text
+                      style={{ ...theme.typography.bodyStrong, color: theme.colors.textPrimary }}
+                    >
+                      {task.title}
+                    </Text>
+                    {detail ? (
+                      <Text
+                        style={{ ...theme.typography.secondary, color: theme.colors.textSecondary }}
+                      >
+                        {detail}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                </View>
+              );
+            }
             return (
               <TaskListItem
                 disabled={isMutating}
@@ -253,8 +412,11 @@ export function TasksScreen({
           goalOptions={goalOptions}
           goalOptionsError={goalOptionsError}
           isLoadingGoalOptions={isLoadingGoalOptions}
-          isSubmitting={isSaving}
+          isSubmitting={isSaving || pendingMutation?.startsWith('delete:') === true}
           onClose={() => setEditingTask(undefined)}
+          onDelete={
+            recommendationMode && editingTask ? () => confirmDelete(editingTask) : undefined
+          }
           onRetryGoalOptions={retryGoalOptions}
           onSubmit={saveTask}
           task={editingTask}
@@ -276,5 +438,19 @@ export function TasksScreen({
 
 const styles = StyleSheet.create({
   list: { gap: spacing.md, minWidth: 0 },
+  compactList: { marginTop: spacing.sm, minWidth: 0 },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: spacing.xs,
+  },
+  rowTitle: {
+    flex: 1,
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingRight: spacing.md,
+  },
   addButton: { minHeight: 48 },
 });

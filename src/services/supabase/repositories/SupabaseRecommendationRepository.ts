@@ -112,6 +112,15 @@ export function createSupabaseRecommendationRepository(userId: string): Recommen
         .eq('user_id', userId);
       if (error) throw error;
     },
+    async undo(date, kind, id, expected) {
+      const { error } = await client.rpc('undo_recommendation_result', {
+        p_date: date,
+        p_kind: kind,
+        p_id: id,
+        p_expected: expected,
+      });
+      if (error) throw error;
+    },
     async record(date, kind, id, outcome) {
       const { data, error } = await client.rpc('record_recommendation_result', {
         p_date: date,

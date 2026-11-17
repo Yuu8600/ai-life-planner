@@ -10,11 +10,13 @@ import { SelectionRow } from './timeSelection/SelectionRow';
 
 export function DeadlineField({
   accessibilityLabel,
+  label = '期限',
   disabled,
   error,
   onChange,
   value,
 }: {
+  label?: string;
   accessibilityLabel: string;
   disabled: boolean;
   error?: string;
@@ -32,7 +34,7 @@ export function DeadlineField({
   const [year, month, day] = value.split('-').map(Number);
 
   return (
-    <FormField error={error} label="期限">
+    <FormField error={error} label={label}>
       <SelectionRow
         label="日付を選ぶ"
         value={value ? `${year}年${month}月${day}日` : '期限なし'}

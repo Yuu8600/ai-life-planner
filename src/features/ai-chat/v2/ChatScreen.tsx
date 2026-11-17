@@ -278,9 +278,8 @@ export function ChatScreen({
         {usage ? (
           <Text style={{ color: colors.textSecondary }}>
             {usage.configured
-              ? `残り推定 $${(usage.remainingMicros / 1_000_000).toFixed(3)} / $0.50（UTC月ごと）`
+              ? `今月の残り予算（推定） $${(usage.remainingMicros / 1_000_000).toFixed(3)} / $0.50（UTC月ごと）`
               : 'AIは未設定です。'}
-            {usage.configured ? '\n請求額はOpenAI側で確認してください。' : ''}
           </Text>
         ) : usageFailed ? (
           <View>

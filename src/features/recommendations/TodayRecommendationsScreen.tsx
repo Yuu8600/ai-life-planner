@@ -6,6 +6,7 @@ import { getTaskErrorMessage } from '@/features/tasks/errors';
 import { addLocalDays, formatLocalDateJa, getUtcDayBounds } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
+import { CompletionCheckbox } from '@/shared/components/CompletionCheckbox';
 import { Card } from '@/shared/components/Card';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
@@ -18,7 +19,6 @@ import { useTheme } from '@/shared/theme';
 import { recommend, targetKey, type Candidate } from './recommend';
 import {
   DEFAULT_CONDITIONS,
-  EFFORT_OPTIONS,
   isEffort,
   type ActionStep,
   type Conditions,
@@ -27,6 +27,11 @@ import {
   type RecommendationResult,
 } from './repository';
 
+const availability = [
+  { value: 'light', label: '忙しい' },
+  { value: 'normal', label: 'ふつう' },
+  { value: 'focus', label: '余裕あり' },
+];
 const durations = [15, 30, 60] as const;
 const durationOptions = durations.map((minutes) => ({
   value: String(minutes),
@@ -73,8 +78,8 @@ export function TodayRecommendationsScreen({
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
   const [conditions, setConditions] = useState(initialConditions);
-  const [excluded, setExcluded] = useState<{ date: string; keys: Set<string> }>();
-  const [modal, setModal] = useState<'now' | 'history'>();
+  const [shownCount, setShownCount] = useState(4);
+  const [showHistory, setShowHistory] = useState(false);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -93,9 +98,9 @@ export function TodayRecommendationsScreen({
         ...current,
         timezone,
         conditions,
-        excluded: excluded?.date === date ? excluded.keys : undefined,
+        expandedToday: true,
       }),
-    [current, date, timezone, conditions, excluded],
+    [current, timezone, conditions],
   );
 
   const fallback = choices?.startWith;
@@ -133,7 +138,7 @@ export function TodayRecommendationsScreen({
 
   function changeConditions(value: Conditions) {
     setConditions(value);
-    setExcluded(undefined);
+    setShownCount(4);
     saveConditions(value);
   }
 
@@ -202,121 +207,107 @@ export function TodayRecommendationsScreen({
     });
   }
 
-  function another(candidate: Candidate) {
-    setFeedback(undefined);
-    setExcluded((previous) => {
-      const keys = new Set(previous?.date === date ? previous.keys : undefined);
-      keys.add(targetKey(candidate.kind, candidate.id));
-      return { date, keys };
+  function undo(item: RecommendationResult) {
+    return write('recommendation', async () => {
+      await repository.undo(date, item.kind, item.targetId, item.outcome);
+      setSnapshot((previous) =>
+        previous?.date === date
+          ? {
+              ...previous,
+              results: previous.results.filter(
+                (result) =>
+                  result !== item &&
+                  (result.date !== date ||
+                    result.kind !== item.kind ||
+                    result.targetId !== item.targetId),
+              ),
+            }
+          : previous,
+      );
+      return '未完了に戻しました。';
     });
   }
 
-  const text = { ...typography.body, color: colors.textSecondary };
+  const text = { ...typography.secondary, color: colors.textSecondary };
   const message = feedback ? (
     <Notice message={feedback.message} tone={feedback.error ? 'error' : 'success'} />
   ) : null;
-  const hasAlternates = excluded?.date === date && excluded.keys.size > 0;
-  function renderChoices(items: Candidate[], alternate: boolean) {
-    if (!current || !choices) {
-      return (
-        <Text accessibilityLiveRegion="polite" style={text}>
-          {loadError ? 'タスクを読み込めませんでした。' : 'タスクを読み込んでいます。'}
-        </Text>
-      );
-    }
-    if (!items.length) {
-      return (
-        <Card style={{ gap: spacing.sm }}>
+  const items = choices?.candidates ?? [];
+  const actionDisabled = busy || !!loadError;
+  const row = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.xs };
+  const titleStyle = { ...typography.bodyStrong, color: colors.textPrimary };
+  function renderChoice(item: Candidate) {
+    const context =
+      item.kind === 'step' ? item.taskTitle : item.goalId ? current?.goals.get(item.goalId) : null;
+    return (
+      <View key={targetKey(item.kind, item.id)} style={row}>
+        <CompletionCheckbox
+          label={`${item.title}を完了`}
+          checked={false}
+          disabled={actionDisabled}
+          onPress={() => void record(item, 'completed')}
+        />
+        <View style={{ flex: 1, paddingVertical: spacing.sm }}>
+          <Text style={titleStyle}>{item.title}</Text>
           <Text style={text}>
-            {!current.tasks.length
-              ? 'まだタスクがありません。'
-              : current.tasks.every((task) => task.status === 'completed')
-                ? '登録したタスクはすべて完了しました。'
-                : '今の条件で表示できる候補がありません。'}
+            {[
+              item.reason,
+              context,
+              item.minutes !== null && item.minutes > conditions.minutes
+                ? `目安 ${item.minutes}分`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' ・ ')}
           </Text>
-          {fallback ? (
-            <>
-              <Text style={text}>「{fallback.taskTitle}」の一部から取り組めます。</Text>
-              <ActionButton
-                label={`${conditions.minutes}分でできる行動を決める`}
-                variant="secondary"
-                disabled={busy}
-                onPress={() => {
-                  setModal(undefined);
-                  openStep(fallback.taskId, conditions.minutes);
-                }}
-              />
-            </>
-          ) : null}
-          {alternate && !current.tasks.length ? (
-            <ActionButton
-              label="タスクを追加する"
-              variant="secondary"
-              onPress={() => {
-                setModal(undefined);
-                openTasks();
-              }}
-            />
-          ) : null}
-          {hasAlternates ? (
-            <ActionButton
-              label="最初の候補に戻る"
-              variant="ghost"
-              onPress={() => setExcluded(undefined)}
-            />
-          ) : null}
-          {!alternate && current.tasks.length > 0 ? (
-            <ActionButton
-              label="時間・余裕を変更"
-              variant="ghost"
-              onPress={() => setModal('now')}
-            />
-          ) : null}
-        </Card>
-      );
-    }
-    return items.map((item) => {
-      const goal = item.goalId ? current.goals.get(item.goalId) : null;
-      return (
-        <Card key={targetKey(item.kind, item.id)} style={{ gap: spacing.xs }}>
-          {goal ? (
-            <Text style={{ ...typography.secondary, color: colors.primary }}>{goal}</Text>
-          ) : null}
-          <Text
-            accessibilityRole="header"
-            style={{ ...typography.sectionTitle, color: colors.textPrimary }}
-          >
-            {item.title}
-          </Text>
-          {item.kind === 'step' ? <Text style={text}>{item.taskTitle}の小さな行動</Text> : null}
-          <Text style={text}>{item.reason}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-            <ActionButton
-              label="完了"
-              accessibilityLabel={`${item.title}を完了`}
-              variant="secondary"
-              disabled={busy || !!loadError}
-              onPress={() => void record(item, 'completed')}
-            />
-            <ActionButton
-              label="今日は見送る"
-              accessibilityLabel={`${item.title}を今日は見送る`}
-              variant="ghost"
-              disabled={busy || !!loadError}
-              onPress={() => void record(item, 'skipped')}
-            />
-            {alternate ? (
-              <ActionButton
-                label="別の候補"
-                variant="ghost"
-                disabled={busy}
-                onPress={() => another(item)}
-              />
-            ) : null}
-          </View>
-        </Card>
-      );
-    });
+        </View>
+        <ActionButton
+          label="見送る"
+          accessibilityLabel={`${item.title}を今日は見送る`}
+          variant="ghost"
+          disabled={actionDisabled}
+          onPress={() => void record(item, 'skipped')}
+        />
+      </View>
+    );
+  }
+
+  function renderResults(outcome: Outcome, heading: string) {
+    const results = todayResults.filter((item) => item.outcome === outcome);
+    if (!results.length) return null;
+    return (
+      <Card>
+        <SectionHeader compact title={`${heading}（${results.length}）`} />
+        {results.map((item) => {
+          const exists =
+            item.kind === 'step'
+              ? current?.steps.some((step) => step.id === item.targetId)
+              : current?.tasks.some((task) => task.id === item.targetId);
+          return (
+            <View key={targetKey(item.kind, item.targetId)} style={row}>
+              {outcome === 'completed' ? (
+                <CompletionCheckbox
+                  label={`${item.title}を未完了に戻す`}
+                  checked
+                  disabled={actionDisabled || !exists}
+                  onPress={() => void undo(item)}
+                />
+              ) : null}
+              <Text style={[titleStyle, { flex: 1 }]}>{item.title}</Text>
+              {outcome === 'skipped' && exists ? (
+                <ActionButton
+                  label="取り消す"
+                  accessibilityLabel={`${item.title}の見送りを取り消す`}
+                  variant="ghost"
+                  disabled={actionDisabled}
+                  onPress={() => void undo(item)}
+                />
+              ) : null}
+            </View>
+          );
+        })}
+      </Card>
+    );
   }
 
   return (
@@ -327,20 +318,33 @@ export function TodayRecommendationsScreen({
         action={<ActionButton label="設定" variant="ghost" onPress={openSettings} />}
       />
       <Card style={{ gap: spacing.sm }}>
-        <ActionButton
-          label="今から何する？"
-          onPress={() => {
-            setFeedback(undefined);
-            setModal('now');
+        <SectionHeader compact title="今から何する？" />
+        <OptionGroup
+          label="今日の余裕"
+          disabled={busy}
+          options={availability}
+          selectedValue={conditions.effort}
+          onChange={(value) => {
+            if (!isEffort(value)) return;
+            const minutes = { light: 15, normal: 30, focus: 60 } as const;
+            changeConditions({ effort: value, minutes: minutes[value] });
           }}
         />
-        <Text style={text}>
-          {conditions.minutes}分 ・{' '}
-          {EFFORT_OPTIONS.find((option) => option.value === conditions.effort)?.label}
-        </Text>
+        <OptionGroup
+          label="使える時間"
+          disabled={busy}
+          options={durationOptions}
+          selectedValue={String(conditions.minutes)}
+          onChange={(value) =>
+            changeConditions({
+              ...conditions,
+              minutes: durations.find((n) => String(n) === value) ?? DEFAULT_CONDITIONS.minutes,
+            })
+          }
+        />
       </Card>
       <SectionHeader title="今日のおすすめ" />
-      {!modal && feedback?.scope === 'recommendation' ? message : null}
+      {feedback?.scope === 'recommendation' ? message : null}
       {loadError ? (
         <Notice
           message={loadError}
@@ -354,7 +358,36 @@ export function TodayRecommendationsScreen({
           }
         />
       ) : null}
-      {renderChoices(choices?.candidates ?? [], false)}
+      {items.length ? (
+        <Card>
+          {items.slice(0, shownCount).map(renderChoice)}
+          {items.length > shownCount ? (
+            <ActionButton
+              label="もっと見る"
+              variant="secondary"
+              onPress={() => setShownCount((count) => count + 8)}
+            />
+          ) : null}
+        </Card>
+      ) : !loadError ? (
+        <Text accessibilityLiveRegion="polite" style={text}>
+          {current
+            ? current.tasks.length
+              ? '今の条件で表示できる候補がありません。'
+              : 'まだタスクがありません。'
+            : 'タスクを読み込んでいます。'}
+        </Text>
+      ) : null}
+      {!items.length && fallback ? (
+        <ActionButton
+          label={`「${fallback.taskTitle}」を${conditions.minutes}分の行動に分ける`}
+          variant="secondary"
+          disabled={actionDisabled}
+          onPress={() => openStep(fallback.taskId, conditions.minutes)}
+        />
+      ) : null}
+      {renderResults('completed', '完了済み')}
+      {renderResults('skipped', '今日の見送り')}
       {choices?.overdue.length ? (
         <ActionButton
           label={`期限を見直す（${choices.overdue.length}件）`}
@@ -382,45 +415,9 @@ export function TodayRecommendationsScreen({
       />
       {feedback?.scope === 'quickAdd' ? message : null}
       {agenda}
-      <SectionHeader
-        title={`今日の完了 ${todayResults.filter((item) => item.outcome === 'completed').length}件`}
-      />
-      <ActionButton
-        label="実行履歴を見る"
-        variant="secondary"
-        onPress={() => setModal('history')}
-      />
-      {modal === 'now' ? (
-        <ModalFrame title="今から何する？" onClose={() => setModal(undefined)} closeDisabled={busy}>
-          <OptionGroup
-            label="使える時間"
-            disabled={busy}
-            options={durationOptions}
-            selectedValue={String(conditions.minutes)}
-            onChange={(value) =>
-              changeConditions({
-                ...conditions,
-                minutes:
-                  durations.find((minutes) => String(minutes) === value) ??
-                  DEFAULT_CONDITIONS.minutes,
-              })
-            }
-          />
-          <OptionGroup
-            label="今の余裕"
-            disabled={busy}
-            options={EFFORT_OPTIONS}
-            selectedValue={conditions.effort}
-            onChange={(value) => {
-              if (isEffort(value)) changeConditions({ ...conditions, effort: value });
-            }}
-          />
-          {feedback?.scope === 'recommendation' ? message : null}
-          {renderChoices(choices?.candidates.slice(0, 1) ?? [], true)}
-        </ModalFrame>
-      ) : null}
-      {modal === 'history' ? (
-        <ModalFrame title="実行履歴" onClose={() => setModal(undefined)}>
+      <ActionButton label="実行履歴を見る" variant="ghost" onPress={() => setShowHistory(true)} />
+      {showHistory ? (
+        <ModalFrame title="実行履歴" onClose={() => setShowHistory(false)}>
           {recentResults.length ? (
             recentResults.map((item) => (
               <Text key={`${item.date}:${targetKey(item.kind, item.targetId)}`} style={text}>
