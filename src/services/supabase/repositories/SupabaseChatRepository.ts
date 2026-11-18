@@ -10,6 +10,7 @@ import { getSupabaseClient } from '../client';
 import type { Json } from '../database.types';
 
 const errors: Record<string, string> = {
+  CALENDAR_INPUT: '共有内容を送信できません。日時と選択件数を確認してください。',
   AUTH: 'もう一度ログインしてください。',
   BUDGET: '今月のAI推定予算の範囲に収まりません。計画や下書きは引き続き利用できます。',
   UNCONFIGURED: 'AIはまだ設定されていません。',
@@ -89,7 +90,9 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
         listMessages(thread),
         client
           .from('v2_drafts')
-          .select('id,revision,approved_at,items')
+          .select(
+            'id,revision,approved_at,rejected_at,applied_keys,items,v26_task_edit_receipts(task_id,undone_at)',
+          )
           .eq('user_id', userId)
           .eq('thread_id', thread)
           .order('created_at', { ascending: false }),
@@ -101,22 +104,39 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
           id: item.id,
           revision: item.revision,
           approvedAt: item.approved_at,
-          items: item.items as DraftItem[],
+          rejectedAt: item.rejected_at,
+          appliedKeys: item.applied_keys ?? undefined,
+          undoTaskIds:
+            item.v26_task_edit_receipts
+              ?.filter((receipt) => !receipt.undone_at)
+              .map((receipt) => receipt.task_id) ?? [],
+          items: Array.isArray(item.items)
+            ? (item.items as DraftItem[]).filter(
+                (draft) =>
+                  !!draft &&
+                  typeof draft.key === 'string' &&
+                  typeof draft.title === 'string' &&
+                  ['task', 'goal', 'step', 'plan', 'policy'].includes(draft.kind),
+              )
+            : [],
         })),
       };
     },
-    async send(threadId, prompt, date, draftId, focus) {
-      const result = await client.functions.invoke('v2-chat', {
+    async send(threadId, prompt, date, draftId, focus, calendar) {
+      const result = await client.functions.invoke<{ ephemeralReply?: string }>('v2-chat', {
         method: 'POST',
         body: {
           threadId,
           prompt,
           date,
           draftId,
+          ...(calendar ? { calendar } : {}),
           focus: focus && { kind: focus.kind, id: focus.id },
         },
       });
       if (result.error) await chatError(result.error);
+      if (calendar && typeof result.data?.ephemeralReply === 'string')
+        return result.data.ephemeralReply;
     },
     async usage() {
       const { data, error } = await client.functions.invoke<Usage>('v2-chat', { method: 'GET' });
@@ -132,6 +152,26 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
         p_items: items as Json,
       });
       if (error) throw new Error(errors[error.code] ?? '下書きを更新できませんでした。');
+    },
+    async reject(draft) {
+      const { error } = await client.rpc('v26_reject_draft', {
+        p_id: draft.id,
+        p_revision: draft.revision,
+      });
+      if (error)
+        throw new Error(errors[error.code] ?? '却下できませんでした。再試行してください。');
+    },
+    async undoTaskEdit(draftId, taskId) {
+      const { error } = await client.rpc('v26_undo_task_edit', {
+        p_draft: draftId,
+        p_task: taskId,
+      });
+      if (error)
+        throw new Error(
+          error.code === '40001'
+            ? '承認後にタスクが変更されたため取り消せません。'
+            : '編集を取り消せませんでした。',
+        );
     },
     async approve(draft, selected) {
       const { error } = await client.rpc('v2_approve_draft', {

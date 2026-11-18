@@ -1,3 +1,4 @@
+import type { RecommendationPolicy } from './policy';
 export const EFFORT_OPTIONS = [
   { value: 'light', label: '軽め' },
   { value: 'normal', label: 'ふつう' },
@@ -37,6 +38,8 @@ export type RecommendationResult = {
 };
 
 export interface RecommendationRepository {
+  listPolicies?(date: string): Promise<RecommendationPolicy[]>;
+  setPolicyActive?(id: string, revision: number, active: boolean): Promise<void>;
   listSteps(taskId?: string): Promise<ActionStep[]>;
   listResults(from: string, through: string): Promise<RecommendationResult[]>;
   addStep(taskId: string, input: StepInput): Promise<ActionStep>;

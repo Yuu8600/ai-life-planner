@@ -1,3 +1,4 @@
+import { policyLabels, type PolicyKind } from '@/features/recommendations/policy';
 import {
   isEffort,
   type ActionStep,
@@ -35,6 +36,46 @@ function fields(input: StepInput) {
 export function createSupabaseRecommendationRepository(userId: string): RecommendationRepository {
   const client = getSupabaseClient();
   return {
+    async listPolicies(date) {
+      const { data, error } = await client
+        .from('recommendation_policies')
+        .select('*,goals(title),tasks(title)')
+        .eq('user_id', userId)
+        .lte('start_date', date)
+        .gte('end_date', date);
+      if (error) throw error;
+      return data.flatMap((row) => {
+        if (
+          !Object.hasOwn(policyLabels, row.policy_kind) ||
+          (row.source !== 'ai' && row.source !== 'manual') ||
+          (row.status !== 'active' && row.status !== 'revoked')
+        )
+          return [];
+        return [
+          {
+            id: row.id,
+            policyKind: row.policy_kind as PolicyKind,
+            startDate: row.start_date,
+            endDate: row.end_date,
+            targetGoalId: row.target_goal_id,
+            targetTaskId: row.target_task_id,
+            source: row.source,
+            status: row.status,
+            revision: row.revision,
+            createdAt: row.created_at,
+            targetTitle: row.goals?.title ?? row.tasks?.title ?? undefined,
+          },
+        ];
+      });
+    },
+    async setPolicyActive(id, revision, active) {
+      const { error } = await client.rpc('v26_policy_status', {
+        p_id: id,
+        p_revision: revision,
+        p_active: active,
+      });
+      if (error) throw error;
+    },
     async listSteps(taskId) {
       const steps: ActionStep[] = [];
       const size = 500;

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/features/auth';
-import { DayAgenda } from '@/features/calendar';
+import { nextCalendarWindow } from '@/features/calendar/recommendationCalendar';
+import { DayAgenda, type CalendarEvent } from '@/features/calendar';
 import { CalendarDateNavigator } from '@/features/calendar/components/CalendarDateNavigator';
 import { EventEditor } from '@/features/planner/v2/EventEditor';
 import { TodayRecommendationsScreen } from '@/features/recommendations/TodayRecommendationsScreen';
@@ -11,7 +12,7 @@ import {
   isEffort,
   type Conditions,
 } from '@/features/recommendations/repository';
-import { addLocalDays, type LocalDate } from '@/features/today';
+import { addLocalDays, getUtcDayBounds, type LocalDate } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
@@ -53,7 +54,14 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
     }),
     [userId],
   );
-  const { date: today, timezone, revision, error, refresh } = useV25Date(settings);
+  const { date: today, timezone, revision, error, refresh, now } = useV25Date(settings);
+  const [device, setDevice] = useState<{
+    date: string;
+    events: CalendarEvent[];
+    available: boolean;
+  }>();
+  const openChat = (day: string) =>
+    router.push({ pathname: '/ai', params: { date: day, entry: String(Date.now()) } });
   const [selected, setSelected] = useState<LocalDate>();
   const [editDate, setEditDate] = useState<string>();
   const key = `v25-recommendation-conditions:${userId}`;
@@ -87,6 +95,8 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
       revision={revision}
       calendar={calendar}
       fixed={fixed}
+      now={mode === 'today' ? +now : undefined}
+      onDeviceEvents={mode === 'today' ? setDevice : undefined}
       summary={mode === 'today'}
       onOpenCalendar={mode === 'today' ? () => router.navigate('/calendar') : undefined}
     />
@@ -100,6 +110,16 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         repository={repository}
         taskRepository={taskRepository}
         agenda={agenda}
+        calendarWindow={
+          device?.date === date && device.available
+            ? nextCalendarWindow(
+                device.events,
+                +now,
+                Date.parse(getUtcDayBounds(date, timezone).endAt),
+              )
+            : undefined
+        }
+        openChat={() => openChat(date)}
         initialConditions={initialConditions}
         saveConditions={(value) => {
           try {
@@ -134,6 +154,7 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
       />
       <ActionButton label="予定を追加" variant="secondary" onPress={() => setEditDate(date)} />
       {agenda}
+      <ActionButton label="この日の予定をAIに相談" variant="ghost" onPress={() => openChat(date)} />
       {editDate ? (
         <EventEditor
           fixedOnly

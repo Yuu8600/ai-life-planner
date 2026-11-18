@@ -20,6 +20,8 @@ type Props = {
   fixed: FixedEventRepository;
   revision: number;
   summary?: boolean;
+  now?: number;
+  onDeviceEvents?: (state: { date: string; events: CalendarEvent[]; available: boolean }) => void;
   onOpenCalendar?: () => void;
 };
 
@@ -37,6 +39,8 @@ export function DayAgenda({
   fixed,
   revision,
   summary,
+  now,
+  onDeviceEvents,
   onOpenCalendar,
 }: Props) {
   const { colors, spacing, typography } = useTheme();
@@ -83,6 +87,15 @@ export function DayAgenda({
     };
   }, [calendar, fixed, date, timezone, revision, retry]);
 
+  useEffect(() => {
+    if (device?.date === date)
+      onDeviceEvents?.({
+        date,
+        events: device.values,
+        available: device.status === 'ready',
+      });
+  }, [device, date, onDeviceEvents]);
+
   async function checkPermission() {
     if (permissionBusy) return;
     setPermissionBusy(true);
@@ -117,11 +130,13 @@ export function DayAgenda({
   );
   const time = { ...typography.secondary, color: colors.textSecondary };
   const refresh = () => setRetry((value) => value + 1);
-  const shown = summary ? events.slice(0, 3) : events;
+  const upcoming =
+    now === undefined ? events : events.filter((event) => Date.parse(event.endAt) > now);
+  const shown = summary ? upcoming.slice(0, 3) : events;
 
   return (
     <View style={{ gap: spacing.sm }}>
-      {summary ? <SectionHeader title="今日の予定" /> : null}
+      {summary ? <SectionHeader title="直近の予定" /> : null}
       {shown.map((event) => (
         <Card key={event.key} style={{ gap: spacing.xs }}>
           <Text style={time}>
@@ -198,9 +213,9 @@ export function DayAgenda({
         />
       ) : null}
       {actionError ? <Notice tone="error" message={actionError} /> : null}
-      {onOpenCalendar && events.length > 3 ? (
+      {onOpenCalendar && upcoming.length > 3 ? (
         <ActionButton
-          label={`予定をすべて見る（${events.length}件）`}
+          label={`予定をすべて見る（${upcoming.length}件）`}
           variant="ghost"
           onPress={onOpenCalendar}
         />

@@ -1,3 +1,4 @@
+import type { PolicyFields } from '@/features/recommendations/policy';
 import type { PlannerPriority } from '@/features/planner';
 
 type PriorDraftValues = {
@@ -5,6 +6,9 @@ type PriorDraftValues = {
   priority: PlannerPriority;
   deadline: string | null;
   minutes?: number | null;
+  goalId?: string | null;
+  recurrence?: string;
+  weekdays?: number[];
 };
 export type RecordProposal = {
   key: string;
@@ -20,6 +24,7 @@ export type RecordProposal = {
   goalId?: string | null;
   parentUpdatedAt?: string | null;
   parentTitle?: string | null;
+  patch?: Record<string, unknown>;
   reason?: string | null;
 };
 export type PlanProposal = {
@@ -40,13 +45,40 @@ export type StepProposal = {
   reason?: string | null;
 };
 export type ChatFocus = { kind: 'task' | 'goal'; id: string; title: string };
-export type DraftItem = RecordProposal | PlanProposal | StepProposal;
-export type Draft = { id: string; revision: string; approvedAt: string | null; items: DraftItem[] };
+export type PolicyProposal = PolicyFields & {
+  key: string;
+  kind: 'policy';
+  title: string;
+  targetTitle?: string | null;
+};
+export type CalendarShare =
+  | { mode: 'availability_summary'; date: string; hasEvents: boolean }
+  | {
+      mode: 'selected_event_details';
+      date: string;
+      includeLocation: boolean;
+      events: { title: string; startAt: string; endAt: string; location?: string }[];
+    };
+export type DraftItem = RecordProposal | PlanProposal | StepProposal | PolicyProposal;
+export type Draft = {
+  id: string;
+  revision: string;
+  approvedAt: string | null;
+  rejectedAt?: string | null;
+  undoTaskIds?: string[];
+  appliedKeys?: string[];
+  items: DraftItem[];
+};
 export type Thread = { id: string; title: string };
 export type MessageCursor = { id: string; createdAt: string };
 export type MessagePage = { messages: ChatMessage[]; olderCursor: MessageCursor | null };
 export type ChatMessage = { id: string; role: 'user' | 'assistant'; body: string };
-export type Usage = { configured: boolean; remainingMicros: number; month: string };
+export type Usage = {
+  configured: boolean;
+  calendarSharing?: boolean;
+  remainingMicros: number;
+  month: string;
+};
 export interface ChatRepository {
   listThreads(): Promise<Thread[]>;
   createThread(title: string): Promise<Thread>;
@@ -58,8 +90,11 @@ export interface ChatRepository {
     date?: string,
     draftId?: string,
     focus?: ChatFocus,
-  ): Promise<void>;
+    calendar?: CalendarShare,
+  ): Promise<string | void>;
   usage(): Promise<Usage>;
   edit(draft: Draft, items: DraftItem[]): Promise<void>;
+  reject?(draft: Draft): Promise<void>;
+  undoTaskEdit?(draftId: string, taskId: string): Promise<void>;
   approve(draft: Draft, selected: string[]): Promise<void>;
 }

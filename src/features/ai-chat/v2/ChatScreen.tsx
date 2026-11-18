@@ -8,16 +8,37 @@ import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, spacing, typography } from '@/shared/theme';
+import { CalendarShareEditor } from './CalendarShareEditor';
+import type { TaskGoalOption } from '@/features/tasks/repositories/TaskRepository';
+import type { CalendarEvent } from '@/features/calendar';
 import { DraftEditor } from './DraftEditor';
-import type { ChatFocus, ChatRepository, Draft, PlanProposal, Thread, Usage } from './repository';
+import type {
+  CalendarShare,
+  ChatFocus,
+  ChatRepository,
+  Draft,
+  PlanProposal,
+  Thread,
+  Usage,
+} from './repository';
 
 export function ChatScreen({
   repository,
   reviewPlan,
   focus,
+  initialDate,
+  taskEditIntent,
+  readCalendar,
+  loadGoals,
+  openApplied,
 }: {
   repository: ChatRepository;
   focus?: ChatFocus;
+  initialDate?: string;
+  taskEditIntent?: boolean;
+  openApplied?: (recommendations: boolean) => void;
+  loadGoals?: () => Promise<TaskGoalOption[]>;
+  readCalendar?: (date: string) => Promise<CalendarEvent[]>;
   reviewPlan: (plan: PlanProposal) => void;
 }) {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -27,10 +48,16 @@ export function ChatScreen({
   const [usage, setUsage] = useState<Usage>();
   const [usageFailed, setUsageFailed] = useState(false);
   const [prompt, setPrompt] = useState(() =>
-    focus ? `「${focus.title.slice(0, 200)}」を進める小さな行動を3〜5件提案してください。` : '',
+    focus
+      ? taskEditIntent
+        ? `「${focus.title.slice(0, 200)}」の変更について相談したい。`
+        : `「${focus.title.slice(0, 200)}」を進める小さな行動を3〜5件提案してください。`
+      : '',
   );
   const [activeFocus, setActiveFocus] = useState(focus);
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(initialDate ?? '');
+  const [calendar, setCalendar] = useState<CalendarShare>();
+  const [privateReply, setPrivateReply] = useState<string>();
   const [dateDraft, setDateDraft] = useState<string>();
   const scroll = useRef<ScrollView>(null);
   const inputJump = useRef(false);
@@ -120,6 +147,8 @@ export function ChatScreen({
     setPrompt('');
     setActiveFocus(undefined);
     setDate('');
+    setCalendar(undefined);
+    setPrivateReply(undefined);
     setReferencedDraft(undefined);
     setError('');
   };
@@ -178,16 +207,30 @@ export function ChatScreen({
     setPending(true);
     setError('');
     let thread = current;
+    setPrivateReply(undefined);
+    setCalendar(undefined);
     try {
       if (!thread) {
         thread = await repository.createThread(
-          activeFocus?.title.slice(0, 100) ?? prompt.trim().slice(0, 40),
+          calendar
+            ? '予定の相談'
+            : (activeFocus?.title.slice(0, 100) ?? prompt.trim().slice(0, 40)),
         );
         threadCreatedBySend.current = thread.id;
         setCurrent(thread);
         void refreshThreads();
       }
-      if (activeFocus) {
+      if (calendar) {
+        const reply = await repository.send(
+          thread.id,
+          prompt.trim(),
+          calendar.date,
+          undefined,
+          activeFocus,
+          calendar,
+        );
+        if (typeof reply === 'string') setPrivateReply(reply);
+      } else if (activeFocus) {
         await repository.send(
           thread.id,
           prompt.trim(),
@@ -237,17 +280,21 @@ export function ChatScreen({
       </FormField>
       <View style={styles.actions}>
         <ActionButton
-          label={date ? `対象日 ${date}` : '対象日（任意）'}
+          label={calendar ? '予定を共有する' : '参照情報'}
           variant="ghost"
           disabled={pending}
           onPress={() => setDateDraft(date)}
         />
         <ActionButton
-          label="送信"
+          label={calendar ? '共有して送信' : '送信'}
           accessibilityLabel="AIに送信"
           loading={pending}
           disabled={
-            loadingOlder || !usage?.configured || usage.remainingMicros === 0 || !prompt.trim()
+            loadingOlder ||
+            (calendar && !usage?.calendarSharing) ||
+            !usage?.configured ||
+            usage.remainingMicros === 0 ||
+            !prompt.trim()
           }
           onPress={() => void send()}
         />
@@ -294,6 +341,12 @@ export function ChatScreen({
             />
           </View>
         ) : null}
+        {privateReply ? (
+          <Card>
+            <Text style={styles.small}>履歴に保存されない回答</Text>
+            <Text style={{ color: colors.textPrimary }}>{privateReply}</Text>
+          </Card>
+        ) : null}
         {error ? <Notice tone="error" message={error} /> : null}
         {current ? (
           <>
@@ -323,8 +376,16 @@ export function ChatScreen({
             {conversation?.drafts.map((draft) => (
               <Card key={draft.id} style={{ gap: spacing.sm }}>
                 <Text style={{ color: colors.textPrimary }}>
-                  {draft.approvedAt ? '承認済み' : '提案の下書き'}　
-                  {draft.items.map((item) => item.title).join('、')}
+                  {draft.approvedAt
+                    ? '適用しました'
+                    : draft.rejectedAt
+                      ? '却下済み'
+                      : '提案の下書き'}
+                  　
+                  {draft.items
+                    .filter((item) => !draft.appliedKeys || draft.appliedKeys.includes(item.key))
+                    .map((item) => item.title)
+                    .join('、')}
                 </Text>
                 <ActionButton
                   label="下書きを開く"
@@ -332,7 +393,26 @@ export function ChatScreen({
                   disabled={pending || loadingOlder}
                   onPress={() => setWorkingDraft(draft)}
                 />
-                {!draft.approvedAt ? (
+                {draft.appliedKeys && openApplied ? (
+                  <ActionButton
+                    label={
+                      draft.items.some(
+                        (item) => item.kind === 'policy' && draft.appliedKeys?.includes(item.key),
+                      )
+                        ? '今日で確認'
+                        : 'タスクを見る'
+                    }
+                    variant="ghost"
+                    onPress={() =>
+                      openApplied(
+                        draft.items.some(
+                          (item) => item.kind === 'policy' && draft.appliedKeys?.includes(item.key),
+                        ),
+                      )
+                    }
+                  />
+                ) : null}
+                {!draft.approvedAt && !draft.rejectedAt ? (
                   <ActionButton
                     label={
                       referencedDraft === draft.id
@@ -352,6 +432,7 @@ export function ChatScreen({
               <DraftEditor
                 key={workingDraft.id}
                 draft={workingDraft}
+                loadGoals={loadGoals}
                 repository={repository}
                 close={() => setWorkingDraft(undefined)}
                 refreshed={() => refreshConversation(current.id)}
@@ -374,23 +455,16 @@ export function ChatScreen({
           ))
         )}
         {dateDraft !== undefined ? (
-          <ModalFrame
-            title="対象日"
-            onClose={() => setDateDraft(undefined)}
-            footer={
-              <ActionButton
-                label="この条件を使う"
-                onPress={() => {
-                  setDate(dateDraft.trim());
-                  setDateDraft(undefined);
-                }}
-              />
-            }
-          >
-            <FormField label="日付（YYYY-MM-DD）" helper="空欄にすると対象日を指定しません。">
-              <FormInput value={dateDraft} maxLength={10} onChangeText={setDateDraft} />
-            </FormField>
-          </ModalFrame>
+          <CalendarShareEditor
+            initialDate={dateDraft}
+            readEvents={usage?.calendarSharing ? readCalendar : undefined}
+            close={() => setDateDraft(undefined)}
+            apply={(value, share) => {
+              setDate(value);
+              setCalendar(share);
+              setDateDraft(undefined);
+            }}
+          />
         ) : null}
         {newTitle !== undefined ? (
           <ModalFrame

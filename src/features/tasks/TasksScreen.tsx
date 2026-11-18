@@ -35,6 +35,7 @@ type TasksScreenProps = {
   retryDay?: () => void;
   initialFilter?: TaskFilterId;
   onOpenSteps?: (taskId: string) => void;
+  onAskAI?: (task: Task) => void;
   onOpenGoals?: () => void;
   planningTimezone?: string;
   onReplanTask?: (taskId: string, date: string) => void;
@@ -52,6 +53,7 @@ export function TasksScreen({
   initialFilter,
   onOpenSteps,
   onOpenGoals,
+  onAskAI,
   now,
   planningTimezone,
   onReplanTask,
@@ -438,6 +440,14 @@ export function TasksScreen({
           task={editingTask}
           planningTimezone={planningTimezone}
           recommendationMode={recommendationMode}
+          onAskAI={
+            editingTask && onAskAI
+              ? () => {
+                  setEditingTask(undefined);
+                  onAskAI(editingTask);
+                }
+              : undefined
+          }
           onOpenSteps={
             editingTask && onOpenSteps
               ? () => {

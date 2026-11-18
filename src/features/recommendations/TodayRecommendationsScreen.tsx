@@ -1,3 +1,4 @@
+import { effectivePolicies, policyLabels, type RecommendationPolicy } from './policy';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
@@ -41,6 +42,8 @@ type Props = {
   initialConditions: Conditions;
   saveConditions: (value: Conditions) => void;
   agenda?: ReactNode;
+  calendarWindow?: { minutes: number | null; until: number | null };
+  openChat?: () => void;
   openSettings: () => void;
   openTasks: (filter?: 'overdue') => void;
   openStep: (taskId: string, minutes: number) => void;
@@ -63,6 +66,8 @@ export function TodayRecommendationsScreen({
   initialConditions,
   saveConditions,
   agenda,
+  calendarWindow,
+  openChat,
   openSettings,
   openTasks,
   openStep,
@@ -77,6 +82,13 @@ export function TodayRecommendationsScreen({
   });
   const [shownCount, setShownCount] = useState(4);
   const [lastChange, setLastChange] = useState<string>();
+  const [policySheet, setPolicySheet] = useState(false);
+  const [policies, setPolicies] = useState<{ date: string; values: RecommendationPolicy[] }>();
+  const [policyError, setPolicyError] = useState('');
+  const [policyBusy, setPolicyBusy] = useState(false);
+  const policyLock = useRef(false);
+  const publishedPolicies = policies?.date === date ? policies.values : [];
+  const activePolicies = effectivePolicies(publishedPolicies, date);
   const [showHistory, setShowHistory] = useState(false);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
@@ -97,8 +109,10 @@ export function TodayRecommendationsScreen({
         timezone,
         conditions,
         expandedToday: true,
+        calendarMinutes: calendarWindow?.minutes,
+        policies: policies?.date === date ? policies.values : undefined,
       }),
-    [current, timezone, conditions],
+    [current, timezone, conditions, date, calendarWindow?.minutes, policies],
   );
 
   const fallback = choices?.startWith;
@@ -134,6 +148,59 @@ export function TodayRecommendationsScreen({
       active = false;
     };
   }, [taskRepository, repository, date, revision, retry]);
+
+  useEffect(() => {
+    if (!repository.listPolicies) return;
+    let alive = true;
+    void repository.listPolicies(date).then(
+      (values) => {
+        if (alive) {
+          setPolicies({ date, values });
+          setPolicyError('');
+        }
+      },
+      () => {
+        if (alive) {
+          setPolicies(undefined);
+          setPolicyError('推薦方針を読み込めませんでした。');
+        }
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [repository, date, revision, retry]);
+
+  async function setPolicy(item: RecommendationPolicy, active: boolean) {
+    if (!repository.setPolicyActive || policyLock.current) return;
+    policyLock.current = true;
+    setPolicyBusy(true);
+    setPolicyError('');
+    try {
+      await repository.setPolicyActive(item.id, item.revision, active);
+      setPolicies((old) =>
+        old?.date === date
+          ? {
+              ...old,
+              values: old.values.map((value) =>
+                value.id === item.id
+                  ? {
+                      ...value,
+                      status: active ? 'active' : 'revoked',
+                      revision: value.revision + 1,
+                    }
+                  : value,
+              ),
+            }
+          : old,
+      );
+    } catch (error) {
+      setPolicyError(getTaskErrorMessage(error));
+    } finally {
+      policyLock.current = false;
+      setPolicyBusy(false);
+    }
+  }
 
   function changeConditions(value: Conditions) {
     setConditions(value);
@@ -248,6 +315,10 @@ export function TodayRecommendationsScreen({
     />
   ) : null;
   const items = choices?.candidates ?? [];
+  const limit =
+    shownCount === 4 && activePolicies.some((item) => item.policyKind === 'lighter_day')
+      ? Math.max(2, choices?.urgentCount ?? 0)
+      : shownCount;
   const actionDisabled = busy || !!loadError;
   const row = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.xs };
   const titleStyle = { ...typography.bodyStrong, color: colors.textPrimary };
@@ -347,6 +418,31 @@ export function TodayRecommendationsScreen({
           }
         />
       </Card>
+      {openChat ? (
+        <Text style={text}>
+          {calendarWindow === undefined
+            ? '予定を確認できないため、タスク情報で推薦'
+            : calendarWindow.minutes === null
+              ? 'カレンダー上では、この後の予定なし'
+              : calendarWindow.minutes === 0
+                ? 'カレンダー上では予定の時間帯'
+                : `カレンダー上では次の予定まで${calendarWindow.minutes}分`}
+        </Text>
+      ) : null}
+      {publishedPolicies.length ? (
+        <ActionButton
+          variant="ghost"
+          label={
+            activePolicies.length === 1
+              ? `適用中：${activePolicies[0].targetTitle ?? policyLabels[activePolicies[0].policyKind]}`
+              : activePolicies.length
+                ? `推薦方針 ${activePolicies.length}件を適用中`
+                : '推薦方針'
+          }
+          onPress={() => setPolicySheet(true)}
+        />
+      ) : null}
+      {policyError && !policySheet ? <Notice tone="warning" message={policyError} /> : null}
       {!showHistory && feedback?.scope === 'recommendation' ? message : null}
       {loadError ? (
         <Notice
@@ -363,8 +459,8 @@ export function TodayRecommendationsScreen({
       ) : null}
       {items.length ? (
         <Card>
-          {items.slice(0, shownCount).map(renderChoice)}
-          {items.length > shownCount ? (
+          {items.slice(0, limit).map(renderChoice)}
+          {items.length > limit ? (
             <ActionButton
               label="もっと見る"
               variant="secondary"
@@ -421,6 +517,37 @@ export function TodayRecommendationsScreen({
       />
       {feedback?.scope === 'quickAdd' ? message : null}
       {agenda}
+      {openChat ? <ActionButton label="AIに相談" variant="ghost" onPress={openChat} /> : null}
+      {policySheet ? (
+        <ModalFrame
+          title="推薦方針"
+          onClose={() => setPolicySheet(false)}
+          closeDisabled={policyBusy}
+        >
+          {policyError ? <Notice tone="error" message={policyError} /> : null}
+          {publishedPolicies.map((item) => (
+            <Card key={item.id}>
+              <Text style={titleStyle}>
+                {policyLabels[item.policyKind]} {item.targetTitle}
+              </Text>
+              <Text style={text}>
+                {item.startDate} ～ {item.endDate} ・{' '}
+                {item.status === 'revoked'
+                  ? '解除済み'
+                  : activePolicies.includes(item)
+                    ? '適用中'
+                    : '同じ条件の新しい方針を適用中'}
+              </Text>
+              <ActionButton
+                label={item.status === 'active' ? '解除' : '再適用'}
+                variant="ghost"
+                disabled={policyBusy}
+                onPress={() => void setPolicy(item, item.status === 'revoked')}
+              />
+            </Card>
+          ))}
+        </ModalFrame>
+      ) : null}
       {showHistory ? (
         <ModalFrame
           title="実行履歴"

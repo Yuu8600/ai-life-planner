@@ -357,6 +357,83 @@ export type Database = {
         }
         Relationships: []
       }
+      recommendation_policies: {
+        Row: {
+          created_at: string
+          draft_key: string | null
+          end_date: string
+          id: string
+          policy_kind: string
+          revision: number
+          source: string
+          source_draft_id: string | null
+          start_date: string
+          status: string
+          target_goal_id: string | null
+          target_task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          draft_key?: string | null
+          end_date: string
+          id?: string
+          policy_kind: string
+          revision?: number
+          source?: string
+          source_draft_id?: string | null
+          start_date: string
+          status?: string
+          target_goal_id?: string | null
+          target_task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          draft_key?: string | null
+          end_date?: string
+          id?: string
+          policy_kind?: string
+          revision?: number
+          source?: string
+          source_draft_id?: string | null
+          start_date?: string
+          status?: string
+          target_goal_id?: string | null
+          target_task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_policies_source_draft_id_fkey"
+            columns: ["source_draft_id"]
+            isOneToOne: false
+            referencedRelation: "v2_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendation_policies_target_goal_id_user_id_fkey"
+            columns: ["target_goal_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recommendation_policies_target_task_id_user_id_fkey"
+            columns: ["target_task_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recommendation_policies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recommendation_results: {
         Row: {
           created_at: string
@@ -516,28 +593,34 @@ export type Database = {
       }
       v2_drafts: {
         Row: {
+          applied_keys: string[] | null
           approved_at: string | null
           created_at: string
           id: string
           items: Json
+          rejected_at: string | null
           revision: string
           thread_id: string
           user_id: string
         }
         Insert: {
+          applied_keys?: string[] | null
           approved_at?: string | null
           created_at?: string
           id?: string
           items: Json
+          rejected_at?: string | null
           revision?: string
           thread_id: string
           user_id: string
         }
         Update: {
+          applied_keys?: string[] | null
           approved_at?: string | null
           created_at?: string
           id?: string
           items?: Json
+          rejected_at?: string | null
           revision?: string
           thread_id?: string
           user_id?: string
@@ -706,6 +789,48 @@ export type Database = {
           },
         ]
       }
+      v26_task_edit_receipts: {
+        Row: {
+          applied_revision: string
+          before_values: Json
+          draft_id: string
+          task_id: string
+          undone_at: string | null
+          user_id: string
+        }
+        Insert: {
+          applied_revision: string
+          before_values: Json
+          draft_id: string
+          task_id: string
+          undone_at?: string | null
+          user_id: string
+        }
+        Update: {
+          applied_revision?: string
+          before_values?: Json
+          draft_id?: string
+          task_id?: string
+          undone_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v26_task_edit_receipts_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "v2_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v26_task_edit_receipts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -849,6 +974,18 @@ export type Database = {
         Returns: string
       }
       v2_unique_weekdays: { Args: { days: number[] }; Returns: boolean }
+      v26_policy_status: {
+        Args: { p_active: boolean; p_id: string; p_revision: number }
+        Returns: undefined
+      }
+      v26_reject_draft: {
+        Args: { p_id: string; p_revision: string }
+        Returns: undefined
+      }
+      v26_undo_task_edit: {
+        Args: { p_draft: string; p_task: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -33,6 +33,18 @@ function SignedInTasks({ userId }: { userId: string }) {
       dayError={error}
       retryDay={refresh}
       initialFilter={filter === 'overdue' ? 'overdue' : undefined}
+      onAskAI={(task) =>
+        router.push({
+          pathname: '/ai',
+          params: {
+            intent: 'edit',
+            focusKind: 'task',
+            focusId: task.id,
+            focusTitle: task.title,
+            entry: String(Date.now()),
+          },
+        })
+      }
       onOpenGoals={() => router.navigate('/goals')}
       onOpenSteps={(taskId) => router.push({ pathname: '/action-steps', params: { taskId } })}
     />

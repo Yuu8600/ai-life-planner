@@ -34,6 +34,7 @@ type TaskFormModalProps = {
   planningTimezone?: string;
   recommendationMode?: boolean;
   onDelete?: () => void;
+  onAskAI?: () => void;
   onOpenSteps?: () => void;
 };
 
@@ -50,6 +51,7 @@ export function TaskFormModal({
   planningTimezone,
   recommendationMode = false,
   onOpenSteps,
+  onAskAI,
   onDelete,
 }: TaskFormModalProps) {
   const [values, setValues] = useState<TaskFormValues>(() =>
@@ -166,6 +168,14 @@ export function TaskFormModal({
         />
       </FormField>
 
+      {onAskAI ? (
+        <ActionButton
+          label="このタスクをAIに相談"
+          variant="ghost"
+          disabled={isSubmitting}
+          onPress={onAskAI}
+        />
+      ) : null}
       {onOpenSteps ? (
         <ActionButton
           label="小さな行動を見る・追加する"

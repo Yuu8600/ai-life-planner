@@ -1,3 +1,4 @@
+import { effectivePolicies, type RecommendationPolicy } from './policy';
 import type { Task } from '@/features/tasks/repositories/TaskRepository';
 import { addLocalDays, getLocalDate } from '@/features/today';
 
@@ -26,6 +27,8 @@ type RankedCandidate = Candidate & {
   created: string;
   lastDone: string;
   urgent: boolean;
+  fitsCalendar: boolean;
+  policyWeight: number;
 };
 
 type Input = {
@@ -37,6 +40,8 @@ type Input = {
   conditions: Conditions;
   excluded?: ReadonlySet<string>;
   expandedToday?: boolean;
+  calendarMinutes?: number | null;
+  policies?: readonly RecommendationPolicy[];
 };
 
 const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
@@ -53,6 +58,9 @@ export function taskDeadline(task: Task, timezone: string) {
 function compare(a: RankedCandidate, b: RankedCandidate) {
   return (
     Number(b.urgent) - Number(a.urgent) ||
+    (a.urgent ? (a.deadline ?? '').localeCompare(b.deadline ?? '') : 0) ||
+    b.policyWeight - a.policyWeight ||
+    Number(b.fitsCalendar) - Number(a.fitsCalendar) ||
     Number(a.minutes === null) - Number(b.minutes === null) ||
     priorityOrder[a.priority] - priorityOrder[b.priority] ||
     (a.deadline ?? '9999-12-31').localeCompare(b.deadline ?? '9999-12-31') ||
@@ -72,7 +80,10 @@ export function recommend({
   conditions,
   excluded,
   expandedToday,
+  calendarMinutes,
+  policies = [],
 }: Input) {
+  const activePolicies = effectivePolicies(policies, date);
   const tomorrow = addLocalDays(date, 1);
   const dayOfWeek = new Date(date + 'T00:00Z').getUTCDay();
   const resolved = new Set<string>();
@@ -118,6 +129,24 @@ export function recommend({
       const reasons: string[] = [];
       if (deadline === date) reasons.push('今日が期限');
       else if (deadline === tomorrow) reasons.push('明日が期限');
+      const focused = activePolicies.some(
+        (policy) =>
+          (policy.policyKind === 'focus_task' && policy.targetTaskId === task.id) ||
+          (policy.policyKind === 'focus_goal' && policy.targetGoalId === task.goalId),
+      );
+      const preferShort =
+        minutes !== null &&
+        minutes <= 15 &&
+        activePolicies.some(
+          (policy) =>
+            policy.policyKind === 'prefer_short' &&
+            (!policy.targetTaskId || policy.targetTaskId === task.id) &&
+            (!policy.targetGoalId || policy.targetGoalId === task.goalId),
+        );
+      const fitsCalendar =
+        calendarMinutes != null && minutes !== null && minutes <= calendarMinutes;
+      if (focused || preferShort) reasons.push(focused ? '優先設定中' : '短時間を優先中');
+      if (fitsCalendar) reasons.push(`次の予定まで${calendarMinutes}分`);
       if (recurrence === 'daily') reasons.push('毎日のタスク');
       if (scheduledDays) reasons.push(`毎週${weekdays[dayOfWeek]}曜`);
       if (task.priority === 'high') reasons.push(expandedToday ? '重要度：高' : '優先度：高');
@@ -140,6 +169,8 @@ export function recommend({
         lastDone,
         priority: task.priority,
         created: step?.createdAt ?? task.createdAt,
+        fitsCalendar,
+        policyWeight: focused ? 2 : preferShort ? 1 : 0,
         urgent: deadline === date || deadline === tomorrow,
         reason: (expandedToday ? reasons.slice(0, 2) : reasons).join(' ・ '),
       };
@@ -160,6 +191,9 @@ export function recommend({
     const options = [...actionCandidates, ...direct];
     // A fitting step gives the user a concrete starting point. Unknown time stays labelled.
     const best =
+      options.find(
+        (item) => item.fitsCalendar && item.minutes !== null && item.minutes <= conditions.minutes,
+      ) ??
       options.find((item) => item.minutes !== null && item.minutes <= conditions.minutes) ??
       options.find((item) => item.minutes === null) ??
       (expandedToday ? direct.find((item) => item.urgent) : undefined);
@@ -169,6 +203,7 @@ export function recommend({
 
   eligible.sort(compare);
   tooLong.sort(compare);
+  const urgentCount = eligible.filter((item) => item.urgent).length;
   const chosen: Candidate[] = [];
   const usedGoals = new Set<string>();
   while (chosen.length < (expandedToday ? 5 : 3) && eligible.length) {
@@ -178,12 +213,17 @@ export function recommend({
     }
     const urgent = eligible[0].urgent;
     const diverseIndex = eligible.findIndex(
-      (item) => item.urgent === urgent && item.goalId !== null && !usedGoals.has(item.goalId),
+      (item) =>
+        item.urgent === urgent &&
+        item.policyWeight === eligible[0].policyWeight &&
+        item.fitsCalendar === eligible[0].fitsCalendar &&
+        item.goalId !== null &&
+        !usedGoals.has(item.goalId),
     );
     const first = chosen.length === 0;
     const [next] = eligible.splice(!first && diverseIndex >= 0 ? diverseIndex : 0, 1);
     chosen.push(next);
     if (next.goalId) usedGoals.add(next.goalId);
   }
-  return { candidates: chosen, overdue, startWith: tooLong.at(0) };
+  return { candidates: chosen, urgentCount, overdue, startWith: tooLong.at(0) };
 }
