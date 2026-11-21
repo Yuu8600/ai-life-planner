@@ -4,6 +4,7 @@ import type {
   DraftItem,
   MessageCursor,
   MessagePage,
+  PolicyProposal,
   Usage,
 } from '@/features/ai-chat/v2/repository';
 import { getSupabaseClient } from '../client';
@@ -123,20 +124,28 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
       };
     },
     async send(threadId, prompt, date, draftId, focus, calendar) {
-      const result = await client.functions.invoke<{ ephemeralReply?: string }>('v2-chat', {
+      const result = await client.functions.invoke<{
+        ephemeralReply?: string;
+        requestId: string;
+        policyProposals?: PolicyProposal[];
+      }>('v2-chat', {
         method: 'POST',
         body: {
           threadId,
           prompt,
           date,
           draftId,
-          ...(calendar ? { calendar } : {}),
+          ...(calendar ? { calendar, calendarProposals: true } : {}),
           focus: focus && { kind: focus.kind, id: focus.id },
         },
       });
       if (result.error) await chatError(result.error);
       if (calendar && typeof result.data?.ephemeralReply === 'string')
-        return result.data.ephemeralReply;
+        return {
+          reply: result.data.ephemeralReply,
+          requestId: result.data.requestId,
+          policies: result.data.policyProposals ?? [],
+        };
     },
     async usage() {
       const { data, error } = await client.functions.invoke<Usage>('v2-chat', { method: 'GET' });
@@ -173,12 +182,32 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
             : '編集を取り消せませんでした。',
         );
     },
-    async approve(draft, selected) {
-      const { error } = await client.rpc('v2_approve_draft', {
-        p_id: draft.id,
-        p_revision: draft.revision,
-        p_selected: selected,
-      });
+    async approve(draft, selected, editedItems) {
+      const approval = { p_id: draft.id, p_revision: draft.revision, p_selected: selected };
+      const { error } = draft.calendarThreadId
+        ? await client.rpc('v27_approve_calendar_policies', {
+            p_id: draft.id,
+            p_thread: draft.calendarThreadId,
+            p_policies: (editedItems ?? draft.items).flatMap((item) =>
+              item.kind === 'policy' && selected.includes(item.key)
+                ? [
+                    {
+                      policyKind: item.policyKind,
+                      startDate: item.startDate,
+                      endDate: item.endDate,
+                      targetTaskId: item.targetTaskId ?? null,
+                      targetGoalId: item.targetGoalId ?? null,
+                    },
+                  ]
+                : [],
+            ),
+          })
+        : editedItems
+          ? await client.rpc('v27_approve_edited_draft', {
+              ...approval,
+              p_items: editedItems as Json,
+            })
+          : await client.rpc('v2_approve_draft', approval);
       if (error)
         throw new Error(
           errors[error.code] ?? '承認できませんでした。関連するGoalや入力内容を確認してください。',

@@ -18,6 +18,7 @@ import type {
   ChatRepository,
   Draft,
   PlanProposal,
+  PrivateConsultation,
   Thread,
   Usage,
 } from './repository';
@@ -57,7 +58,7 @@ export function ChatScreen({
   const [activeFocus, setActiveFocus] = useState(focus);
   const [date, setDate] = useState(initialDate ?? '');
   const [calendar, setCalendar] = useState<CalendarShare>();
-  const [privateReply, setPrivateReply] = useState<string>();
+  const [privateReply, setPrivateReply] = useState<PrivateConsultation>();
   const [dateDraft, setDateDraft] = useState<string>();
   const scroll = useRef<ScrollView>(null);
   const inputJump = useRef(false);
@@ -207,8 +208,6 @@ export function ChatScreen({
     setPending(true);
     setError('');
     let thread = current;
-    setPrivateReply(undefined);
-    setCalendar(undefined);
     try {
       if (!thread) {
         thread = await repository.createThread(
@@ -229,7 +228,7 @@ export function ChatScreen({
           activeFocus,
           calendar,
         );
-        if (typeof reply === 'string') setPrivateReply(reply);
+        if (reply) setPrivateReply(reply);
       } else if (activeFocus) {
         await repository.send(
           thread.id,
@@ -241,6 +240,7 @@ export function ChatScreen({
       } else {
         await repository.send(thread.id, prompt.trim(), date || undefined, referencedDraft);
       }
+      setCalendar(undefined);
       setPrompt('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'メッセージを送信できませんでした。');
@@ -265,6 +265,15 @@ export function ChatScreen({
 
   const composer = (
     <View style={styles.composer}>
+      {calendar ? (
+        <Text style={styles.small}>
+          次の送信で
+          {calendar.mode === 'selected_event_details'
+            ? `予定${calendar.events.length}件の詳細${calendar.includeLocation ? 'と場所' : ''}`
+            : '予定の有無'}
+          を共有。相談文と回答は履歴に残りません。
+        </Text>
+      ) : null}
       {referencedDraft ? <Text style={styles.small}>下書きの最新版について相談中</Text> : null}
       {activeFocus ? <Text style={styles.small}>相談の対象　{activeFocus.title}</Text> : null}
       <FormField label="相談内容">
@@ -280,7 +289,7 @@ export function ChatScreen({
       </FormField>
       <View style={styles.actions}>
         <ActionButton
-          label={calendar ? '予定を共有する' : '参照情報'}
+          label={calendar ? '共有内容を変更' : '参照情報'}
           variant="ghost"
           disabled={pending}
           onPress={() => setDateDraft(date)}
@@ -340,12 +349,6 @@ export function ChatScreen({
               onPress={() => void refreshUsage()}
             />
           </View>
-        ) : null}
-        {privateReply ? (
-          <Card>
-            <Text style={styles.small}>履歴に保存されない回答</Text>
-            <Text style={{ color: colors.textPrimary }}>{privateReply}</Text>
-          </Card>
         ) : null}
         {error ? <Notice tone="error" message={error} /> : null}
         {current ? (
@@ -428,6 +431,28 @@ export function ChatScreen({
                 ) : null}
               </Card>
             ))}
+            {privateReply ? (
+              <Card style={{ gap: spacing.sm }}>
+                <Text style={styles.small}>履歴に保存されない回答</Text>
+                <Text style={{ color: colors.textPrimary }}>{privateReply.reply}</Text>
+                {privateReply.policies.length ? (
+                  <ActionButton
+                    label="推薦方針の提案を確認"
+                    variant="secondary"
+                    disabled={pending || loadingOlder}
+                    onPress={() =>
+                      setWorkingDraft({
+                        id: privateReply.requestId,
+                        revision: privateReply.requestId,
+                        approvedAt: null,
+                        calendarThreadId: current.id,
+                        items: privateReply.policies,
+                      })
+                    }
+                  />
+                ) : null}
+              </Card>
+            ) : null}
             {workingDraft ? (
               <DraftEditor
                 key={workingDraft.id}
@@ -435,7 +460,19 @@ export function ChatScreen({
                 loadGoals={loadGoals}
                 repository={repository}
                 close={() => setWorkingDraft(undefined)}
-                refreshed={() => refreshConversation(current.id)}
+                refreshed={async () => {
+                  await refreshConversation(current.id);
+                  if (workingDraft.calendarThreadId)
+                    setPrivateReply((value) => value && { ...value, policies: [] });
+                }}
+                discardPrivate={
+                  workingDraft.calendarThreadId
+                    ? () => {
+                        setPrivateReply((value) => value && { ...value, policies: [] });
+                        setWorkingDraft(undefined);
+                      }
+                    : undefined
+                }
                 reviewPlan={(plan) => {
                   setWorkingDraft(undefined);
                   reviewPlan(plan);

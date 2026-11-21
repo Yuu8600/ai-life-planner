@@ -119,7 +119,7 @@ export function CalendarShareEditor({
       </FormField>
       {mode !== 'none' ? (
         <>
-          <Notice message="以下で選んだ情報は、次の送信時にOpenAI APIへ送られます。この相談はアプリの履歴に保存されません。" />
+          <Notice message="選んだ端末の予定と相談文を次の送信でOpenAI APIへ送ります。相談文と回答はアプリの履歴に残りません。推薦方針を承認すると種類・対象・期間が保存されます。" />
           {!events ? (
             <ActionButton
               label="端末の予定を確認"

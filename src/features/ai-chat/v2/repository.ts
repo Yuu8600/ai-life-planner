@@ -66,9 +66,11 @@ export type Draft = {
   approvedAt: string | null;
   rejectedAt?: string | null;
   undoTaskIds?: string[];
+  calendarThreadId?: string;
   appliedKeys?: string[];
   items: DraftItem[];
 };
+export type PrivateConsultation = { reply: string; requestId: string; policies: PolicyProposal[] };
 export type Thread = { id: string; title: string };
 export type MessageCursor = { id: string; createdAt: string };
 export type MessagePage = { messages: ChatMessage[]; olderCursor: MessageCursor | null };
@@ -91,10 +93,10 @@ export interface ChatRepository {
     draftId?: string,
     focus?: ChatFocus,
     calendar?: CalendarShare,
-  ): Promise<string | void>;
+  ): Promise<PrivateConsultation | void>;
   usage(): Promise<Usage>;
   edit(draft: Draft, items: DraftItem[]): Promise<void>;
   reject?(draft: Draft): Promise<void>;
   undoTaskEdit?(draftId: string, taskId: string): Promise<void>;
-  approve(draft: Draft, selected: string[]): Promise<void>;
+  approve(draft: Draft, selected: string[], editedItems?: DraftItem[]): Promise<void>;
 }

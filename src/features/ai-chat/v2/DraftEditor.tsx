@@ -1,6 +1,6 @@
 import type { TaskGoalOption } from '@/features/tasks/repositories/TaskRepository';
 import { policyLabels } from '@/features/recommendations/policy';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { FormField, FormInput } from '@/shared/components/FormField';
@@ -68,12 +68,14 @@ export function DraftEditor({
   refreshed,
   reviewPlan,
   loadGoals,
+  discardPrivate,
 }: {
   repository: ChatRepository;
   draft: Draft;
   close: () => void;
   refreshed: () => Promise<void>;
   loadGoals?: () => Promise<TaskGoalOption[]>;
+  discardPrivate?: () => void;
   reviewPlan: (plan: PlanProposal) => void;
 }) {
   const [items, setItems] = useState(draft.items);
@@ -89,6 +91,7 @@ export function DraftEditor({
   const [editing, setEditing] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState(false);
   const [pending, setPending] = useState(false);
+  const lock = useRef(false);
   const [error, setError] = useState('');
   const dirty = JSON.stringify(items) !== JSON.stringify(draft.items);
   const records = items.filter(
@@ -114,22 +117,28 @@ export function DraftEditor({
     setError('');
   }
 
-  async function save(approve: boolean) {
-    if ((approve ? chosen : records).some((item) => !inputValid(item))) {
-      setError('名前、日付、作業時間、繰り返しを確認してください。');
-      return;
-    }
-    await finish(() =>
-      approve
-        ? repository.approve(
-            draft,
-            chosen.map((item) => item.key),
-          )
-        : repository.edit(draft, items),
-    );
+  function validate(approve: boolean) {
+    if ((approve ? chosen : records).every(inputValid)) return true;
+    setError('名前、日付、作業時間、繰り返しを確認してください。');
+    return false;
   }
+
+  async function save(approve: boolean) {
+    if (!validate(approve)) return;
+    await finish(() => {
+      if (!approve) return repository.edit(draft, items);
+      const keys = chosen.map((item) => item.key);
+      if (!dirty) return repository.approve(draft, keys);
+      const edited = draft.items.map(
+        (item) => chosen.find((value) => value.key === item.key) ?? item,
+      );
+      return repository.approve(draft, keys, edited);
+    });
+  }
+
   async function finish(operation: () => Promise<void>) {
-    if (pending) return;
+    if (lock.current) return;
+    lock.current = true;
     setPending(true);
     setError('');
     try {
@@ -139,6 +148,7 @@ export function DraftEditor({
     } catch (error) {
       setError(error instanceof Error ? error.message : '変更を保存できませんでした。');
     } finally {
+      lock.current = false;
       setPending(false);
     }
   }
@@ -148,15 +158,18 @@ export function DraftEditor({
     );
   return (
     <ModalFrame
-      title={confirmation ? '採用内容を確認' : '提案の下書き'}
+      title={
+        confirmation ? '採用内容を確認' : draft.calendarThreadId ? '推薦方針の提案' : '提案の下書き'
+      }
       onClose={close}
       closeDisabled={pending}
       footer={
         closed ? null : (
           <View style={{ gap: spacing.sm }}>
-            {dirty && !confirmation ? (
+            {dirty && !confirmation && !draft.calendarThreadId ? (
               <ActionButton
-                label="下書きを保存"
+                label="下書きだけ保存"
+                variant="ghost"
                 loading={pending}
                 onPress={() => void save(false)}
               />
@@ -166,20 +179,27 @@ export function DraftEditor({
                 label={
                   confirmation ? `${chosen.length}件を承認` : `${chosen.length}件の採用内容を確認`
                 }
-                disabled={!selected.length || dirty}
+                disabled={!selected.length}
                 loading={pending}
                 onPress={() => {
                   if (confirmation) void save(true);
-                  else setConfirmation(true);
+                  else if (validate(true)) {
+                    setError('');
+                    setConfirmation(true);
+                  }
                 }}
               />
             ) : null}
-            {!confirmation && repository.reject ? (
+            {!confirmation && (discardPrivate || repository.reject) ? (
               <ActionButton
                 label="提案を却下"
                 variant="ghost"
                 disabled={pending}
-                onPress={() => void finish(() => repository.reject!(draft))}
+                onPress={() => {
+                  if (discardPrivate) discardPrivate();
+                  else if (!draft.calendarThreadId && repository.reject)
+                    void finish(() => repository.reject!(draft));
+                }}
               />
             ) : null}
             {confirmation ? (
@@ -195,6 +215,13 @@ export function DraftEditor({
       }
     >
       {error ? <Notice tone="error" message={error} /> : null}
+      {confirmation ? (
+        <Text style={styles.selectionText}>
+          {draft.calendarThreadId
+            ? '選んだ方針の種類・対象・期間を保存します。相談文・回答・予定の詳細は履歴に残りません。'
+            : '以下の内容を適用します。編集した項目は、ここに表示される値で保存されます。'}
+        </Text>
+      ) : null}
       {draft.approvedAt ? <Notice tone="success" message="承認済みの下書きです。" /> : null}
       {draft.rejectedAt ? <Notice message="この提案は却下されました。" /> : null}
       {(confirmation
@@ -216,7 +243,8 @@ export function DraftEditor({
                     style={styles.selection}
                     accessibilityRole="checkbox"
                     accessibilityLabel={`${item.title}を採用`}
-                    accessibilityState={{ checked: selected.includes(item.key) }}
+                    accessibilityState={{ checked: selected.includes(item.key), disabled: pending }}
+                    disabled={pending}
                     onPress={() => toggle(item.key)}
                   >
                     <Text style={styles.selectionText}>
@@ -233,12 +261,14 @@ export function DraftEditor({
                       <FormField label="開始日（YYYY-MM-DD）">
                         <FormInput
                           value={item.startDate}
+                          editable={!pending}
                           onChangeText={(startDate) => update({ ...item, startDate })}
                         />
                       </FormField>
                       <FormField label="終了日（YYYY-MM-DD）">
                         <FormInput
                           value={item.endDate}
+                          editable={!pending}
                           onChangeText={(endDate) => update({ ...item, endDate })}
                         />
                       </FormField>

@@ -546,6 +546,7 @@ export type Database = {
       }
       v2_ai_usage: {
         Row: {
+          calendar_thread_id: string | null
           cost_micros: number | null
           created_at: string
           id: string
@@ -558,6 +559,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          calendar_thread_id?: string | null
           cost_micros?: number | null
           created_at?: string
           id: string
@@ -570,6 +572,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          calendar_thread_id?: string | null
           cost_micros?: number | null
           created_at?: string
           id?: string
@@ -985,6 +988,29 @@ export type Database = {
       v26_undo_task_edit: {
         Args: { p_draft: string; p_task: string }
         Returns: undefined
+      }
+      v27_approve_calendar_policies: {
+        Args: { p_id: string; p_policies: Json; p_thread: string }
+        Returns: boolean
+      }
+      v27_approve_edited_draft: {
+        Args: {
+          p_id: string
+          p_items: Json
+          p_revision: string
+          p_selected: string[]
+        }
+        Returns: boolean
+      }
+      v27_reserve_calendar_ai: {
+        Args: {
+          p_amount: number
+          p_id: string
+          p_model: string
+          p_thread: string
+          p_user: string
+        }
+        Returns: boolean
       }
     }
     Enums: {

@@ -205,3 +205,101 @@ it('shares only whitelisted calendar fields for one request and persists neither
     p_items: [],
   });
 });
+
+it('allows structured policies in a private turn while leaving all model output out of DB calls', async () => {
+  const day = '2026-11-22';
+  const policy = {
+    kind: 'policy',
+    key: 'model-copied-key',
+    title: 'Private appointment name',
+    reason: 'Private location',
+    policyKind: 'focus_task',
+    targetTaskId: id,
+    startDate: day,
+    endDate: day,
+  };
+  const fetcher = jest.fn(async (url: string, _init?: RequestInit) => {
+    if (url.endsWith('/auth/v1/user')) return Response.json({ id });
+    if (url.includes('/v2_threads?')) return Response.json([{ id }]);
+    if (url.includes('/tasks?')) return Response.json([{ id, title: 'レポート' }]);
+    if (url.includes('/rpc/v27_reserve_calendar_ai')) return Response.json(true);
+    if (url.includes('/rpc/v2_finish_ai')) return new Response(null, { status: 204 });
+    if (url.startsWith('https://api.openai.com'))
+      return Response.json({
+        output: [
+          {
+            content: [
+              {
+                type: 'output_text',
+                text: JSON.stringify({
+                  reply: 'Private appointment name',
+                  items: [
+                    policy,
+                    { ...policy, targetTaskId: '81eccd53-3e39-4bc2-86fa-a127f015cc96' },
+                    { ...policy, kind: 'task' },
+                  ],
+                }),
+              },
+            ],
+          },
+        ],
+      });
+    return Response.json([]);
+  });
+  const handler = createChatHandler({
+    env: (key) => environment[key],
+    fetcher: fetcher as typeof fetch,
+    makeId: () => id,
+    now: () => new Date(day + 'T00:00Z'),
+  });
+  const result = await handler(
+    new Request('https://example.invalid/v2-chat', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer mock' },
+      body: JSON.stringify({
+        threadId: id,
+        prompt: 'レポートを優先に。Private prompt',
+        date: day,
+        calendarProposals: true,
+        calendar: {
+          mode: 'selected_event_details',
+          date: day,
+          includeLocation: false,
+          events: [
+            {
+              title: policy.title,
+              location: policy.reason,
+              startAt: day + 'T01:00Z',
+              endAt: day + 'T02:00Z',
+            },
+          ],
+        },
+      }),
+    }),
+  );
+  expect(await result.json()).toEqual({
+    requestId: id,
+    ephemeralReply: policy.title,
+    policyProposals: [
+      {
+        key: 'policy-1',
+        kind: 'policy',
+        title: '推薦方針',
+        policyKind: 'focus_task',
+        targetTaskId: id,
+        targetGoalId: null,
+        targetTitle: 'レポート',
+        startDate: day,
+        endDate: day,
+      },
+    ],
+  });
+  const calls = fetcher.mock.calls.filter(([url]) => url.includes('/rpc/'));
+  expect(calls.map(([url]) => url.split('/').at(-1))).toEqual([
+    'v27_reserve_calendar_ai',
+    'v2_finish_ai',
+  ]);
+  const [reserve, finish] = calls.map(([, init]) => JSON.parse(String(init?.body)));
+  expect(reserve).not.toHaveProperty('p_prompt');
+  expect(finish).toMatchObject({ p_items: [], p_reply: '[v26:unsaved-calendar-response]' });
+});
