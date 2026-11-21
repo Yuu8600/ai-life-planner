@@ -43,10 +43,12 @@ type Props = {
   initialConditions: Conditions;
   saveConditions: (value: Conditions) => void;
   agenda?: ReactNode;
+  calendarLoading?: boolean;
   calendarWindow?: {
     minutes: number | null;
     until: number | null;
     availability?: AgendaAvailability;
+    occupiedNow?: boolean;
   };
   openChat?: () => void;
   openSettings: () => void;
@@ -71,6 +73,7 @@ export function TodayRecommendationsScreen({
   initialConditions,
   saveConditions,
   agenda,
+  calendarLoading,
   calendarWindow,
   openChat,
   openSettings,
@@ -235,6 +238,12 @@ export function TodayRecommendationsScreen({
     }
   }
 
+  function repeats(kind: Candidate['kind'], id: string) {
+    return kind === 'task'
+      ? (current?.tasks.find((task) => task.id === id)?.recurrence?.kind ?? 'once') !== 'once'
+      : (current?.steps.some((step) => step.id === id && step.repeatable) ?? false);
+  }
+
   function record(candidate: Candidate, requested: Outcome) {
     return write('recommendation', async () => {
       const outcome = await repository.record(date, candidate.kind, candidate.id, requested);
@@ -256,7 +265,13 @@ export function TodayRecommendationsScreen({
         return { ...previous, results: [saved, ...results] };
       });
       setLastChange(targetKey(candidate.kind, candidate.id));
-      return outcome === 'completed' ? '完了を記録しました。' : '今日の見送りを記録しました。';
+      const action =
+        outcome === 'skipped'
+          ? '今日の見送り'
+          : repeats(candidate.kind, candidate.id)
+            ? '今日の実施'
+            : '完了';
+      return `「${candidate.title}」の${action}を記録しました。`;
     });
   }
 
@@ -299,7 +314,11 @@ export function TodayRecommendationsScreen({
             }
           : previous,
       );
-      return '未完了に戻しました。';
+      return item.outcome === 'skipped'
+        ? '今日の見送りを取り消しました。'
+        : repeats(item.kind, item.targetId)
+          ? '今日の実施を取り消しました。'
+          : '未完了に戻しました。';
     });
   }
 
@@ -345,7 +364,9 @@ export function TodayRecommendationsScreen({
     return (
       <View key={targetKey(item.kind, item.id)} style={row}>
         <CompletionCheckbox
-          label={`${item.title}を完了`}
+          label={
+            repeats(item.kind, item.id) ? `${item.title}の今日の実施を記録` : `${item.title}を完了`
+          }
           checked={false}
           disabled={actionDisabled}
           onPress={() => void record(item, 'completed')}
@@ -365,6 +386,7 @@ export function TodayRecommendationsScreen({
                     item.minutes > calendarWindow.minutes
                   ? '予定の間には収まらない見込み'
                   : null,
+              repeats(item.kind, item.id) ? '今日の実施を記録' : null,
               context,
             ]
               .filter(Boolean)
@@ -397,13 +419,22 @@ export function TodayRecommendationsScreen({
             <View key={targetKey(item.kind, item.targetId)} style={row}>
               {outcome === 'completed' ? (
                 <CompletionCheckbox
-                  label={`${item.title}を未完了に戻す`}
+                  label={
+                    repeats(item.kind, item.targetId)
+                      ? `${item.title}の今日の実施を取り消す`
+                      : `${item.title}を未完了に戻す`
+                  }
                   checked
                   disabled={actionDisabled || !exists}
                   onPress={() => void undo(item)}
                 />
               ) : null}
-              <Text style={[titleStyle, { flex: 1 }]}>{item.title}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={titleStyle}>{item.title}</Text>
+                {outcome === 'completed' && repeats(item.kind, item.targetId) ? (
+                  <Text style={text}>今日の実施済み</Text>
+                ) : null}
+              </View>
               {outcome === 'skipped' && exists ? (
                 <ActionButton
                   label="取り消す"
@@ -445,12 +476,16 @@ export function TodayRecommendationsScreen({
       {openChat ? (
         <Text style={text}>
           {calendarWindow === undefined
-            ? '予定を確認できる範囲がないため、タスク情報で表示しています。'
+            ? calendarLoading
+              ? '予定を確認しています。'
+              : '予定を確認できる範囲がないため、タスク情報で表示しています。'
             : calendarWindow.minutes === null
               ? `${scheduleLabel}、この後に時間を占める予定は見つかりません。`
-              : calendarWindow.minutes === 0
-                ? `${scheduleLabel}、今の枠は1分未満です。`
-                : `${scheduleLabel}、次の予定まで${calendarWindow.minutes}分。`}
+              : calendarWindow.occupiedNow
+                ? `${scheduleLabel}、現在は予定の時間帯です。`
+                : calendarWindow.minutes === 0
+                  ? `${scheduleLabel}、次の予定まで1分未満です。`
+                  : `${scheduleLabel}、次の予定まで${calendarWindow.minutes}分。`}
         </Text>
       ) : null}
       {!showHistory && feedback?.scope === 'recommendation' ? message : null}

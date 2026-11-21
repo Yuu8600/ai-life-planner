@@ -85,6 +85,12 @@ export function TasksScreen({
   const [daily, setDaily] = useState<{ date: string; results: RecommendationResult[] }>();
   const [dailyError, setDailyError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
+  const [lastAction, setLastAction] = useState<{
+    date: string;
+    taskId: string;
+    message: string;
+    undo?: boolean;
+  }>();
   const [actionBusy, setActionBusy] = useState(false);
   const [dailyAttempt, setDailyAttempt] = useState(0);
   const actionLock = useRef(false);
@@ -144,6 +150,7 @@ export function TasksScreen({
     actionLock.current = true;
     setActionBusy(true);
     setActionMessage('');
+    setLastAction(undefined);
     try {
       if (isComplete(task)) {
         await recommendations.undo(
@@ -155,7 +162,27 @@ export function TasksScreen({
       } else if (outcome === 'skipped') {
         await recommendations.undo(today, 'task', task.id, 'skipped');
       } else {
-        await recommendations.record(today, 'task', task.id, 'completed');
+        const recorded = await recommendations.record(today, 'task', task.id, 'completed');
+        const status =
+          recorded === 'skipped'
+            ? '今日の見送り'
+            : (task.recurrence?.kind ?? 'once') === 'once'
+              ? '完了'
+              : '今日の実施';
+        setLastAction({
+          date: today,
+          taskId: task.id,
+          message: `「${task.title}」の${status}を記録しました。`,
+          undo: true,
+        });
+      }
+      if (outcome === 'skipped' || isComplete(task)) {
+        setLastAction({
+          date: today,
+          taskId: task.id,
+          message:
+            outcome === 'skipped' ? '今日の見送りを取り消しました。' : '未完了に戻しました。',
+        });
       }
       const fresh = await recommendations.listResults(today, today);
       setDaily({ date: today, results: fresh });
@@ -216,9 +243,10 @@ export function TasksScreen({
     const checked = isComplete(task);
     const skipped = !checked && results.get(task.id) === 'skipped';
     const recurring = (task.recurrence?.kind ?? 'once') !== 'once';
+    const dailyCheck = recurring && (!checked || results.get(task.id) === 'completed');
     const detail = [
       !checked && isOverdue(task) ? `期限切れ ${deadline}` : deadline ? `期限 ${deadline}` : null,
-      recurring ? (checked ? '今日の実施済み' : '繰り返し') : null,
+      recurring ? (dailyCheck && checked ? '今日の実施済み' : '繰り返し') : null,
       skipped ? '今日の見送り' : null,
     ]
       .filter(Boolean)
@@ -231,7 +259,7 @@ export function TasksScreen({
       >
         {skipped ? (
           <ActionButton
-            label="戻す"
+            label="取り消す"
             accessibilityLabel={`${task.title}の見送りを取り消す`}
             variant="ghost"
             disabled={isMutating || !!dailyError || !!dayError}
@@ -240,7 +268,11 @@ export function TasksScreen({
         ) : (
           <CompletionCheckbox
             checked={checked}
-            label={`${task.title}を${checked ? '未完了に戻す' : '完了'}`}
+            label={
+              dailyCheck
+                ? `${task.title}の今日の実施を${checked ? '取り消す' : '記録'}`
+                : `${task.title}を${checked ? '未完了に戻す' : '完了'}`
+            }
             disabled={!today || daily?.date !== today || isMutating || !!dailyError || !!dayError}
             onPress={() => void toggle(task)}
           />
@@ -267,6 +299,28 @@ export function TasksScreen({
       </View>
     );
   }
+
+  const lastTask =
+    lastAction?.date === today ? tasks.find((task) => task.id === lastAction?.taskId) : undefined;
+  const lastOutcome = lastTask ? results.get(lastTask.id) : undefined;
+  const actionUndo = lastOutcome && lastTask && lastAction?.undo ? lastTask : undefined;
+  const actionFeedback =
+    lastTask && lastAction && !actionMessage && !dailyError ? (
+      <Notice
+        tone="success"
+        message={lastAction.message}
+        action={
+          actionUndo ? (
+            <ActionButton
+              label="元に戻す"
+              variant="ghost"
+              disabled={isMutating || !!dayError}
+              onPress={() => void toggle(actionUndo)}
+            />
+          ) : undefined
+        }
+      />
+    ) : null;
 
   return (
     <AppScreen testID="tasks-screen">
@@ -322,6 +376,7 @@ export function TasksScreen({
         />
       ) : null}
 
+      {!showCompleted ? actionFeedback : null}
       {!recommendationMode ? (
         <GoalOptionsNotice
           isLoading={isLoadingGoalOptions}
@@ -416,6 +471,7 @@ export function TasksScreen({
           {actionMessage || dailyError ? (
             <Notice tone="error" message={actionMessage || dailyError} />
           ) : null}
+          {actionFeedback}
           {completedTasks.length ? (
             completedTasks.map(taskRow)
           ) : (

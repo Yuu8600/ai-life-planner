@@ -47,7 +47,7 @@ export function nextCalendarWindow(
       if (start > end) break;
       end = Math.max(end, finish);
     }
-    return { minutes: 0, until: Math.min(end, endOfDay) };
+    return { minutes: 0, until: Math.min(end, endOfDay), occupiedNow: true as const };
   }
   return { minutes: Math.floor((next[0] - now) / 60000), until: next[0] };
 }

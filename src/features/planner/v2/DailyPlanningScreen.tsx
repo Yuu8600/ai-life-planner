@@ -14,7 +14,6 @@ import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, spacing, typography } from '@/shared/theme';
 import {
   approvePlan,
-  generateFirstPlan,
   loadDay,
   previewPlan,
   previewInitialPlan,
@@ -39,7 +38,7 @@ import type { PlanChange, WorkSession } from './types';
 
 const statusLabels = {
   completed: '完了',
-  skipped: '今日はしない',
+  skipped: '見送り',
   deferred: 'あとで',
   scheduled: '予定',
 };
@@ -128,19 +127,16 @@ export function DailyPlanningScreen({
         if (!active) return;
         const reviewRequested =
           review && date === initialDate && confirmedRequest.current !== review;
-        operation = 'plan.initial';
-        const result = reviewRequested ? day : await generateFirstPlan(deps, day);
-        if (!active) return;
-        setLoaded(result);
+        setLoaded(day);
         setError('');
         setCalendarPermissionError('');
-        if (reviewRequested && result.allowed) {
+        if (reviewRequested && day.allowed) {
           operation = 'plan.preview';
           confirmedRequest.current = review;
           setPreview(
-            result.saved
-              ? previewPlan(result, { kind: 'replan', taskId: initialTaskId })
-              : previewInitialPlan(result, initialTaskId),
+            day.saved
+              ? previewPlan(day, { kind: 'replan', taskId: initialTaskId })
+              : previewInitialPlan(day, initialTaskId),
           );
         }
       } catch (e) {
@@ -343,7 +339,7 @@ export function DailyPlanningScreen({
         </>
       ) : null}
       {saved?.limited || (day?.allowed && day.calendarError) ? (
-        <Notice tone="warning" message="端末カレンダーを確認できない状態で作成した計画です。" />
+        <Notice tone="warning" message="この日の時間割にはアプリ内の予定だけを使用します。" />
       ) : null}
       {day ? (
         <>
@@ -369,7 +365,32 @@ export function DailyPlanningScreen({
                   onPress={() => suggest({ kind: 'replan' })}
                 />
               ) : (
-                <Text style={styles.text}>この日の保存済み計画はありません。</Text>
+                <>
+                  <Text style={styles.text}>この日の保存済み時間割はありません。</Text>
+                  {day.allowed && Date.parse(day.input.window.endAt) > now ? (
+                    <ActionButton
+                      label="時間割の案を見る"
+                      variant="secondary"
+                      onPress={() => {
+                        try {
+                          setPreview(
+                            previewInitialPlan({
+                              ...day,
+                              input: { ...day.input, now: Date.now() },
+                            }),
+                          );
+                          setError('');
+                        } catch (reason) {
+                          setError(
+                            reason instanceof Error
+                              ? reason.message
+                              : '時間割の案を作成できませんでした。',
+                          );
+                        }
+                      }}
+                    />
+                  ) : null}
+                </>
               )}
               {day.deviceEvents.some((item) => item.allDay && item.status !== 'canceled') ? (
                 <View style={styles.card}>
@@ -600,7 +621,7 @@ export function DailyPlanningScreen({
                 </Text>
               ) : null}
               {preview.change.kind === 'initial' ? (
-                <Text style={styles.text}>この日の初回計画を作成します。</Text>
+                <Text style={styles.text}>保存すると、この日の時間割として登録されます。</Text>
               ) : null}
               {preview.plan.unplaced
                 .filter(

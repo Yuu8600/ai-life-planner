@@ -1,10 +1,13 @@
 import { useRef, useState } from 'react';
+import { Text } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
+import { TimeSelectionRow } from '@/shared/components/timeSelection/TimeSelectionRow';
 import { addLocalDays, getPlanningInstant } from '@/features/today';
+import { useTheme } from '@/shared/theme';
 import type { LocalEvent } from './repository';
 
 export function readPlanTime(value: string, date: string, timezone: string) {
@@ -28,8 +31,10 @@ export function EventEditor({
 }) {
   const [kind, setKind] = useState<'fixed' | 'flexible'>('fixed');
   const [title, setTitle] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [from, setFrom] = useState(fixedOnly ? '09:00' : '');
+  const [to, setTo] = useState(fixedOnly ? '10:00' : '');
+  const [offset, setOffset] = useState('0');
+  const { colors, typography } = useTheme();
   const [length, setLength] = useState('30');
   const [before, setBefore] = useState('0');
   const [after, setAfter] = useState('0');
@@ -43,7 +48,7 @@ export function EventEditor({
     setError('');
     try {
       const startAt = readPlanTime(from, date, timezone);
-      const endAt = readPlanTime(to, date, timezone);
+      const endAt = readPlanTime(fixedOnly && offset === '1' ? `翌日 ${to}` : to, date, timezone);
       const minutes = (Date.parse(endAt) - Date.parse(startAt)) / 60_000;
       if (!title.trim() || minutes <= 0 || minutes > 1500)
         throw new Error('予定名と開始・終了時刻を確認してください。');
@@ -89,12 +94,33 @@ export function EventEditor({
       <FormField label="予定名">
         <FormInput maxLength={200} value={title} onChangeText={setTitle} />
       </FormField>
-      <FormField label="開始（HH:MM）">
-        <FormInput placeholder="12:00" value={from} onChangeText={setFrom} />
-      </FormField>
-      <FormField label="終了（HH:MM）">
-        <FormInput placeholder="13:00" value={to} onChangeText={setTo} />
-      </FormField>
+      {fixedOnly ? (
+        <>
+          <TimeSelectionRow label="開始" value={from} disabled={pending} onChange={setFrom} />
+          <TimeSelectionRow
+            label="終了"
+            value={to}
+            dayOffset={offset}
+            disabled={pending}
+            onChange={(time, dayOffset) => {
+              setTo(time);
+              setOffset(dayOffset ?? '0');
+            }}
+          />
+          <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
+            {date} の予定として登録し、おすすめの時間判定に使います。
+          </Text>
+        </>
+      ) : (
+        <>
+          <FormField label="開始（HH:MM）">
+            <FormInput placeholder="12:00" value={from} onChangeText={setFrom} />
+          </FormField>
+          <FormField label="終了（HH:MM）">
+            <FormInput placeholder="13:00" value={to} onChangeText={setTo} />
+          </FormField>
+        </>
+      )}
       {fixedOnly ? null : kind === 'fixed' ? (
         <>
           <FormField label="前の移動時間（分）">

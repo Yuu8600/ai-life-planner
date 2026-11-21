@@ -27,7 +27,7 @@ export default function V2SettingsRoute() {
       planningAccessory={
         planner ? (
           <Card>
-            <SectionHeader title="高度な計画" />
+            <SectionHeader title="高度な時間割" />
             <ActionButton
               label="時間割を開く"
               variant="secondary"

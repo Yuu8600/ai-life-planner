@@ -118,17 +118,6 @@ export type PlanPreview = {
   plan: DailyPlan;
 };
 
-export async function generateFirstPlan(deps: DailyPlanningDependencies, day: LoadedDay) {
-  if (!day.allowed || day.saved || Date.parse(day.input.window.endAt) <= day.input.now) return day;
-  const initial = createDailyPlan(day.input);
-  try {
-    await deps.repository.save(initial.date, null, day.source, initial);
-  } catch (error) {
-    if (!(error instanceof PlanConflictError)) throw error;
-  }
-  return loadDay(deps, initial.date, day.input.limited);
-}
-
 export function previewPlan(day: LoadedDay, change: PlanChange): PlanPreview {
   if (!day.saved) throw new Error('計画を開いてください。');
   if (
@@ -156,6 +145,8 @@ export function previewPlan(day: LoadedDay, change: PlanChange): PlanPreview {
 
 export function previewInitialPlan(day: LoadedDay, taskId?: string): PlanPreview {
   if (!day.allowed || day.saved) throw new PlanConflictError();
+  if (Date.parse(day.input.window.endAt) <= day.input.now)
+    throw new Error('活動時間が終了している日の時間割は作成できません。');
   const initial = createDailyPlan(day.input);
   const plan =
     taskId && !initial.sessions.some((item) => item.taskId === taskId)

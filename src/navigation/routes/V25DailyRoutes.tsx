@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { Platform } from 'react-native';
 
 import { useAuth } from '@/features/auth';
 import { DayAgenda, nextCalendarWindow, type AgendaWindowInput } from '@/features/calendar';
@@ -14,6 +15,8 @@ import {
 import { addLocalDays, getUtcDayBounds, type LocalDate } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
+import { DeadlineCalendar } from '@/shared/components/DeadlineCalendar';
+import { ModalFrame } from '@/shared/components/ModalFrame';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { StatePanel } from '@/shared/components/StatePanel';
 import { useTheme } from '@/shared/theme';
@@ -58,6 +61,7 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
   const openChat = (day: string) =>
     router.push({ pathname: '/ai', params: { date: day, entry: String(Date.now()) } });
   const [selected, setSelected] = useState<LocalDate>();
+  const [dateDraft, setDateDraft] = useState<string>();
   const [editDate, setEditDate] = useState<string>();
   const key = `v25-recommendation-conditions:${userId}`;
   const [initialConditions] = useState(() =>
@@ -83,6 +87,10 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
     );
   }
   const date = mode === 'calendar' ? (selected ?? today) : today;
+  const scheduleForDate =
+    schedule?.date === date && schedule.timezone === timezone && schedule.revision === revision
+      ? schedule
+      : undefined;
   const agenda = (
     <DayAgenda
       date={date}
@@ -105,18 +113,16 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         repository={repository}
         taskRepository={taskRepository}
         agenda={agenda}
+        calendarLoading={scheduleForDate?.loading ?? true}
         calendarWindow={
-          schedule?.date === date &&
-          schedule.timezone === timezone &&
-          schedule.revision === revision &&
-          schedule.availability !== 'none'
+          scheduleForDate && scheduleForDate.availability !== 'none'
             ? {
                 ...nextCalendarWindow(
-                  schedule.intervals,
+                  scheduleForDate.intervals,
                   +now,
                   Date.parse(getUtcDayBounds(date, timezone).endAt),
                 ),
-                availability: schedule.availability,
+                availability: scheduleForDate.availability,
               }
             : undefined
         }
@@ -152,10 +158,40 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         onNext={() => setSelected(addLocalDays(date, 1))}
         onPrevious={() => setSelected(addLocalDays(date, -1))}
         onToday={() => setSelected(undefined)}
+        onSelectDate={() => setDateDraft(date)}
       />
       <ActionButton label="予定を追加" variant="secondary" onPress={() => setEditDate(date)} />
       {agenda}
       <ActionButton label="この日の予定をAIに相談" variant="ghost" onPress={() => openChat(date)} />
+      {dateDraft ? (
+        Platform.OS === 'android' ? (
+          <DeadlineCalendar
+            label="表示する日付"
+            value={dateDraft}
+            onChange={(day) => {
+              setSelected(day as LocalDate);
+              setDateDraft(undefined);
+            }}
+            onDismiss={() => setDateDraft(undefined)}
+          />
+        ) : (
+          <ModalFrame
+            title="表示する日付"
+            onClose={() => setDateDraft(undefined)}
+            footer={
+              <ActionButton
+                label="この日を開く"
+                onPress={() => {
+                  setSelected(dateDraft as LocalDate);
+                  setDateDraft(undefined);
+                }}
+              />
+            }
+          >
+            <DeadlineCalendar label="表示する日付" value={dateDraft} onChange={setDateDraft} />
+          </ModalFrame>
+        )
+      ) : null}
       {editDate ? (
         <EventEditor
           fixedOnly

@@ -1,4 +1,9 @@
-import { approvePlan, loadDay, previewPlan } from '@/features/planner/v2/dayService';
+import {
+  approvePlan,
+  loadDay,
+  previewInitialPlan,
+  previewPlan,
+} from '@/features/planner/v2/dayService';
 import {
   calendarConflicts,
   changeDailyPlan,
@@ -125,6 +130,10 @@ it('requires current inputs and an explicit approval before writing a preview', 
   const saved = createDailyPlan(day);
   const save = jest.fn(async () => {});
   let source = 'first';
+  let existing: { revision: string; plan: ReturnType<typeof createDailyPlan> } | null = {
+    revision: 'same',
+    plan: saved,
+  };
   const deps = {
     now: () => day.now,
     repository: {
@@ -136,7 +145,7 @@ it('requires current inputs and an explicit approval before writing a preview', 
         gap: day.gap,
         history: [],
         tasks: [task],
-        saved: { revision: 'same', plan: saved },
+        saved: existing,
       }),
       save,
       addEvent: jest.fn(),
@@ -167,4 +176,12 @@ it('requires current inputs and an explicit approval before writing a preview', 
       sessions: expect.arrayContaining([expect.objectContaining({ status: 'completed' })]),
     }),
   );
+
+  existing = null;
+  save.mockClear();
+  const empty = await loadDay(deps, date, false);
+  const initial = previewInitialPlan(empty);
+  expect(save).not.toHaveBeenCalled();
+  await approvePlan(deps, initial, false);
+  expect(save).toHaveBeenCalledWith(date, null, 'first', initial.plan);
 });

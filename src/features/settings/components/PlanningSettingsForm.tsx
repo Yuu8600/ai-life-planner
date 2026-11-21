@@ -189,11 +189,7 @@ export function PlanningSettingsForm({
   const regionFields = (
     <Card>
       <SectionHeader compact title="地域・時間帯" />
-      <FormField
-        error={fieldErrors.timezone}
-        helper="例: Asia/Tokyo（IANA形式）"
-        label="タイムゾーン"
-      >
+      <FormField error={fieldErrors.timezone} helper="例：日本は Asia/Tokyo" label="タイムゾーン">
         <FormInput
           accessibilityLabel="タイムゾーン"
           autoCapitalize="none"
@@ -213,7 +209,7 @@ export function PlanningSettingsForm({
         <>
           {regionFields}
           <ActionButton
-            label={showPlanner ? 'Plannerの設定を閉じる' : 'Plannerの設定を表示'}
+            label={showPlanner ? '時間割専用の設定を閉じる' : '時間割専用の設定を表示'}
             variant="secondary"
             expanded={showPlanner}
             disabled={isSaving}

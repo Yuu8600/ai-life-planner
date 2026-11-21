@@ -71,6 +71,7 @@ it('calculates the next occupied interval, ignoring canceled/free and unconfirme
   });
   expect(nextCalendarWindow(intervals, at('03:00'), at('23:59'))).toEqual({
     minutes: 0,
+    occupiedNow: true,
     until: at('03:30'),
   });
   expect(nextCalendarWindow([], at('00:00'), at('23:59'))).toEqual({ minutes: null, until: null });
@@ -115,6 +116,7 @@ it('merges a cross-midnight fixed slot and overlapping device slots', () => {
   const intervals = recommendationIntervals(device, fixed, 'UTC');
   expect(nextCalendarWindow(intervals, at('00:10'), at('23:59'))).toEqual({
     minutes: 0,
+    occupiedNow: true,
     until: at('00:50'),
   });
 });

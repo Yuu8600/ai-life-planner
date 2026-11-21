@@ -90,17 +90,21 @@ it('recommends and saves completion with a failed calendar and loads the result 
   const screen = await render(<TodayRecommendationsScreen {...props} />);
   expect(screen.getByText('端末の予定を読み込めませんでした。')).toBeTruthy();
   expect(screen.getByText('今から何する？')).toBeTruthy();
-  await fireEvent.press(screen.getByRole('checkbox', { name: '手帳を見直すを完了' }));
+  await fireEvent.press(screen.getByRole('checkbox', { name: '手帳を見直すの今日の実施を記録' }));
   await waitFor(() => expect(repository.record).toHaveBeenCalledTimes(1));
   await screen.unmount();
   const restarted = await render(<TodayRecommendationsScreen {...props} />);
   expect(restarted.queryByText('手帳を見直す')).toBeNull();
   await fireEvent.press(restarted.getByRole('button', { name: '実行履歴（今日1件）' }));
-  await fireEvent.press(restarted.getByRole('checkbox', { name: '手帳を見直すを未完了に戻す' }));
+  await fireEvent.press(
+    restarted.getByRole('checkbox', { name: '手帳を見直すの今日の実施を取り消す' }),
+  );
   expect(repository.undo).toHaveBeenCalledWith(date, 'task', 'task', 'completed');
   await fireEvent.press(restarted.getByRole('button', { name: '実行履歴を閉じる' }));
   await waitFor(() =>
-    expect(restarted.getByRole('checkbox', { name: '手帳を見直すを完了' })).toBeTruthy(),
+    expect(
+      restarted.getByRole('checkbox', { name: '手帳を見直すの今日の実施を記録' }),
+    ).toBeTruthy(),
   );
   await fireEvent.press(restarted.getByRole('button', { name: '手帳を見直すを今日は見送る' }));
   await fireEvent.press(restarted.getByRole('button', { name: '元に戻す' }));
@@ -148,4 +152,88 @@ it('quick-adds a title without manufacturing an estimate', async () => {
       goalId: null,
     }),
   );
+});
+
+it('uses fixed events during denied calendar access and keeps each Today candidate in one group', async () => {
+  const onSchedule = jest.fn();
+  const fixedEvent = {
+    id: 'app',
+    title: '固定予定',
+    startAt: date + 'T04:20:00Z',
+    endAt: date + 'T05:00:00Z',
+  };
+  const calendar = {
+    getPermission: jest.fn().mockResolvedValue({ status: 'denied', canAskAgain: true }),
+    requestPermission: jest.fn(),
+    listEvents: jest.fn(),
+  };
+  const props = {
+    date,
+    timezone,
+    revision: 0,
+    initialConditions: DEFAULT_CONDITIONS,
+    saveConditions: jest.fn(),
+    openSettings: jest.fn(),
+    openTasks: jest.fn(),
+    openStep: jest.fn(),
+    taskRepository: {
+      list: jest.fn().mockResolvedValue([
+        { ...existing, title: '短い作業' },
+        { ...existing, id: 'urgent', title: 'レポート', estimatedMinutes: 60, localDeadline: date },
+        { ...existing, id: 'unknown', title: '時間のない作業', estimatedMinutes: null },
+      ]),
+      listGoalOptions: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+      findById: jest.fn(),
+      remove: jest.fn(),
+      update: jest.fn(),
+    },
+    repository: {
+      listSteps: jest.fn().mockResolvedValue([]),
+      listResults: jest.fn().mockResolvedValue([]),
+      addStep: jest.fn(),
+      removeStep: jest.fn(),
+      updateStep: jest.fn(),
+      record: jest.fn(),
+      undo: jest.fn(),
+    },
+  };
+  const screen = await render(
+    <TodayRecommendationsScreen
+      {...props}
+      calendarWindow={{ minutes: 20, until: Date.parse(fixedEvent.startAt) }}
+      agenda={
+        <DayAgenda
+          date={date}
+          timezone={timezone}
+          revision={0}
+          calendar={calendar}
+          fixed={{
+            list: jest.fn().mockResolvedValue([fixedEvent]),
+            add: jest.fn(),
+            remove: jest.fn(),
+          }}
+          onSchedule={onSchedule}
+          summary
+        />
+      }
+    />,
+  );
+  expect(calendar.listEvents).not.toHaveBeenCalled();
+  expect(onSchedule).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      availability: 'partial',
+      loading: false,
+      intervals: [fixedEvent],
+    }),
+  );
+  expect(screen.getByText('今できそうなこと')).toBeTruthy();
+  expect(screen.getByText('短い作業')).toBeTruthy();
+  expect(screen.getByText('期限が近いタスク')).toBeTruthy();
+  expect(screen.getAllByText('レポート')).toHaveLength(1);
+  expect(screen.getByText(/30分を超える見込み/)).toBeTruthy();
+  expect(screen.queryByText('時間のない作業')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: '時間を確認したいタスク（1件）' }));
+  expect(screen.getByText('時間のない作業')).toBeTruthy();
+  expect(screen.getByText(/所要時間未設定/)).toBeTruthy();
 });

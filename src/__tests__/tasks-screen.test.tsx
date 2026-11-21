@@ -328,11 +328,16 @@ it('keeps a recurring task checked for the day and clears it from the completed 
       now={new Date(date + 'T04:00Z')}
     />,
   );
-  await fireEvent.press(await screen.findByRole('checkbox', { name: 'TOEIC Listeningを完了' }));
+  await fireEvent.press(
+    await screen.findByRole('checkbox', { name: 'TOEIC Listeningの今日の実施を記録' }),
+  );
   expect(recommendations.record).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
+  expect(await screen.findByRole('button', { name: '元に戻す' })).toBeTruthy();
   await fireEvent.press(await screen.findByRole('button', { name: '完了済み（1）' }));
   expect(await screen.findByText(/今日の実施済み/)).toBeTruthy();
-  await fireEvent.press(screen.getByRole('checkbox', { name: 'TOEIC Listeningを未完了に戻す' }));
+  await fireEvent.press(
+    screen.getByRole('checkbox', { name: 'TOEIC Listeningの今日の実施を取り消す' }),
+  );
   expect(recommendations.undo).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
   expect(await screen.findByText('完了したタスクはありません。')).toBeTruthy();
   expect(repository.update).not.toHaveBeenCalled();

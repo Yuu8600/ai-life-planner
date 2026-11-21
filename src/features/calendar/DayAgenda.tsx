@@ -20,6 +20,7 @@ export type AgendaWindowInput = {
   revision: number;
   intervals: CalendarInterval[];
   availability: AgendaAvailability;
+  loading: boolean;
 };
 
 type Props = {
@@ -117,6 +118,7 @@ export function DayAgenda({
         localState?.values ?? [],
         timezone,
       ),
+      loading: !deviceState || !localState,
       availability:
         deviceReady && localReady ? 'all' : deviceReady || localReady ? 'partial' : 'none',
     });
