@@ -1,7 +1,10 @@
-import { nextCalendarWindow } from '@/features/calendar/recommendationCalendar';
+import {
+  nextCalendarWindow,
+  recommendationIntervals,
+} from '@/features/calendar/recommendationCalendar';
 import type { CalendarEvent } from '@/features/calendar';
 import { effectivePolicies, type RecommendationPolicy } from '@/features/recommendations/policy';
-import { recommend } from '@/features/recommendations/recommend';
+import { recommend, recommendationGroup } from '@/features/recommendations/recommend';
 import type { Task } from '@/features/tasks/repositories/TaskRepository';
 
 const date = '2026-11-18';
@@ -61,11 +64,12 @@ it('calculates the next occupied interval, ignoring canceled/free and unconfirme
     event('02:00', '03:00'),
     event('02:55', '03:30'),
   ];
-  expect(nextCalendarWindow(events, at('01:30'), at('23:59'))).toEqual({
+  const intervals = recommendationIntervals(events, [], 'UTC');
+  expect(nextCalendarWindow(intervals, at('01:30'), at('23:59'))).toEqual({
     minutes: 30,
     until: at('02:00'),
   });
-  expect(nextCalendarWindow(events, at('03:00'), at('23:59'))).toEqual({
+  expect(nextCalendarWindow(intervals, at('03:00'), at('23:59'))).toEqual({
     minutes: 0,
     until: at('03:30'),
   });
@@ -103,4 +107,49 @@ it('keeps urgent tasks and ranks measured calendar fit and policy matches', () =
   const focused = recommend({ ...base, policies: [policy] });
   expect(focused.candidates.slice(0, 2).map((item) => item.id)).toEqual(['urgent', 'focus']);
   expect(focused.candidates[1].reason).toContain('優先設定中');
+});
+
+it('merges a cross-midnight fixed slot and overlapping device slots', () => {
+  const device = [event('00:25', '00:50'), event('00:25', '00:50')];
+  const fixed = [{ startAt: '2026-11-17T23:45:00Z', endAt: '2026-11-18T00:30:00Z' }];
+  const intervals = recommendationIntervals(device, fixed, 'UTC');
+  expect(nextCalendarWindow(intervals, at('00:10'), at('23:59'))).toEqual({
+    minutes: 0,
+    until: at('00:50'),
+  });
+});
+
+it('treats a busy all-day event as a local date in the profile timezone', () => {
+  const busy = event('00:00', '23:59', {
+    allDay: true,
+    allDayStartDate: date,
+    allDayEndDate: '2026-11-19',
+  });
+  const intervals = recommendationIntervals([busy], [], 'Asia/Tokyo');
+  expect(intervals).toEqual([
+    {
+      startAt: '2026-11-17T15:00:00.000Z',
+      endAt: '2026-11-18T15:00:00.000Z',
+    },
+  ]);
+  expect(nextCalendarWindow(intervals, at('08:00'), at('15:00')).minutes).toBe(0);
+});
+
+it('puts each candidate into exactly one group without claiming an unknown estimate fits', () => {
+  const sample = {
+    id: 'test',
+    kind: 'task' as const,
+    taskId: 'test',
+    taskTitle: 'test',
+    title: 'test',
+    goalId: null,
+    deadline: date,
+    reason: '',
+    urgent: true,
+    minutes: 15,
+  };
+  expect(recommendationGroup(sample, 30, 20)).toBe('fits');
+  expect(recommendationGroup(sample, 30, 10)).toBe('deadline');
+  expect(recommendationGroup({ ...sample, minutes: null }, 30)).toBe('deadline');
+  expect(recommendationGroup({ ...sample, minutes: null, urgent: false }, 30)).toBe('checkTime');
 });

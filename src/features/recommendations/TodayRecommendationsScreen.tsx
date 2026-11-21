@@ -2,6 +2,7 @@ import { effectivePolicies, policyLabels, type RecommendationPolicy } from './po
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
+import type { AgendaAvailability } from '@/features/calendar';
 import type { Task, TaskRepository } from '@/features/tasks/repositories/TaskRepository';
 import { getTaskErrorMessage } from '@/features/tasks/errors';
 import { addLocalDays, formatLocalDateJa, getUtcDayBounds } from '@/features/today';
@@ -17,7 +18,7 @@ import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { useTheme } from '@/shared/theme';
 
-import { recommend, targetKey, type Candidate } from './recommend';
+import { recommend, recommendationGroup, targetKey, type Candidate } from './recommend';
 import {
   DEFAULT_CONDITIONS,
   type ActionStep,
@@ -42,7 +43,11 @@ type Props = {
   initialConditions: Conditions;
   saveConditions: (value: Conditions) => void;
   agenda?: ReactNode;
-  calendarWindow?: { minutes: number | null; until: number | null };
+  calendarWindow?: {
+    minutes: number | null;
+    until: number | null;
+    availability?: AgendaAvailability;
+  };
   openChat?: () => void;
   openSettings: () => void;
   openTasks: (filter?: 'overdue') => void;
@@ -81,6 +86,7 @@ export function TodayRecommendationsScreen({
     effort: 'normal',
   });
   const [shownCount, setShownCount] = useState(4);
+  const [showOther, setShowOther] = useState(false);
   const [lastChange, setLastChange] = useState<string>();
   const [policySheet, setPolicySheet] = useState(false);
   const [policies, setPolicies] = useState<{ date: string; values: RecommendationPolicy[] }>();
@@ -205,6 +211,7 @@ export function TodayRecommendationsScreen({
   function changeConditions(value: Conditions) {
     setConditions(value);
     setShownCount(4);
+    setShowOther(false);
     saveConditions(value);
   }
 
@@ -319,6 +326,16 @@ export function TodayRecommendationsScreen({
     shownCount === 4 && activePolicies.some((item) => item.policyKind === 'lighter_day')
       ? Math.max(2, choices?.urgentCount ?? 0)
       : shownCount;
+  const visible = items.slice(0, limit);
+  const groups = {
+    fits: [] as Candidate[],
+    deadline: [] as Candidate[],
+    checkTime: [] as Candidate[],
+  };
+  for (const item of visible)
+    groups[recommendationGroup(item, conditions.minutes, calendarWindow?.minutes)].push(item);
+  const scheduleLabel =
+    calendarWindow?.availability === 'partial' ? '確認できた予定では' : '予定表では';
   const actionDisabled = busy || !!loadError;
   const row = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.xs };
   const titleStyle = { ...typography.bodyStrong, color: colors.textPrimary };
@@ -337,11 +354,18 @@ export function TodayRecommendationsScreen({
           <Text style={titleStyle}>{item.title}</Text>
           <Text style={text}>
             {[
-              item.reason,
-              context,
+              ...item.reason
+                .split(' ・ ')
+                .filter((reason) => !/^(所要時間|次の予定まで)/.test(reason)),
+              item.minutes === null ? '所要時間未設定' : `目安 ${item.minutes}分`,
               item.minutes !== null && item.minutes > conditions.minutes
-                ? `目安 ${item.minutes}分`
-                : null,
+                ? `${conditions.minutes}分を超える見込み`
+                : item.minutes !== null &&
+                    calendarWindow?.minutes != null &&
+                    item.minutes > calendarWindow.minutes
+                  ? '予定の間には収まらない見込み'
+                  : null,
+              context,
             ]
               .filter(Boolean)
               .join(' ・ ')}
@@ -421,28 +445,14 @@ export function TodayRecommendationsScreen({
       {openChat ? (
         <Text style={text}>
           {calendarWindow === undefined
-            ? '予定を確認できないため、タスク情報で推薦'
+            ? '予定を確認できる範囲がないため、タスク情報で表示しています。'
             : calendarWindow.minutes === null
-              ? 'カレンダー上では、この後の予定なし'
+              ? `${scheduleLabel}、この後に時間を占める予定は見つかりません。`
               : calendarWindow.minutes === 0
-                ? 'カレンダー上では予定の時間帯'
-                : `カレンダー上では次の予定まで${calendarWindow.minutes}分`}
+                ? `${scheduleLabel}、今の枠は1分未満です。`
+                : `${scheduleLabel}、次の予定まで${calendarWindow.minutes}分。`}
         </Text>
       ) : null}
-      {publishedPolicies.length ? (
-        <ActionButton
-          variant="ghost"
-          label={
-            activePolicies.length === 1
-              ? `適用中：${activePolicies[0].targetTitle ?? policyLabels[activePolicies[0].policyKind]}`
-              : activePolicies.length
-                ? `推薦方針 ${activePolicies.length}件を適用中`
-                : '推薦方針'
-          }
-          onPress={() => setPolicySheet(true)}
-        />
-      ) : null}
-      {policyError && !policySheet ? <Notice tone="warning" message={policyError} /> : null}
       {!showHistory && feedback?.scope === 'recommendation' ? message : null}
       {loadError ? (
         <Notice
@@ -458,16 +468,44 @@ export function TodayRecommendationsScreen({
         />
       ) : null}
       {items.length ? (
-        <Card>
-          {items.slice(0, limit).map(renderChoice)}
+        <>
+          <SectionHeader title="今できそうなこと" compact />
+          {groups.fits.length ? (
+            <Card>{groups.fits.map(renderChoice)}</Card>
+          ) : (
+            <Text style={text}>今の時間に収まる目安のタスクはありません。</Text>
+          )}
+          {groups.deadline.length ? (
+            <Card>
+              <SectionHeader title="期限が近いタスク" compact />
+              {groups.deadline.map(renderChoice)}
+            </Card>
+          ) : null}
+          {groups.checkTime.length ? (
+            !groups.fits.length || showOther ? (
+              <Card>
+                <SectionHeader title="時間を確認したいタスク" compact />
+                {groups.checkTime.map(renderChoice)}
+              </Card>
+            ) : (
+              <ActionButton
+                label={`時間を確認したいタスク（${groups.checkTime.length}件）`}
+                variant="ghost"
+                onPress={() => setShowOther(true)}
+              />
+            )
+          ) : null}
           {items.length > limit ? (
             <ActionButton
               label="もっと見る"
               variant="secondary"
-              onPress={() => setShownCount((count) => count + 8)}
+              onPress={() => {
+                setShownCount((count) => count + 8);
+                setShowOther(true);
+              }}
             />
           ) : null}
-        </Card>
+        </>
       ) : !loadError ? (
         <Text accessibilityLiveRegion="polite" style={text}>
           {current
@@ -497,6 +535,21 @@ export function TodayRecommendationsScreen({
           onPress={() => openTasks('overdue')}
         />
       ) : null}
+      {agenda}
+      {publishedPolicies.length ? (
+        <ActionButton
+          variant="ghost"
+          label={
+            activePolicies.length === 1
+              ? `適用中：${activePolicies[0].targetTitle ?? policyLabels[activePolicies[0].policyKind]}`
+              : activePolicies.length
+                ? `推薦方針 ${activePolicies.length}件を適用中`
+                : '推薦方針'
+          }
+          onPress={() => setPolicySheet(true)}
+        />
+      ) : null}
+      {policyError && !policySheet ? <Notice tone="warning" message={policyError} /> : null}
       <FormField label="タスクをクイック追加">
         <FormInput
           accessibilityLabel="クイック追加するタスク名"
@@ -516,7 +569,6 @@ export function TodayRecommendationsScreen({
         onPress={() => void addTask()}
       />
       {feedback?.scope === 'quickAdd' ? message : null}
-      {agenda}
       {openChat ? <ActionButton label="AIに相談" variant="ghost" onPress={openChat} /> : null}
       {policySheet ? (
         <ModalFrame

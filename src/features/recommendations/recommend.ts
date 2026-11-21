@@ -19,14 +19,27 @@ export type Candidate = {
   title: string;
   minutes: number | null;
   reason: string;
+  deadline: string | null;
+  urgent: boolean;
 };
 
+export function recommendationGroup(
+  candidate: Candidate,
+  minutes: number,
+  calendarMinutes?: number | null,
+) {
+  if (
+    candidate.minutes !== null &&
+    candidate.minutes <= Math.min(minutes, calendarMinutes ?? minutes)
+  )
+    return 'fits';
+  return candidate.urgent ? 'deadline' : 'checkTime';
+}
+
 type RankedCandidate = Candidate & {
-  deadline: string | null;
   priority: Task['priority'];
   created: string;
   lastDone: string;
-  urgent: boolean;
   fitsCalendar: boolean;
   policyWeight: number;
 };

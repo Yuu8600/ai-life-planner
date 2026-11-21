@@ -1,17 +1,41 @@
-import type { CalendarEvent } from './types';
+import { getUtcDayBounds } from '@/features/today';
+
+import type { CalendarEvent, CalendarInterval } from './types';
+
+export type AgendaAvailability = 'all' | 'partial' | 'none';
+
+export function recommendationIntervals(
+  device: readonly CalendarEvent[],
+  fixed: readonly CalendarInterval[],
+  timezone: string,
+): CalendarInterval[] {
+  return [
+    ...fixed,
+    ...device.flatMap((event) => {
+      if (event.status === 'canceled' || event.availability === 'free') return [];
+      if (!event.allDay) return [event];
+      if (
+        (event.availability !== 'busy' && event.availability !== 'unavailable') ||
+        !event.allDayStartDate ||
+        !event.allDayEndDate
+      )
+        return [];
+      return [
+        {
+          startAt: getUtcDayBounds(event.allDayStartDate, timezone).startAt,
+          endAt: getUtcDayBounds(event.allDayEndDate, timezone).startAt,
+        },
+      ];
+    }),
+  ];
+}
 
 export function nextCalendarWindow(
-  events: readonly CalendarEvent[],
+  events: readonly CalendarInterval[],
   now: number,
   endOfDay: number,
 ) {
   const intervals = events
-    .filter(
-      (event) =>
-        event.status !== 'canceled' &&
-        event.availability !== 'free' &&
-        (!event.allDay || event.availability === 'busy' || event.availability === 'unavailable'),
-    )
     .map((event) => [Date.parse(event.startAt), Date.parse(event.endAt)] as const)
     .filter(([start, end]) => end > now && start < end && start < endOfDay)
     .sort(([left], [right]) => left - right);

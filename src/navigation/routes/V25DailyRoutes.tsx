@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/features/auth';
-import { nextCalendarWindow } from '@/features/calendar/recommendationCalendar';
-import { DayAgenda, type CalendarEvent } from '@/features/calendar';
+import { DayAgenda, nextCalendarWindow, type AgendaWindowInput } from '@/features/calendar';
 import { CalendarDateNavigator } from '@/features/calendar/components/CalendarDateNavigator';
 import { EventEditor } from '@/features/planner/v2/EventEditor';
 import { TodayRecommendationsScreen } from '@/features/recommendations/TodayRecommendationsScreen';
@@ -55,11 +54,7 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
     [userId],
   );
   const { date: today, timezone, revision, error, refresh, now } = useV25Date(settings);
-  const [device, setDevice] = useState<{
-    date: string;
-    events: CalendarEvent[];
-    available: boolean;
-  }>();
+  const [schedule, setSchedule] = useState<AgendaWindowInput>();
   const openChat = (day: string) =>
     router.push({ pathname: '/ai', params: { date: day, entry: String(Date.now()) } });
   const [selected, setSelected] = useState<LocalDate>();
@@ -96,7 +91,7 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
       calendar={calendar}
       fixed={fixed}
       now={mode === 'today' ? +now : undefined}
-      onDeviceEvents={mode === 'today' ? setDevice : undefined}
+      onSchedule={mode === 'today' ? setSchedule : undefined}
       summary={mode === 'today'}
       onOpenCalendar={mode === 'today' ? () => router.navigate('/calendar') : undefined}
     />
@@ -111,12 +106,18 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         taskRepository={taskRepository}
         agenda={agenda}
         calendarWindow={
-          device?.date === date && device.available
-            ? nextCalendarWindow(
-                device.events,
-                +now,
-                Date.parse(getUtcDayBounds(date, timezone).endAt),
-              )
+          schedule?.date === date &&
+          schedule.timezone === timezone &&
+          schedule.revision === revision &&
+          schedule.availability !== 'none'
+            ? {
+                ...nextCalendarWindow(
+                  schedule.intervals,
+                  +now,
+                  Date.parse(getUtcDayBounds(date, timezone).endAt),
+                ),
+                availability: schedule.availability,
+              }
             : undefined
         }
         openChat={() => openChat(date)}

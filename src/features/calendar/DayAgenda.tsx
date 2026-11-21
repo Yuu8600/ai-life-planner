@@ -11,7 +11,16 @@ import { useTheme } from '@/shared/theme';
 
 import type { CalendarRepository } from './repositories/CalendarRepository';
 import type { FixedEventRepository } from './FixedEventRepository';
-import type { CalendarEvent } from './types';
+import { recommendationIntervals, type AgendaAvailability } from './recommendationCalendar';
+import type { CalendarEvent, CalendarInterval } from './types';
+
+export type AgendaWindowInput = {
+  date: string;
+  timezone: string;
+  revision: number;
+  intervals: CalendarInterval[];
+  availability: AgendaAvailability;
+};
 
 type Props = {
   date: string;
@@ -21,12 +30,12 @@ type Props = {
   revision: number;
   summary?: boolean;
   now?: number;
-  onDeviceEvents?: (state: { date: string; events: CalendarEvent[]; available: boolean }) => void;
+  onSchedule?: (state: AgendaWindowInput) => void;
   onOpenCalendar?: () => void;
 };
 
 type DayState<T> = {
-  date: string;
+  key: string;
   values: T[];
   status: 'ready' | 'permission' | 'missing' | 'error';
   canAsk?: boolean;
@@ -40,7 +49,7 @@ export function DayAgenda({
   revision,
   summary,
   now,
-  onDeviceEvents,
+  onSchedule,
   onOpenCalendar,
 }: Props) {
   const { colors, spacing, typography } = useTheme();
@@ -51,6 +60,7 @@ export function DayAgenda({
   const [actionError, setActionError] = useState('');
   const [permissionBusy, setPermissionBusy] = useState(false);
   const bounds = getUtcDayBounds(date, timezone);
+  const requestKey = JSON.stringify([date, timezone, revision, retry]);
 
   useEffect(() => {
     let active = true;
@@ -60,41 +70,57 @@ export function DayAgenda({
         const permission = await calendar.getPermission();
         if (!active) return;
         if (permission.status !== 'granted') {
-          setDevice({ date, values: [], status: 'permission', canAsk: permission.canAskAgain });
+          setDevice({
+            key: requestKey,
+            values: [],
+            status: 'permission',
+            canAsk: permission.canAskAgain,
+          });
           return;
         }
         const result = await calendar.listEvents(day, date);
         if (active)
           setDevice({
-            date,
+            key: requestKey,
             values: result.events.filter((event) => event.status !== 'canceled'),
             status: result.calendarCount ? 'ready' : 'missing',
           });
       } catch {
-        if (active) setDevice({ date, values: [], status: 'error' });
+        if (active) setDevice({ key: requestKey, values: [], status: 'error' });
       }
     })();
     void fixed.list(day).then(
       (values) => {
-        if (active) setLocal({ date, values, status: 'ready' });
+        if (active) setLocal({ key: requestKey, values, status: 'ready' });
       },
       () => {
-        if (active) setLocal({ date, values: [], status: 'error' });
+        if (active) setLocal({ key: requestKey, values: [], status: 'error' });
       },
     );
     return () => {
       active = false;
     };
-  }, [calendar, fixed, date, timezone, revision, retry]);
+  }, [calendar, fixed, date, timezone, requestKey]);
 
+  const deviceState = device?.key === requestKey ? device : undefined;
+  const localState = local?.key === requestKey ? local : undefined;
   useEffect(() => {
-    if (device?.date === date)
-      onDeviceEvents?.({
-        date,
-        events: device.values,
-        available: device.status === 'ready',
-      });
-  }, [device, date, onDeviceEvents]);
+    if (!onSchedule) return;
+    const deviceReady = deviceState?.status === 'ready';
+    const localReady = localState?.status === 'ready';
+    onSchedule({
+      date,
+      timezone,
+      revision,
+      intervals: recommendationIntervals(
+        deviceState?.values ?? [],
+        localState?.values ?? [],
+        timezone,
+      ),
+      availability:
+        deviceReady && localReady ? 'all' : deviceReady || localReady ? 'partial' : 'none',
+    });
+  }, [deviceState, localState, date, timezone, revision, onSchedule]);
 
   async function checkPermission() {
     if (permissionBusy) return;
@@ -111,18 +137,16 @@ export function DayAgenda({
     }
   }
 
-  const deviceState = device?.date === date ? device : undefined;
-  const localState = local?.date === date ? local : undefined;
   const events = [
     ...(deviceState?.values ?? []).map((event) => ({
       ...event,
       key: JSON.stringify([event.calendarId, event.id, event.startAt]),
-      source: '端末',
+      source: '端末カレンダー',
     })),
     ...(localState?.values ?? []).map((event) => ({
       ...event,
       key: event.id,
-      source: 'アプリ',
+      source: 'アプリ内の予定',
       allDay: false,
     })),
   ].sort(
@@ -131,7 +155,9 @@ export function DayAgenda({
   const time = { ...typography.secondary, color: colors.textSecondary };
   const refresh = () => setRetry((value) => value + 1);
   const upcoming =
-    now === undefined ? events : events.filter((event) => Date.parse(event.endAt) > now);
+    now === undefined
+      ? events
+      : events.filter((event) => event.allDay || Date.parse(event.endAt) > now);
   const shown = summary ? upcoming.slice(0, 3) : events;
 
   return (
@@ -153,27 +179,31 @@ export function DayAgenda({
             ・ {event.source}
           </Text>
           <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>{event.title}</Text>
-          {!summary && event.source === 'アプリ' ? (
+          {!summary && event.source === 'アプリ内の予定' ? (
             <ActionButton
               label="予定を削除"
               accessibilityLabel={`${event.title}を削除`}
               variant="ghost"
               onPress={() =>
-                appAlert.alert('予定を削除しますか？', event.title, [
-                  { text: 'キャンセル', style: 'cancel' },
-                  {
-                    text: '削除',
-                    style: 'destructive',
-                    onPress: () => {
-                      setActionError('');
-                      void fixed
-                        .remove(event.id)
-                        .then(refresh, () =>
-                          setActionError('予定を削除できませんでした。再試行してください。'),
-                        );
+                appAlert.alert(
+                  '予定を削除しますか？',
+                  `${event.title}。削除すると元に戻せません。`,
+                  [
+                    { text: 'キャンセル', style: 'cancel' },
+                    {
+                      text: '削除',
+                      style: 'destructive',
+                      onPress: () => {
+                        setActionError('');
+                        void fixed
+                          .remove(event.id)
+                          .then(refresh, () =>
+                            setActionError('予定を削除できませんでした。再試行してください。'),
+                          );
+                      },
                     },
-                  },
-                ])
+                  ],
+                )
               }
             />
           ) : null}
@@ -213,9 +243,11 @@ export function DayAgenda({
         />
       ) : null}
       {actionError ? <Notice tone="error" message={actionError} /> : null}
-      {onOpenCalendar && upcoming.length > 3 ? (
+      {onOpenCalendar && (upcoming.length > 3 || deviceState?.status === 'permission') ? (
         <ActionButton
-          label={`予定をすべて見る（${upcoming.length}件）`}
+          label={
+            upcoming.length > 3 ? `予定をすべて見る（${upcoming.length}件）` : '予定タブを開く'
+          }
           variant="ghost"
           onPress={onOpenCalendar}
         />
