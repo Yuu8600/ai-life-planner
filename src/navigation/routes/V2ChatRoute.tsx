@@ -49,7 +49,7 @@ export default function V2ChatRoute() {
                 day,
               );
               if (!result.calendarCount) throw new Error('No readable calendars');
-              return result.events;
+              return { events: result.events, timezone: settings.timezone };
             }
           : undefined
       }

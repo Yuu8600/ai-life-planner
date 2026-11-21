@@ -8,9 +8,8 @@ import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, spacing, typography } from '@/shared/theme';
-import { CalendarShareEditor } from './CalendarShareEditor';
+import { CalendarShareEditor, type ReadShareableCalendar } from './CalendarShareEditor';
 import type { TaskGoalOption } from '@/features/tasks/repositories/TaskRepository';
-import type { CalendarEvent } from '@/features/calendar';
 import { DraftEditor } from './DraftEditor';
 import type {
   CalendarShare,
@@ -39,7 +38,7 @@ export function ChatScreen({
   taskEditIntent?: boolean;
   openApplied?: (recommendations: boolean) => void;
   loadGoals?: () => Promise<TaskGoalOption[]>;
-  readCalendar?: (date: string) => Promise<CalendarEvent[]>;
+  readCalendar?: ReadShareableCalendar;
   reviewPlan: (plan: PlanProposal) => void;
 }) {
   const [threads, setThreads] = useState<Thread[]>([]);

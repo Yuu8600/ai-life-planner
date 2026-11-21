@@ -11,6 +11,10 @@ import { useTheme } from '@/shared/theme';
 
 import type { CalendarShare } from './repository';
 
+export type ReadShareableCalendar = (
+  date: string,
+) => Promise<{ events: CalendarEvent[]; timezone: string }>;
+
 export function CalendarShareEditor({
   initialDate,
   readEvents,
@@ -18,13 +22,24 @@ export function CalendarShareEditor({
   apply,
 }: {
   initialDate: string;
-  readEvents?: (date: string) => Promise<CalendarEvent[]>;
+  readEvents?: ReadShareableCalendar;
   close: () => void;
   apply: (date: string, share?: CalendarShare) => void;
 }) {
   const [date, setDate] = useState(initialDate);
   const [mode, setMode] = useState('none');
-  const [events, setEvents] = useState<CalendarEvent[]>();
+  const [loaded, setLoaded] = useState<Awaited<ReturnType<ReadShareableCalendar>>>();
+  const events = loaded?.events;
+  const dateTime =
+    loaded &&
+    new Intl.DateTimeFormat('ja-JP', {
+      timeZone: loaded.timezone,
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
   const [selected, setSelected] = useState<number[]>([]);
   const [location, setLocation] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,7 +56,11 @@ export function CalendarShareEditor({
     setBusy(true);
     setError('');
     try {
-      setEvents((await readEvents(day)).filter((event) => event.status !== 'canceled'));
+      const result = await readEvents(day);
+      setLoaded({
+        ...result,
+        events: result.events.filter((event) => event.status !== 'canceled'),
+      });
       setSelected([]);
     } catch {
       setError(
@@ -111,7 +130,7 @@ export function CalendarShareEditor({
           maxLength={10}
           onChangeText={(value) => {
             setDate(value);
-            setEvents(undefined);
+            setLoaded(undefined);
             setSelected([]);
             setError('');
           }}
@@ -148,7 +167,7 @@ export function CalendarShareEditor({
                 onChange={(value) => setLocation(value === 'yes')}
               />
               <Text style={{ color: colors.textSecondary }}>
-                最大12件。終日や私的な予定は内容を確認して選んでください。
+                最大12件。日時はアプリで設定した時間帯で表示します。
               </Text>
               {events.length === 0 ? (
                 <Text style={{ color: colors.textSecondary }}>対象日の予定はありません。</Text>
@@ -172,7 +191,8 @@ export function CalendarShareEditor({
                     />
                     {checked ? (
                       <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
-                        {event.startAt} ～ {event.endAt}
+                        {dateTime?.format(new Date(event.startAt))} ～{' '}
+                        {dateTime?.format(new Date(event.endAt))}
                         {location && event.location ? `\n場所 ${event.location.slice(0, 120)}` : ''}
                       </Text>
                     ) : null}

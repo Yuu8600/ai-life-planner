@@ -22,7 +22,7 @@ const event: CalendarEvent = {
 
 it('does not read or share by default, and previews only selected events without locations', async () => {
   const other = { ...event, id: 'second-event', title: 'アルバイト' };
-  const read = jest.fn().mockResolvedValue([event, other]);
+  const read = jest.fn().mockResolvedValue({ events: [event, other], timezone: 'Asia/Tokyo' });
   const apply = jest.fn();
   const screen = await render(
     <CalendarShareEditor initialDate={day} readEvents={read} apply={apply} close={jest.fn()} />,
@@ -33,7 +33,7 @@ it('does not read or share by default, and previews only selected events without
   await fireEvent.press(screen.getByRole('radio', { name: 'カレンダー共有 選んだ予定の詳細' }));
   await fireEvent.press(screen.getByRole('button', { name: '端末の予定を確認' }));
   await fireEvent.press(await screen.findByRole('button', { name: '講義' }));
-  expect(screen.getByText(/2026-11-18T04:00:00/)).toBeTruthy();
+  expect(screen.getByText(/11\/18 13:00.*11\/18 15:00/)).toBeTruthy();
   expect(screen.queryByText(/教室A/)).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: '次の送信に使う' }));
   expect(apply).toHaveBeenLastCalledWith(day, {
