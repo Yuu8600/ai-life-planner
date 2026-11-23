@@ -398,6 +398,7 @@ export function TodayRecommendationsScreen({
   const actionDisabled = busy || !!loadError;
   const row = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.xs };
   const titleStyle = { ...typography.bodyStrong, color: colors.textPrimary };
+  const recommendationCard = { paddingVertical: spacing.md, gap: spacing.xs };
   function renderChoice(item: Candidate) {
     const context =
       item.kind === 'step' ? item.taskTitle : item.goalId ? current?.goals.get(item.goalId) : null;
@@ -411,7 +412,7 @@ export function TodayRecommendationsScreen({
           disabled={actionDisabled}
           onPress={() => void record(item, 'completed')}
         />
-        <View style={{ flex: 1, paddingVertical: spacing.sm }}>
+        <View style={{ flex: 1, paddingVertical: spacing.xs }}>
           <Text style={titleStyle}>{item.title}</Text>
           <Text style={text}>
             {[
@@ -424,7 +425,7 @@ export function TodayRecommendationsScreen({
               item.minutes > calendarWindow.minutes
                 ? '予定の間には収まらない見込み'
                 : null,
-              repeats(item.kind, item.id) ? '今日の実施を記録' : null,
+              repeats(item.kind, item.id) ? '今日の実施' : null,
               context,
             ]
               .filter(Boolean)
@@ -435,6 +436,11 @@ export function TodayRecommendationsScreen({
           label="あとで"
           accessibilityLabel={`${item.title}を今日だけあとでにする`}
           variant="ghost"
+          style={{
+            minHeight: controls.minimumTarget,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs,
+          }}
           disabled={actionDisabled}
           onPress={() => void record(item, 'skipped')}
         />
@@ -478,13 +484,17 @@ export function TodayRecommendationsScreen({
   }
 
   return (
-    <AppScreen testID="recommendation-today" contentContainerStyle={{ gap: spacing.md }}>
+    <AppScreen
+      testID="recommendation-today"
+      contentContainerStyle={{ paddingTop: spacing.sm, gap: spacing.sm }}
+    >
       <ScreenHeader
         title="今日"
+        compact
         subtitle={formatLocalDateJa(getUtcDayBounds(date, timezone).startAt, timezone)}
         action={<ActionButton label="設定" variant="ghost" onPress={openSettings} />}
       />
-      <Card testID="today-recommendations" style={{ gap: spacing.sm }}>
+      <Card testID="today-recommendations" style={recommendationCard}>
         <SectionHeader compact title="今から何する？" />
         <OptionGroup
           label="使える時間"
@@ -505,7 +515,7 @@ export function TodayRecommendationsScreen({
                 ? '予定を確認しています。'
                 : 'タスク情報でおすすめを表示しています。'
               : calendarWindow.minutes === null
-                ? `${scheduleLabel}、この後に時間を占める予定は見つかりません。`
+                ? 'このあと時間を占める予定なし（確認範囲）'
                 : calendarWindow.occupiedNow
                   ? `${scheduleLabel}、現在は予定の時間帯です。`
                   : calendarWindow.minutes === 0
@@ -626,7 +636,7 @@ export function TodayRecommendationsScreen({
         ) : null}
       </Card>
       {urgent.length ? (
-        <Card testID="today-upcoming-deadlines" style={{ gap: spacing.xs }}>
+        <Card testID="today-upcoming-deadlines" style={recommendationCard}>
           <SectionHeader title="期限が近いタスク" compact />
           {urgent.map(renderChoice)}
         </Card>
