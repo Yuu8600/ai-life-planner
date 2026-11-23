@@ -135,10 +135,9 @@ export function TasksScreen({
       (task.recurrence?.kind ?? 'once') === 'once' && !!(deadline && today && deadline < today)
     );
   };
-  const visibleTasks = tasks.filter((task) => {
-    if (!recommendationMode) return matchesTaskFilter(task, activeFilter, now);
-    return !isComplete(task);
-  });
+  const visibleTasks = recommendationMode
+    ? [...tasks]
+    : tasks.filter((task) => matchesTaskFilter(task, activeFilter, now));
   const completedTasks = recommendationMode ? tasks.filter(isComplete) : [];
   const finishedTasks = completedTasks.filter((task) => task.status === 'completed');
   const performedToday = completedTasks.filter((task) => task.status !== 'completed');
@@ -146,7 +145,7 @@ export function TasksScreen({
   if (recommendationMode && initialFilter === 'overdue') {
     visibleTasks.sort((a, b) => Number(isOverdue(b)) - Number(isOverdue(a)));
   }
-  const isMutating = pendingMutation !== null || actionBusy;
+  const isMutating = pendingMutation !== null || actionBusy || (recommendationMode && isLoading);
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
 
   async function toggle(task: Task) {
@@ -306,7 +305,7 @@ export function TasksScreen({
     const dailyCheck = recurring && (!checked || results.get(task.id) === 'completed');
     const detail = [
       !checked && isOverdue(task) ? `期限切れ ${deadline}` : deadline ? `期限 ${deadline}` : null,
-      recurring ? (dailyCheck && checked ? '今日の実施済み' : '繰り返し') : null,
+      checked ? (dailyCheck ? '今日の実施済み' : '完了') : recurring ? '繰り返し' : null,
       skipped ? 'あとで' : null,
     ]
       .filter(Boolean)
@@ -360,7 +359,15 @@ export function TasksScreen({
           }}
           style={({ pressed }) => [styles.rowTitle, pressed && { opacity: 0.65 }]}
         >
-          <Text style={{ ...theme.typography.bodyStrong, color: theme.colors.textPrimary }}>
+          <Text
+            style={[
+              { ...theme.typography.bodyStrong, color: theme.colors.textPrimary },
+              checked && {
+                color: theme.colors.textSecondary,
+                textDecorationLine: 'line-through',
+              },
+            ]}
+          >
             {task.title}
           </Text>
           {detail ? (
@@ -453,7 +460,6 @@ export function TasksScreen({
         />
       ) : null}
 
-      {!showCompleted ? actionFeedback : null}
       {!recommendationMode ? (
         <GoalOptionsNotice
           isLoading={isLoadingGoalOptions}
@@ -462,7 +468,7 @@ export function TasksScreen({
         />
       ) : null}
 
-      {isLoading ? (
+      {isLoading && (!recommendationMode || !tasks.length) ? (
         <TaskStatePanel
           isLoading
           message="登録したタスクを読み込んでいます。"
@@ -489,13 +495,9 @@ export function TasksScreen({
         />
       ) : visibleTasks.length === 0 ? (
         <TaskStatePanel
-          message={
-            recommendationMode
-              ? '完了したタスクは「完了済み」で確認できます。'
-              : '別のフィルターを選ぶと、ほかのタスクを確認できます。'
-          }
+          message="別のフィルターを選ぶと、ほかのタスクを確認できます。"
           testID="tasks-filter-empty-state"
-          title={recommendationMode ? '未完了のタスクはありません' : '該当するタスクはありません'}
+          title="該当するタスクはありません"
         />
       ) : (
         <View style={recommendationMode ? styles.compactList : styles.list}>
@@ -535,6 +537,7 @@ export function TasksScreen({
         </View>
       )}
 
+      {!showCompleted ? actionFeedback : null}
       {mutationError && editingTask === undefined ? (
         <Notice tone="error" message={mutationError} />
       ) : null}

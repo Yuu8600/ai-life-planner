@@ -286,7 +286,7 @@ describe('Clear deletion controls', () => {
   });
 });
 
-it('keeps a recurring task checked for the day and clears it from the completed filter on undo', async () => {
+it('strikes through a recurring task after completion and lets the user undo from the same row', async () => {
   const date = '2026-11-18';
   const dailyTask: Task = { ...task, recurrence: { kind: 'weekly', weekdays: [3] } };
   let completed = false;
@@ -333,16 +333,18 @@ it('keeps a recurring task checked for the day and clears it from the completed 
   );
   expect(recommendations.record).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
   expect(await screen.findByRole('button', { name: '元に戻す' })).toBeTruthy();
-  await fireEvent.press(await screen.findByRole('button', { name: '完了済み（1）' }));
+  expect(screen.getByText('TOEIC Listening')).toHaveStyle({ textDecorationLine: 'line-through' });
   expect(await screen.findByText(/今日の実施済み/)).toBeTruthy();
-  await fireEvent.press(
-    screen.getByRole('checkbox', { name: 'TOEIC Listeningの今日の実施を取り消す' }),
-  );
+  const undo = screen.getByRole('checkbox', { name: 'TOEIC Listeningの今日の実施を取り消す' });
+  expect(undo.props.accessibilityState.checked).toBe(true);
+  await fireEvent.press(undo);
   expect(recommendations.undo).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
-  expect(await screen.findByText('完了したタスクはありません。')).toBeTruthy();
+  expect(await screen.findByRole('button', { name: '完了済み（0）' })).toBeTruthy();
+  expect(screen.getByText('TOEIC Listening')).not.toHaveStyle({
+    textDecorationLine: 'line-through',
+  });
   expect(repository.update).not.toHaveBeenCalled();
 
-  await fireEvent.press(screen.getByRole('button', { name: '完了済みを閉じる' }));
   await fireEvent.press(await screen.findByRole('button', { name: 'TOEIC Listeningを編集する' }));
   expect(screen.queryByText('状態')).toBeNull();
   expect(
@@ -400,6 +402,7 @@ it('limits bulk deletion to completed Tasks and confirms the count before writin
         now={new Date(date + 'T04:00Z')}
       />,
     );
+    expect(screen.getByText('読み終えた本')).toHaveStyle({ textDecorationLine: 'line-through' });
     await fireEvent.press(await screen.findByRole('button', { name: '完了済み（3）' }));
     expect(screen.getByText('繰り返しタスクの今日の実施')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: '複数選択' }));
