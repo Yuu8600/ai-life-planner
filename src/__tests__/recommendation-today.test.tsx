@@ -243,7 +243,9 @@ it('uses fixed events during denied calendar access and displays urgent tasks in
   expect(screen.getAllByText('レポート')).toHaveLength(1);
   expect(screen.getByText(/所要時間未設定/)).toBeTruthy();
   await fireEvent.press(screen.getByRole('radio', { name: '使える時間 30分' }));
-  expect(deadlines.getByText(/30分を超える見込み/)).toBeTruthy();
+  expect(deadlines.queryByText(/を超える見込み/)).toBeNull();
+  expect(deadlines.getByText(/今日が期限.*目安 60分/)).toBeTruthy();
+  expect(deadlines.getByText(/予定の間には収まらない見込み/)).toBeTruthy();
   await fireEvent.press(screen.getByRole('radio', { name: '使える時間 2時間' }));
   expect(props.saveConditions).toHaveBeenLastCalledWith({ minutes: 120, effort: 'normal' });
   await fireEvent.press(screen.getByRole('radio', { name: '使える時間 指定なし' }));

@@ -406,14 +406,10 @@ export function TodayRecommendationsScreen({
                 .filter((reason) => !/^(所要時間|次の予定まで)/.test(reason)),
               item.minutes === null ? '所要時間未設定' : `目安 ${item.minutes}分`,
               item.minutes !== null &&
-              conditions.minutes !== null &&
-              item.minutes > conditions.minutes
-                ? `${conditions.minutes}分を超える見込み`
-                : item.minutes !== null &&
-                    calendarWindow?.minutes != null &&
-                    item.minutes > calendarWindow.minutes
-                  ? '予定の間には収まらない見込み'
-                  : null,
+              calendarWindow?.minutes != null &&
+              item.minutes > calendarWindow.minutes
+                ? '予定の間には収まらない見込み'
+                : null,
               repeats(item.kind, item.id) ? '今日の実施を記録' : null,
               context,
             ]
