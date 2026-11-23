@@ -46,6 +46,7 @@ export function ChatScreen({
   const [current, setCurrent] = useState<Thread>();
   const [conversation, setConversation] = useState<Awaited<ReturnType<ChatRepository['open']>>>();
   const [usage, setUsage] = useState<Usage>();
+  const [usageChecking, setUsageChecking] = useState(false);
   const [usageFailed, setUsageFailed] = useState(false);
   const [prompt, setPrompt] = useState(() =>
     focus
@@ -70,12 +71,15 @@ export function ChatScreen({
   const threadCreatedBySend = useRef<string | undefined>(undefined);
 
   const refreshUsage = useCallback(async () => {
+    setUsageChecking(true);
     try {
       setUsage(await repository.usage());
       setUsageFailed(false);
     } catch {
       setUsage(undefined);
       setUsageFailed(true);
+    } finally {
+      setUsageChecking(false);
     }
   }, [repository]);
   const refreshThreads = useCallback(async () => {
@@ -193,7 +197,14 @@ export function ChatScreen({
     }
   }
   async function send() {
-    if (!prompt.trim() || lock.current) return;
+    if (
+      !prompt.trim() ||
+      lock.current ||
+      !usage?.configured ||
+      !usage.remainingMicros ||
+      (calendar && !usage.calendarSharing)
+    )
+      return;
     if (
       date &&
       (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
@@ -262,6 +273,15 @@ export function ChatScreen({
     return () => cancelAnimationFrame(frame);
   }, [conversation]);
 
+  const recheckAI = (
+    <ActionButton
+      label="AIの設定を再確認"
+      variant="ghost"
+      loading={usageChecking}
+      disabled={pending}
+      onPress={() => void refreshUsage()}
+    />
+  );
   const composer = (
     <View style={styles.composer}>
       {calendar ? (
@@ -330,24 +350,22 @@ export function ChatScreen({
             )
           }
         />
-        {usage ? (
+        {usage?.configured ? (
           <Text style={{ color: colors.textSecondary }}>
-            {usage.configured
+            {usage.remainingMicros
               ? `今月の残り予算（推定） $${(usage.remainingMicros / 1_000_000).toFixed(3)} / $0.50（UTC月ごと）`
-              : 'AIは未設定です。'}
+              : '今月のAI予算を使い切りました。会話や下書きは引き続き確認できます。'}
           </Text>
-        ) : usageFailed ? (
-          <View>
-            <Notice
-              tone="warning"
-              message="AIの接続と残り予算を確認できません。会話や下書きは閲覧できます。"
-            />
-            <ActionButton
-              label="AIの接続を再確認"
-              variant="ghost"
-              onPress={() => void refreshUsage()}
-            />
-          </View>
+        ) : usage || usageFailed ? (
+          <Notice
+            tone="warning"
+            message={
+              usageFailed
+                ? 'AIに接続できません。通信を確認して再試行してください。'
+                : 'AIは未設定です。サーバー設定が反映されたら再確認してください。'
+            }
+            action={recheckAI}
+          />
         ) : null}
         {error ? <Notice tone="error" message={error} /> : null}
         {current ? (
