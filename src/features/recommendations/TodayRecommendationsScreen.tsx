@@ -474,7 +474,7 @@ export function TodayRecommendationsScreen({
         subtitle={formatLocalDateJa(getUtcDayBounds(date, timezone).startAt, timezone)}
         action={<ActionButton label="設定" variant="ghost" onPress={openSettings} />}
       />
-      <Card style={{ gap: spacing.sm }}>
+      <Card testID="today-recommendations" style={{ gap: spacing.sm }}>
         <SectionHeader compact title="今から何する？" />
         <OptionGroup
           label="使える時間"
@@ -516,12 +516,6 @@ export function TodayRecommendationsScreen({
               />
             }
           />
-        ) : null}
-        {urgent.length ? (
-          <View style={{ gap: spacing.xs }}>
-            <SectionHeader title="期限が近いタスク" compact />
-            {urgent.map(renderChoice)}
-          </View>
         ) : null}
         {regular.map(renderChoice)}
         {items.length > limit ? (
@@ -597,6 +591,12 @@ export function TodayRecommendationsScreen({
           </>
         ) : null}
       </Card>
+      {urgent.length ? (
+        <Card testID="today-upcoming-deadlines" style={{ gap: spacing.xs }}>
+          <SectionHeader title="期限が近いタスク" compact />
+          {urgent.map(renderChoice)}
+        </Card>
+      ) : null}
       <ActionButton
         label="これまでの記録"
         variant="ghost"

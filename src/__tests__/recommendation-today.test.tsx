@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 
 import { DayAgenda, type CalendarRepository, type FixedEventRepository } from '@/features/calendar';
 import { TodayRecommendationsScreen } from '@/features/recommendations/TodayRecommendationsScreen';
@@ -156,7 +156,7 @@ it('quick-adds a title without manufacturing an estimate', async () => {
   );
 });
 
-it('uses fixed events during denied calendar access and keeps each Today candidate in one group', async () => {
+it('uses fixed events during denied calendar access and displays urgent tasks in a separate card', async () => {
   const onSchedule = jest.fn();
   const fixedEvent = {
     id: 'app',
@@ -233,13 +233,17 @@ it('uses fixed events during denied calendar access and keeps each Today candida
   expect(
     screen.getByRole('radio', { name: '使える時間 指定なし' }).props.accessibilityState.checked,
   ).toBe(true);
-  expect(screen.getByText('短い作業')).toBeTruthy();
-  expect(screen.getByText('期限が近いタスク')).toBeTruthy();
+  const recommendations = within(screen.getByTestId('today-recommendations'));
+  const deadlines = within(screen.getByTestId('today-upcoming-deadlines'));
+  expect(recommendations.getByText('短い作業')).toBeTruthy();
+  expect(recommendations.getByText('時間のない作業')).toBeTruthy();
+  expect(recommendations.queryByTestId('today-upcoming-deadlines')).toBeNull();
+  expect(deadlines.getByText('期限が近いタスク')).toBeTruthy();
+  expect(deadlines.getByText('レポート')).toBeTruthy();
   expect(screen.getAllByText('レポート')).toHaveLength(1);
-  expect(screen.getByText('時間のない作業')).toBeTruthy();
   expect(screen.getByText(/所要時間未設定/)).toBeTruthy();
   await fireEvent.press(screen.getByRole('radio', { name: '使える時間 30分' }));
-  expect(screen.getByText(/30分を超える見込み/)).toBeTruthy();
+  expect(deadlines.getByText(/30分を超える見込み/)).toBeTruthy();
   await fireEvent.press(screen.getByRole('radio', { name: '使える時間 2時間' }));
   expect(props.saveConditions).toHaveBeenLastCalledWith({ minutes: 120, effort: 'normal' });
   await fireEvent.press(screen.getByRole('radio', { name: '使える時間 指定なし' }));
