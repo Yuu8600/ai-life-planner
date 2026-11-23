@@ -1,6 +1,6 @@
 import { effectivePolicies, policyLabels, type RecommendationPolicy } from './policy';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import type { AgendaAvailability } from '@/features/calendar';
 import type { Task, TaskRepository } from '@/features/tasks/repositories/TaskRepository';
@@ -79,7 +79,7 @@ export function TodayRecommendationsScreen({
   openTasks,
   openStep,
 }: Props) {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, controls, spacing, typography } = useTheme();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -87,7 +87,7 @@ export function TodayRecommendationsScreen({
     ...initialConditions,
     effort: 'normal',
   });
-  const [shownCount, setShownCount] = useState(4);
+  const [extraCount, setExtraCount] = useState(0);
   const [laterDate, setLaterDate] = useState<string>();
   const [lastChange, setLastChange] = useState<string>();
   const [policySheet, setPolicySheet] = useState(false);
@@ -213,7 +213,7 @@ export function TodayRecommendationsScreen({
 
   function changeConditions(value: Conditions) {
     setConditions(value);
-    setShownCount(4);
+    setExtraCount(0);
     saveConditions(value);
   }
 
@@ -372,10 +372,24 @@ export function TodayRecommendationsScreen({
     />
   ) : null;
   const items = choices?.candidates ?? [];
-  const limit =
-    shownCount === 4 && activePolicies.some((item) => item.policyKind === 'lighter_day')
-      ? Math.max(2, choices?.urgentCount ?? 0)
-      : shownCount;
+  const initialLimit = activePolicies.some((item) => item.policyKind === 'lighter_day')
+    ? Math.max(2, choices?.urgentCount ?? 0)
+    : 4;
+  const limit = initialLimit + extraCount;
+  const canShowMore = items.length > limit;
+  const expanded = extraCount > 0 && items.length > initialLimit;
+  const listControl = {
+    minHeight: controls.minimumTarget,
+    minWidth: controls.minimumTarget,
+    paddingHorizontal: spacing.sm,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  };
+  const listControlText = {
+    ...typography.secondary,
+    color: colors.primary,
+    fontWeight: '600' as const,
+  };
   const visible = items.slice(0, limit);
   const urgent = visible.filter((item) => item.urgent);
   const regular = visible.filter((item) => !item.urgent);
@@ -514,12 +528,36 @@ export function TodayRecommendationsScreen({
           />
         ) : null}
         {regular.map(renderChoice)}
-        {items.length > limit ? (
-          <ActionButton
-            label="もっと見る"
-            variant="secondary"
-            onPress={() => setShownCount((count) => count + 8)}
-          />
+        {canShowMore || expanded ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+              gap: spacing.xs,
+            }}
+          >
+            {expanded ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: true }}
+                onPress={() => setExtraCount(0)}
+                style={({ pressed }) => [listControl, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={listControlText}>折りたたむ</Text>
+              </Pressable>
+            ) : null}
+            {canShowMore ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                onPress={() => setExtraCount((count) => count + 8)}
+                style={({ pressed }) => [listControl, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={listControlText}>もっと見る</Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
         {!items.length && !loadError ? (
           <Text accessibilityLiveRegion="polite" style={text}>

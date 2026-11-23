@@ -308,3 +308,53 @@ it('opens deferred tasks without writing and restores the visible day in one ope
   ]);
   expect(await screen.findByText(second.title)).toBeTruthy();
 });
+
+it('shows more recommendations in batches and collapses to the original count', async () => {
+  const tasks = Array.from({ length: 14 }, (_, index) => ({
+    ...existing,
+    id: `task-${index}`,
+    title: `おすすめ ${index + 1}`,
+  }));
+  const screen = await render(
+    <TodayRecommendationsScreen
+      taskRepository={{
+        list: jest.fn().mockResolvedValue(tasks),
+        listGoalOptions: jest.fn().mockResolvedValue([]),
+        create: jest.fn(),
+        findById: jest.fn(),
+        remove: jest.fn(),
+        update: jest.fn(),
+      }}
+      repository={{
+        listSteps: jest.fn().mockResolvedValue([]),
+        listResults: jest.fn().mockResolvedValue([]),
+        addStep: jest.fn(),
+        removeStep: jest.fn(),
+        updateStep: jest.fn(),
+        record: jest.fn(),
+        undo: jest.fn(),
+      }}
+      date={date}
+      timezone={timezone}
+      revision={0}
+      initialConditions={DEFAULT_CONDITIONS}
+      saveConditions={jest.fn()}
+      openSettings={jest.fn()}
+      openTasks={jest.fn()}
+      openStep={jest.fn()}
+    />,
+  );
+  const card = within(screen.getByTestId('today-recommendations'));
+  expect(card.getAllByRole('checkbox')).toHaveLength(4);
+  await fireEvent.press(card.getByRole('button', { name: 'もっと見る' }));
+  expect(card.getAllByRole('checkbox')).toHaveLength(12);
+  expect(card.getByRole('button', { name: '折りたたむ' })).toBeTruthy();
+
+  await fireEvent.press(card.getByRole('button', { name: 'もっと見る' }));
+  expect(card.getAllByRole('checkbox')).toHaveLength(14);
+  expect(card.queryByRole('button', { name: 'もっと見る' })).toBeNull();
+  await fireEvent.press(card.getByRole('button', { name: '折りたたむ' }));
+  expect(card.getAllByRole('checkbox')).toHaveLength(4);
+  expect(card.queryByRole('button', { name: '折りたたむ' })).toBeNull();
+  expect(card.getByRole('button', { name: 'もっと見る' })).toBeTruthy();
+});
