@@ -51,7 +51,9 @@ function SignedInActionSteps({
       {...deps}
       taskId={taskId}
       initialMinutes={
-        minutes === '15' || minutes === '30' || minutes === '60' ? Number(minutes) : undefined
+        minutes === '15' || minutes === '30' || minutes === '60' || minutes === '120'
+          ? Number(minutes)
+          : undefined
       }
       close={() => (router.canGoBack() ? router.back() : router.replace('/tasks'))}
       openAI={(task) =>

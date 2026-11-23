@@ -112,14 +112,14 @@ export function ActionStepsScreen({
         await repository.undo(date, 'step', step.id, result.outcome);
         setFeedback(
           result.outcome === 'skipped'
-            ? '今日の見送りを取り消しました。'
+            ? '今日のおすすめ対象に戻しました。'
             : '今日の実施記録を取り消しました。',
         );
       } else {
         const outcome = await repository.record(date, 'step', step.id, 'completed');
         setFeedback(
           outcome === 'skipped'
-            ? '今日は見送り済みです。'
+            ? '今日はあとでにしています。'
             : step.repeatable
               ? '今日の実施を記録しました。'
               : '小さな行動を完了しました。',
@@ -243,8 +243,8 @@ export function ActionStepsScreen({
                 <View style={{ flexDirection: 'row', gap: spacing.xs, alignItems: 'center' }}>
                   {result?.outcome === 'skipped' ? (
                     <ActionButton
-                      label="取り消す"
-                      accessibilityLabel={`${step.title}の見送りを取り消す`}
+                      label="戻す"
+                      accessibilityLabel={`${step.title}をおすすめ対象に戻す`}
                       variant="ghost"
                       disabled={!canToggle}
                       onPress={() => void toggle(step, result)}
@@ -272,7 +272,7 @@ export function ActionStepsScreen({
                     ...(checked
                       ? [step.repeatable ? '今日の実施済み' : result ? '完了' : '過去に完了']
                       : []),
-                    ...(result?.outcome === 'skipped' ? ['今日の見送り'] : []),
+                    ...(result?.outcome === 'skipped' ? ['今日だけあとで'] : []),
                   ].join(' ・ ')}
                 </Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>

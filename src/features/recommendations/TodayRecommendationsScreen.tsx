@@ -18,9 +18,8 @@ import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { useTheme } from '@/shared/theme';
 
-import { recommend, recommendationGroup, targetKey, type Candidate } from './recommend';
+import { recommend, targetKey, type Candidate } from './recommend';
 import {
-  DEFAULT_CONDITIONS,
   type ActionStep,
   type Conditions,
   type Outcome,
@@ -28,10 +27,10 @@ import {
   type RecommendationResult,
 } from './repository';
 
-const durations = [15, 30, 60] as const;
+const durations = [30, 60, 120, null] as const;
 const durationOptions = durations.map((minutes) => ({
   value: String(minutes),
-  label: `${minutes}分`,
+  label: minutes === null ? '指定なし' : minutes === 30 ? '30分' : `${minutes / 60}時間`,
 }));
 
 type Props = {
@@ -89,7 +88,7 @@ export function TodayRecommendationsScreen({
     effort: 'normal',
   });
   const [shownCount, setShownCount] = useState(4);
-  const [showOther, setShowOther] = useState(false);
+  const [laterDate, setLaterDate] = useState<string>();
   const [lastChange, setLastChange] = useState<string>();
   const [policySheet, setPolicySheet] = useState(false);
   const [policies, setPolicies] = useState<{ date: string; values: RecommendationPolicy[] }>();
@@ -99,6 +98,7 @@ export function TodayRecommendationsScreen({
   const publishedPolicies = policies?.date === date ? policies.values : [];
   const activePolicies = effectivePolicies(publishedPolicies, date);
   const [showHistory, setShowHistory] = useState(false);
+  const [recordSelection, setRecordSelection] = useState<string[] | null>(null);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -214,7 +214,6 @@ export function TodayRecommendationsScreen({
   function changeConditions(value: Conditions) {
     setConditions(value);
     setShownCount(4);
-    setShowOther(false);
     saveConditions(value);
   }
 
@@ -264,13 +263,9 @@ export function TodayRecommendationsScreen({
         );
         return { ...previous, results: [saved, ...results] };
       });
-      setLastChange(targetKey(candidate.kind, candidate.id));
-      const action =
-        outcome === 'skipped'
-          ? '今日の見送り'
-          : repeats(candidate.kind, candidate.id)
-            ? '今日の実施'
-            : '完了';
+      setLastChange(`${date}:${targetKey(candidate.kind, candidate.id)}`);
+      if (outcome === 'skipped') return `「${candidate.title}」を今日だけあとでにしました。`;
+      const action = repeats(candidate.kind, candidate.id) ? '今日の実施' : '完了';
       return `「${candidate.title}」の${action}を記録しました。`;
     });
   }
@@ -297,33 +292,69 @@ export function TodayRecommendationsScreen({
     });
   }
 
+  function hasTarget(item: RecommendationResult) {
+    return item.kind === 'step'
+      ? current?.steps.some((step) => step.id === item.targetId)
+      : current?.tasks.some((task) => task.id === item.targetId);
+  }
+
+  function removeResults(items: RecommendationResult[]) {
+    const keys = new Set(items.map((item) => targetKey(item.kind, item.targetId)));
+    setSnapshot((previous) =>
+      previous?.date === date
+        ? {
+            ...previous,
+            results: previous.results.filter(
+              (item) => item.date !== date || !keys.has(targetKey(item.kind, item.targetId)),
+            ),
+          }
+        : previous,
+    );
+  }
+
   function undo(item: RecommendationResult) {
     return write('recommendation', async () => {
       await repository.undo(date, item.kind, item.targetId, item.outcome);
-      setSnapshot((previous) =>
-        previous?.date === date
-          ? {
-              ...previous,
-              results: previous.results.filter(
-                (result) =>
-                  result !== item &&
-                  (result.date !== date ||
-                    result.kind !== item.kind ||
-                    result.targetId !== item.targetId),
-              ),
-            }
-          : previous,
-      );
+      removeResults([item]);
       return item.outcome === 'skipped'
-        ? '今日の見送りを取り消しました。'
+        ? '今日のおすすめ対象に戻しました。'
         : repeats(item.kind, item.targetId)
           ? '今日の実施を取り消しました。'
           : '未完了に戻しました。';
     });
   }
 
+  function undoBatch(items: RecommendationResult[], message: string) {
+    const batch = repository.undoBatch?.bind(repository);
+    if (!batch || !items.length) return;
+    return write('recommendation', async () => {
+      await batch(
+        date,
+        items.map((item) => ({
+          kind: item.kind,
+          id: item.targetId,
+          expected: item.outcome,
+        })),
+      );
+      removeResults(items);
+      if (items[0].outcome === 'skipped') setLaterDate(undefined);
+      else setRecordSelection(null);
+      return message;
+    });
+  }
+
+  const deferred = todayResults.filter((item) => item.outcome === 'skipped' && hasTarget(item));
+  const completed = todayResults.filter((item) => item.outcome === 'completed');
+  const selectedRecords = completed.filter(
+    (item) =>
+      hasTarget(item) &&
+      recordSelection?.includes(`${date}:${targetKey(item.kind, item.targetId)}`),
+  );
+  const showingLater = laterDate === date;
   const text = { ...typography.secondary, color: colors.textSecondary };
-  const latest = todayResults.find((item) => targetKey(item.kind, item.targetId) === lastChange);
+  const latest = todayResults.find(
+    (item) => `${date}:${targetKey(item.kind, item.targetId)}` === lastChange,
+  );
   const message = feedback ? (
     <Notice
       message={feedback.message}
@@ -346,13 +377,8 @@ export function TodayRecommendationsScreen({
       ? Math.max(2, choices?.urgentCount ?? 0)
       : shownCount;
   const visible = items.slice(0, limit);
-  const groups = {
-    fits: [] as Candidate[],
-    deadline: [] as Candidate[],
-    checkTime: [] as Candidate[],
-  };
-  for (const item of visible)
-    groups[recommendationGroup(item, conditions.minutes, calendarWindow?.minutes)].push(item);
+  const urgent = visible.filter((item) => item.urgent);
+  const regular = visible.filter((item) => !item.urgent);
   const scheduleLabel =
     calendarWindow?.availability === 'partial' ? '確認できた予定では' : '予定表では';
   const actionDisabled = busy || !!loadError;
@@ -379,7 +405,9 @@ export function TodayRecommendationsScreen({
                 .split(' ・ ')
                 .filter((reason) => !/^(所要時間|次の予定まで)/.test(reason)),
               item.minutes === null ? '所要時間未設定' : `目安 ${item.minutes}分`,
-              item.minutes !== null && item.minutes > conditions.minutes
+              item.minutes !== null &&
+              conditions.minutes !== null &&
+              item.minutes > conditions.minutes
                 ? `${conditions.minutes}分を超える見込み`
                 : item.minutes !== null &&
                     calendarWindow?.minutes != null &&
@@ -394,8 +422,8 @@ export function TodayRecommendationsScreen({
           </Text>
         </View>
         <ActionButton
-          label="見送る"
-          accessibilityLabel={`${item.title}を今日は見送る`}
+          label="あとで"
+          accessibilityLabel={`${item.title}を今日だけあとでにする`}
           variant="ghost"
           disabled={actionDisabled}
           onPress={() => void record(item, 'skipped')}
@@ -404,50 +432,38 @@ export function TodayRecommendationsScreen({
     );
   }
 
-  function renderResults(outcome: Outcome, heading: string) {
-    const results = todayResults.filter((item) => item.outcome === outcome);
-    if (!results.length) return null;
+  function renderCompleted(item: RecommendationResult) {
+    const key = `${date}:${targetKey(item.kind, item.targetId)}`;
+    const repeating = repeats(item.kind, item.targetId);
     return (
-      <Card>
-        <SectionHeader compact title={`${heading}（${results.length}）`} />
-        {results.map((item) => {
-          const exists =
-            item.kind === 'step'
-              ? current?.steps.some((step) => step.id === item.targetId)
-              : current?.tasks.some((task) => task.id === item.targetId);
-          return (
-            <View key={targetKey(item.kind, item.targetId)} style={row}>
-              {outcome === 'completed' ? (
-                <CompletionCheckbox
-                  label={
-                    repeats(item.kind, item.targetId)
-                      ? `${item.title}の今日の実施を取り消す`
-                      : `${item.title}を未完了に戻す`
-                  }
-                  checked
-                  disabled={actionDisabled || !exists}
-                  onPress={() => void undo(item)}
-                />
-              ) : null}
-              <View style={{ flex: 1 }}>
-                <Text style={titleStyle}>{item.title}</Text>
-                {outcome === 'completed' && repeats(item.kind, item.targetId) ? (
-                  <Text style={text}>今日の実施済み</Text>
-                ) : null}
-              </View>
-              {outcome === 'skipped' && exists ? (
-                <ActionButton
-                  label="取り消す"
-                  accessibilityLabel={`${item.title}の見送りを取り消す`}
-                  variant="ghost"
-                  disabled={actionDisabled}
-                  onPress={() => void undo(item)}
-                />
-              ) : null}
-            </View>
-          );
-        })}
-      </Card>
+      <View key={key} style={row}>
+        <CompletionCheckbox
+          label={
+            recordSelection
+              ? `${item.title}の記録を選択`
+              : repeating
+                ? `${item.title}の今日の実施を取り消す`
+                : `${item.title}を未完了に戻す`
+          }
+          checked={recordSelection ? recordSelection.includes(key) : true}
+          disabled={actionDisabled || !hasTarget(item)}
+          onPress={() => {
+            if (recordSelection)
+              setRecordSelection((prior) =>
+                prior?.includes(key)
+                  ? prior.filter((entry) => entry !== key)
+                  : [...(prior ?? []), key],
+              );
+            else void undo(item);
+          }}
+        />
+        <View style={{ flex: 1, paddingVertical: spacing.xs }}>
+          <Text style={titleStyle}>{item.title}</Text>
+          <Text style={text}>
+            {item.kind === 'step' ? '小さな行動' : repeating ? '今日の実施' : 'タスクの完了'}
+          </Text>
+        </View>
+      </View>
     );
   }
 
@@ -468,100 +484,126 @@ export function TodayRecommendationsScreen({
           onChange={(value) =>
             changeConditions({
               ...conditions,
-              minutes: durations.find((n) => String(n) === value) ?? DEFAULT_CONDITIONS.minutes,
+              minutes: durations.find((n) => String(n) === value) ?? null,
             })
           }
         />
-      </Card>
-      {openChat ? (
-        <Text style={text}>
-          {calendarWindow === undefined
-            ? calendarLoading
-              ? '予定を確認しています。'
-              : '予定を確認できる範囲がないため、タスク情報で表示しています。'
-            : calendarWindow.minutes === null
-              ? `${scheduleLabel}、この後に時間を占める予定は見つかりません。`
-              : calendarWindow.occupiedNow
-                ? `${scheduleLabel}、現在は予定の時間帯です。`
-                : calendarWindow.minutes === 0
-                  ? `${scheduleLabel}、次の予定まで1分未満です。`
-                  : `${scheduleLabel}、次の予定まで${calendarWindow.minutes}分。`}
-        </Text>
-      ) : null}
-      {!showHistory && feedback?.scope === 'recommendation' ? message : null}
-      {loadError ? (
-        <Notice
-          message={loadError}
-          tone="error"
-          action={
-            <ActionButton
-              label="再試行"
-              variant="secondary"
-              onPress={() => setRetry((count) => count + 1)}
-            />
-          }
-        />
-      ) : null}
-      {items.length ? (
-        <>
-          <SectionHeader title="今できそうなこと" compact />
-          {groups.fits.length ? (
-            <Card>{groups.fits.map(renderChoice)}</Card>
-          ) : (
-            <Text style={text}>今の時間に収まる目安のタスクはありません。</Text>
-          )}
-          {groups.deadline.length ? (
-            <Card>
-              <SectionHeader title="期限が近いタスク" compact />
-              {groups.deadline.map(renderChoice)}
-            </Card>
-          ) : null}
-          {groups.checkTime.length ? (
-            !groups.fits.length || showOther ? (
-              <Card>
-                <SectionHeader title="時間を確認したいタスク" compact />
-                {groups.checkTime.map(renderChoice)}
-              </Card>
-            ) : (
+        {openChat ? (
+          <Text style={text}>
+            {calendarWindow === undefined
+              ? calendarLoading
+                ? '予定を確認しています。'
+                : 'タスク情報でおすすめを表示しています。'
+              : calendarWindow.minutes === null
+                ? `${scheduleLabel}、この後に時間を占める予定は見つかりません。`
+                : calendarWindow.occupiedNow
+                  ? `${scheduleLabel}、現在は予定の時間帯です。`
+                  : calendarWindow.minutes === 0
+                    ? `${scheduleLabel}、次の予定まで1分未満です。`
+                    : `${scheduleLabel}、次の予定まで${calendarWindow.minutes}分。`}
+          </Text>
+        ) : null}
+        {!showHistory && feedback?.scope === 'recommendation' ? message : null}
+        {loadError ? (
+          <Notice
+            message={loadError}
+            tone="error"
+            action={
               <ActionButton
-                label={`時間を確認したいタスク（${groups.checkTime.length}件）`}
-                variant="ghost"
-                onPress={() => setShowOther(true)}
+                label="再試行"
+                variant="secondary"
+                onPress={() => setRetry((count) => count + 1)}
               />
-            )
-          ) : null}
-          {items.length > limit ? (
+            }
+          />
+        ) : null}
+        {urgent.length ? (
+          <View style={{ gap: spacing.xs }}>
+            <SectionHeader title="期限が近いタスク" compact />
+            {urgent.map(renderChoice)}
+          </View>
+        ) : null}
+        {regular.map(renderChoice)}
+        {items.length > limit ? (
+          <ActionButton
+            label="もっと見る"
+            variant="secondary"
+            onPress={() => setShownCount((count) => count + 8)}
+          />
+        ) : null}
+        {!items.length && !loadError ? (
+          <Text accessibilityLiveRegion="polite" style={text}>
+            {!current
+              ? 'タスクを読み込んでいます。'
+              : deferred.length
+                ? 'いま表示するおすすめはありません。'
+                : current.tasks.length
+                  ? '今の条件で表示できる候補がありません。'
+                  : 'まだタスクがありません。'}
+          </Text>
+        ) : null}
+        {!items.length && fallback && conditions.minutes !== null ? (
+          <ActionButton
+            label={`「${fallback.taskTitle}」を小さな行動に分ける`}
+            variant="secondary"
+            disabled={actionDisabled}
+            onPress={() => {
+              if (conditions.minutes !== null) openStep(fallback.taskId, conditions.minutes);
+            }}
+          />
+        ) : null}
+        {deferred.length ? (
+          <>
             <ActionButton
-              label="もっと見る"
-              variant="secondary"
-              onPress={() => {
-                setShownCount((count) => count + 8);
-                setShowOther(true);
-              }}
+              label={
+                showingLater
+                  ? 'あとでにしたタスクを閉じる'
+                  : `あとでにしたタスクを表示（${deferred.length}件）`
+              }
+              variant="ghost"
+              expanded={showingLater}
+              onPress={() => setLaterDate(showingLater ? undefined : date)}
             />
-          ) : null}
-        </>
-      ) : !loadError ? (
-        <Text accessibilityLiveRegion="polite" style={text}>
-          {current
-            ? current.tasks.length
-              ? '今の条件で表示できる候補がありません。'
-              : 'まだタスクがありません。'
-            : 'タスクを読み込んでいます。'}
-        </Text>
-      ) : null}
-      {!items.length && fallback ? (
-        <ActionButton
-          label={`「${fallback.taskTitle}」を${conditions.minutes}分の行動に分ける`}
-          variant="secondary"
-          disabled={actionDisabled}
-          onPress={() => openStep(fallback.taskId, conditions.minutes)}
-        />
-      ) : null}
+            {showingLater ? (
+              <View style={{ gap: spacing.xs }}>
+                <Text style={text}>今日だけおすすめから外れます。</Text>
+                {deferred.map((item) => (
+                  <View key={targetKey(item.kind, item.targetId)} style={row}>
+                    <Text style={[titleStyle, { flex: 1 }]}>{item.title}</Text>
+                    <ActionButton
+                      label="戻す"
+                      accessibilityLabel={`${item.title}をおすすめ対象に戻す`}
+                      variant="ghost"
+                      disabled={actionDisabled}
+                      onPress={() => void undo(item)}
+                    />
+                  </View>
+                ))}
+                {repository.undoBatch ? (
+                  <ActionButton
+                    label="すべて戻す"
+                    variant="secondary"
+                    disabled={actionDisabled}
+                    onPress={() =>
+                      void undoBatch(
+                        deferred,
+                        `${deferred.length}件を今日のおすすめ対象に戻しました。`,
+                      )
+                    }
+                  />
+                ) : null}
+              </View>
+            ) : null}
+          </>
+        ) : null}
+      </Card>
       <ActionButton
-        label={todayResults.length ? `実行履歴（今日${todayResults.length}件）` : '実行履歴'}
+        label="これまでの記録"
         variant="ghost"
-        onPress={() => setShowHistory(true)}
+        onPress={() => {
+          setRecordSelection(null);
+          setShowHistory(true);
+        }}
       />
       {choices?.overdue.length ? (
         <ActionButton
@@ -637,24 +679,53 @@ export function TodayRecommendationsScreen({
       ) : null}
       {showHistory ? (
         <ModalFrame
-          title="実行履歴"
-          closeLabel="実行履歴を閉じる"
+          title="これまでの記録"
+          closeLabel="これまでの記録を閉じる"
           onClose={() => setShowHistory(false)}
+          closeDisabled={busy}
+          footer={
+            recordSelection ? (
+              <ActionButton
+                label={`選んだ${selectedRecords.length}件を取り消す`}
+                loading={busy}
+                disabled={actionDisabled || !selectedRecords.length}
+                onPress={() =>
+                  void undoBatch(
+                    selectedRecords,
+                    `今日の記録を${selectedRecords.length}件取り消しました。`,
+                  )
+                }
+              />
+            ) : undefined
+          }
         >
           {feedback?.scope === 'recommendation' ? message : null}
-          {renderResults('completed', '今日の完了')}
-          {renderResults('skipped', '今日の見送り')}
+          {completed.length ? (
+            <Card>
+              <SectionHeader compact title="今日の完了と実施" />
+              {repository.undoBatch && completed.some(hasTarget) ? (
+                <ActionButton
+                  label={recordSelection ? '選択をやめる' : '複数選択'}
+                  variant="ghost"
+                  disabled={actionDisabled}
+                  onPress={() => setRecordSelection(recordSelection ? null : [])}
+                />
+              ) : null}
+              {completed.map(renderCompleted)}
+            </Card>
+          ) : null}
           {recentResults.length ? (
             <>
               <SectionHeader compact title="過去の記録" />
               {recentResults.map((item) => (
                 <Text key={`${item.date}:${targetKey(item.kind, item.targetId)}`} style={text}>
-                  {item.date} ・ {item.outcome === 'completed' ? '完了' : '見送り'} ・ {item.title}
+                  {item.date} ・ {item.outcome === 'completed' ? '完了・実施' : 'あとで'} ・{' '}
+                  {item.title}
                 </Text>
               ))}
             </>
-          ) : !todayResults.length ? (
-            <Text style={text}>直近7日間の記録はありません。</Text>
+          ) : !completed.length ? (
+            <Text style={text}>直近7日間の完了・実施の記録はありません。</Text>
           ) : null}
         </ModalFrame>
       ) : null}

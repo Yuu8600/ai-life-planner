@@ -1002,6 +1002,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      v27_delete_completed_tasks: {
+        Args: { p_ids: string[] }
+        Returns: undefined
+      }
       v27_reserve_calendar_ai: {
         Args: {
           p_amount: number
@@ -1011,6 +1015,10 @@ export type Database = {
           p_user: string
         }
         Returns: boolean
+      }
+      v27_undo_daily_results: {
+        Args: { p_date: string; p_items: Json }
+        Returns: undefined
       }
     }
     Enums: {

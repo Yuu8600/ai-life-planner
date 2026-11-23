@@ -62,7 +62,7 @@ export function WorkSessionDetails({
             />
           )}
           <ActionButton
-            label="この作業枠を見送る"
+            label="この作業枠を取りやめる"
             variant="ghost"
             onPress={() => suggest({ kind: 'skip', id: item.id })}
           />

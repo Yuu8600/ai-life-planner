@@ -4,7 +4,7 @@ import {
 } from '@/features/calendar/recommendationCalendar';
 import type { CalendarEvent } from '@/features/calendar';
 import { effectivePolicies, type RecommendationPolicy } from '@/features/recommendations/policy';
-import { recommend, recommendationGroup } from '@/features/recommendations/recommend';
+import { recommend } from '@/features/recommendations/recommend';
 import type { Task } from '@/features/tasks/repositories/TaskRepository';
 
 const date = '2026-11-18';
@@ -137,21 +137,26 @@ it('treats a busy all-day event as a local date in the profile timezone', () => 
   expect(nextCalendarWindow(intervals, at('08:00'), at('15:00')).minutes).toBe(0);
 });
 
-it('puts each candidate into exactly one group without claiming an unknown estimate fits', () => {
-  const sample = {
-    id: 'test',
-    kind: 'task' as const,
-    taskId: 'test',
-    taskTitle: 'test',
-    title: 'test',
-    goalId: null,
-    deadline: date,
-    reason: '',
-    urgent: true,
-    minutes: 15,
+it('keeps unknown estimates and releases the explicit cap when minutes are unspecified', () => {
+  const base = {
+    date,
+    timezone: 'Asia/Tokyo',
+    expandedToday: true,
+    calendarMinutes: 20,
+    tasks: [
+      task('long', 180),
+      { ...task('unknown', 10), estimatedMinutes: null },
+      task('short', 15),
+    ],
+    steps: [],
+    results: [],
   };
-  expect(recommendationGroup(sample, 30, 20)).toBe('fits');
-  expect(recommendationGroup(sample, 30, 10)).toBe('deadline');
-  expect(recommendationGroup({ ...sample, minutes: null }, 30)).toBe('deadline');
-  expect(recommendationGroup({ ...sample, minutes: null, urgent: false }, 30)).toBe('checkTime');
+  const unlimited = recommend({ ...base, conditions: { minutes: null, effort: 'normal' } });
+  expect(unlimited.candidates.map((candidate) => candidate.id)).toEqual([
+    'short',
+    'long',
+    'unknown',
+  ]);
+  const limited = recommend({ ...base, conditions: { minutes: 120, effort: 'normal' } });
+  expect(limited.candidates.map((candidate) => candidate.id)).toEqual(['short', 'unknown']);
 });

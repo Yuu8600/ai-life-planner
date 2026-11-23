@@ -43,5 +43,6 @@ export interface TaskRepository {
   list(): Promise<Task[]>;
   listGoalOptions(): Promise<TaskGoalOption[]>;
   remove(id: string): Promise<void>;
+  removeCompleted?(ids: string[]): Promise<void>;
   update(id: string, input: UpdateTaskInput): Promise<Task>;
 }

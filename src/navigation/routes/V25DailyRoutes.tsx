@@ -33,7 +33,10 @@ function readConditions(key: string): Conditions {
     const stored = JSON.parse(localStorage.getItem(key) ?? 'null');
     if (
       stored &&
-      (stored.minutes === 15 || stored.minutes === 30 || stored.minutes === 60) &&
+      (stored.minutes === null ||
+        stored.minutes === 30 ||
+        stored.minutes === 60 ||
+        stored.minutes === 120) &&
       isEffort(stored.effort)
     )
       return { minutes: stored.minutes, effort: stored.effort };
@@ -160,9 +163,13 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         onToday={() => setSelected(undefined)}
         onSelectDate={() => setDateDraft(date)}
       />
-      <ActionButton label="予定を追加" variant="secondary" onPress={() => setEditDate(date)} />
       {agenda}
       <ActionButton label="この日の予定をAIに相談" variant="ghost" onPress={() => openChat(date)} />
+      <ActionButton
+        label="アプリ内に予定を追加"
+        variant="ghost"
+        onPress={() => setEditDate(date)}
+      />
       {dateDraft ? (
         Platform.OS === 'android' ? (
           <DeadlineCalendar

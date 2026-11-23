@@ -23,19 +23,6 @@ export type Candidate = {
   urgent: boolean;
 };
 
-export function recommendationGroup(
-  candidate: Candidate,
-  minutes: number,
-  calendarMinutes?: number | null,
-) {
-  if (
-    candidate.minutes !== null &&
-    candidate.minutes <= Math.min(minutes, calendarMinutes ?? minutes)
-  )
-    return 'fits';
-  return candidate.urgent ? 'deadline' : 'checkTime';
-}
-
 type RankedCandidate = Candidate & {
   priority: Task['priority'];
   created: string;
@@ -96,6 +83,7 @@ export function recommend({
   calendarMinutes,
   policies = [],
 }: Input) {
+  const requestedMinutes = conditions.minutes ?? Infinity;
   const activePolicies = effectivePolicies(policies, date);
   const tomorrow = addLocalDays(date, 1);
   const dayOfWeek = new Date(date + 'T00:00Z').getUTCDay();
@@ -205,9 +193,9 @@ export function recommend({
     // A fitting step gives the user a concrete starting point. Unknown time stays labelled.
     const best =
       options.find(
-        (item) => item.fitsCalendar && item.minutes !== null && item.minutes <= conditions.minutes,
+        (item) => item.fitsCalendar && item.minutes !== null && item.minutes <= requestedMinutes,
       ) ??
-      options.find((item) => item.minutes !== null && item.minutes <= conditions.minutes) ??
+      options.find((item) => item.minutes !== null && item.minutes <= requestedMinutes) ??
       options.find((item) => item.minutes === null) ??
       (expandedToday ? direct.find((item) => item.urgent) : undefined);
     if (best) eligible.push(best);

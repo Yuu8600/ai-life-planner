@@ -38,7 +38,7 @@ import type { PlanChange, WorkSession } from './types';
 
 const statusLabels = {
   completed: '完了',
-  skipped: '見送り',
+  skipped: '取りやめ',
   deferred: 'あとで',
   scheduled: '予定',
 };

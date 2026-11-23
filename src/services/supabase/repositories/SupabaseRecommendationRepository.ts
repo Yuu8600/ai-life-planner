@@ -162,6 +162,13 @@ export function createSupabaseRecommendationRepository(userId: string): Recommen
       });
       if (error) throw error;
     },
+    async undoBatch(date, items) {
+      const { error } = await client.rpc('v27_undo_daily_results', {
+        p_date: date,
+        p_items: items,
+      });
+      if (error) throw error;
+    },
     async record(date, kind, id, outcome) {
       const { data, error } = await client.rpc('record_recommendation_result', {
         p_date: date,

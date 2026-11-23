@@ -131,7 +131,7 @@ export function moveByPixels(
 
 export function sessionLabel(session: WorkSession, now: number) {
   if (session.status === 'completed') return '完了';
-  if (session.status === 'skipped') return '今日はしない';
+  if (session.status === 'skipped') return '取りやめ';
   if (session.status === 'deferred') return 'あとで';
   if (Date.parse(session.endAt) <= now) return '未確認';
   if (Date.parse(session.startAt) <= now) return '進行時間内';

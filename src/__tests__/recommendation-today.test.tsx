@@ -95,18 +95,20 @@ it('recommends and saves completion with a failed calendar and loads the result 
   await screen.unmount();
   const restarted = await render(<TodayRecommendationsScreen {...props} />);
   expect(restarted.queryByText('手帳を見直す')).toBeNull();
-  await fireEvent.press(restarted.getByRole('button', { name: '実行履歴（今日1件）' }));
+  await fireEvent.press(restarted.getByRole('button', { name: 'これまでの記録' }));
   await fireEvent.press(
     restarted.getByRole('checkbox', { name: '手帳を見直すの今日の実施を取り消す' }),
   );
   expect(repository.undo).toHaveBeenCalledWith(date, 'task', 'task', 'completed');
-  await fireEvent.press(restarted.getByRole('button', { name: '実行履歴を閉じる' }));
+  await fireEvent.press(restarted.getByRole('button', { name: 'これまでの記録を閉じる' }));
   await waitFor(() =>
     expect(
       restarted.getByRole('checkbox', { name: '手帳を見直すの今日の実施を記録' }),
     ).toBeTruthy(),
   );
-  await fireEvent.press(restarted.getByRole('button', { name: '手帳を見直すを今日は見送る' }));
+  await fireEvent.press(
+    restarted.getByRole('button', { name: '手帳を見直すを今日だけあとでにする' }),
+  );
   await fireEvent.press(restarted.getByRole('button', { name: '元に戻す' }));
   expect(repository.undo).toHaveBeenCalledWith(date, 'task', 'task', 'skipped');
 });
@@ -227,13 +229,76 @@ it('uses fixed events during denied calendar access and keeps each Today candida
       intervals: [fixedEvent],
     }),
   );
-  expect(screen.getByText('今できそうなこと')).toBeTruthy();
+  expect(screen.queryByText('今できそうなこと')).toBeNull();
+  expect(
+    screen.getByRole('radio', { name: '使える時間 指定なし' }).props.accessibilityState.checked,
+  ).toBe(true);
   expect(screen.getByText('短い作業')).toBeTruthy();
   expect(screen.getByText('期限が近いタスク')).toBeTruthy();
   expect(screen.getAllByText('レポート')).toHaveLength(1);
-  expect(screen.getByText(/30分を超える見込み/)).toBeTruthy();
-  expect(screen.queryByText('時間のない作業')).toBeNull();
-  await fireEvent.press(screen.getByRole('button', { name: '時間を確認したいタスク（1件）' }));
   expect(screen.getByText('時間のない作業')).toBeTruthy();
   expect(screen.getByText(/所要時間未設定/)).toBeTruthy();
+  await fireEvent.press(screen.getByRole('radio', { name: '使える時間 30分' }));
+  expect(screen.getByText(/30分を超える見込み/)).toBeTruthy();
+  await fireEvent.press(screen.getByRole('radio', { name: '使える時間 2時間' }));
+  expect(props.saveConditions).toHaveBeenLastCalledWith({ minutes: 120, effort: 'normal' });
+  await fireEvent.press(screen.getByRole('radio', { name: '使える時間 指定なし' }));
+  expect(props.saveConditions).toHaveBeenLastCalledWith(DEFAULT_CONDITIONS);
+});
+
+it('opens deferred tasks without writing and restores the visible day in one operation', async () => {
+  const second = { ...existing, id: 'second', title: '読書' };
+  let entries: RecommendationResult[] = [existing, second].map((task) => ({
+    date,
+    kind: 'task',
+    targetId: task.id,
+    taskId: task.id,
+    title: task.title,
+    goalId: null,
+    outcome: 'skipped',
+  }));
+  const undoBatch = jest.fn(async () => {
+    entries = [];
+  });
+  const repository: RecommendationRepository = {
+    listSteps: jest.fn().mockResolvedValue([]),
+    listResults: jest.fn(async () => entries),
+    addStep: jest.fn(),
+    removeStep: jest.fn(),
+    updateStep: jest.fn(),
+    record: jest.fn(),
+    undo: jest.fn(),
+    undoBatch,
+  };
+  const screen = await render(
+    <TodayRecommendationsScreen
+      taskRepository={{
+        list: jest.fn().mockResolvedValue([existing, second]),
+        listGoalOptions: jest.fn().mockResolvedValue([]),
+        create: jest.fn(),
+        findById: jest.fn(),
+        remove: jest.fn(),
+        update: jest.fn(),
+      }}
+      repository={repository}
+      date={date}
+      timezone={timezone}
+      revision={0}
+      initialConditions={DEFAULT_CONDITIONS}
+      saveConditions={jest.fn()}
+      openSettings={jest.fn()}
+      openTasks={jest.fn()}
+      openStep={jest.fn()}
+    />,
+  );
+  expect(screen.getByText('いま表示するおすすめはありません。')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'あとでにしたタスクを表示（2件）' }));
+  expect(undoBatch).not.toHaveBeenCalled();
+  expect(repository.undo).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole('button', { name: 'すべて戻す' }));
+  expect(undoBatch).toHaveBeenCalledWith(date, [
+    { kind: 'task', id: existing.id, expected: 'skipped' },
+    { kind: 'task', id: second.id, expected: 'skipped' },
+  ]);
+  expect(await screen.findByText(second.title)).toBeTruthy();
 });

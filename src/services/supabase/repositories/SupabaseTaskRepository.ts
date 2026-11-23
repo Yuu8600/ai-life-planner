@@ -240,6 +240,11 @@ export class SupabaseTaskRepository implements TaskRepository {
     return toTask(data, this.userId);
   }
 
+  async removeCompleted(ids: string[]): Promise<void> {
+    const { error } = await this.client.rpc('v27_delete_completed_tasks', { p_ids: ids });
+    if (error) throw error;
+  }
+
   async remove(id: string): Promise<void> {
     const { data, error } = await this.client
       .from('tasks')

@@ -6,12 +6,12 @@ export const EFFORT_OPTIONS = [
 ] as const;
 
 export type Effort = (typeof EFFORT_OPTIONS)[number]['value'];
-export type AvailableMinutes = 15 | 30 | 60;
+export type AvailableMinutes = 15 | 30 | 60 | 120;
 export type TargetKind = 'task' | 'step';
 export type Outcome = 'completed' | 'skipped';
-export type Conditions = { minutes: AvailableMinutes; effort: Effort };
+export type Conditions = { minutes: AvailableMinutes | null; effort: Effort };
 
-export const DEFAULT_CONDITIONS: Conditions = { minutes: 30, effort: 'normal' };
+export const DEFAULT_CONDITIONS: Conditions = { minutes: null, effort: 'normal' };
 
 export type StepInput = {
   title: string;
@@ -37,6 +37,12 @@ export type RecommendationResult = {
   outcome: Outcome;
 };
 
+export type DailyUndo = {
+  kind: TargetKind;
+  id: string;
+  expected: Outcome | 'reopen';
+};
+
 export interface RecommendationRepository {
   listPolicies?(date: string): Promise<RecommendationPolicy[]>;
   setPolicyActive?(id: string, revision: number, active: boolean): Promise<void>;
@@ -46,6 +52,7 @@ export interface RecommendationRepository {
   updateStep(id: string, input: StepInput): Promise<ActionStep>;
   removeStep(id: string): Promise<void>;
   undo(date: string, kind: TargetKind, id: string, expected: Outcome | 'reopen'): Promise<void>;
+  undoBatch?(date: string, items: DailyUndo[]): Promise<void>;
   record(date: string, kind: TargetKind, id: string, outcome: Outcome): Promise<Outcome>;
 }
 

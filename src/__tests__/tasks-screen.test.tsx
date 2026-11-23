@@ -351,3 +351,69 @@ it('keeps a recurring task checked for the day and clears it from the completed 
   ).toBe(true);
   expect(screen.getByRole('button', { name: 'タスクを削除' })).toBeTruthy();
 });
+
+it('limits bulk deletion to completed Tasks and confirms the count before writing', async () => {
+  const date = '2026-11-18';
+  const done: Task[] = [
+    { ...task, title: '読み終えた本', status: 'completed' },
+    { ...task, id: 'second', title: '送信したメール', status: 'completed' },
+  ];
+  const dailyTask: Task = {
+    ...task,
+    id: 'daily',
+    title: '散歩',
+    recurrence: { kind: 'daily', weekdays: [] },
+  };
+  const removeCompleted = jest.fn(async (_ids: string[]) => undefined);
+  const repository = createRepository({
+    list: jest.fn(async () => [...done, dailyTask]),
+    removeCompleted,
+  });
+  const confirm = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const recommendations = {
+    listSteps: jest.fn(),
+    addStep: jest.fn(),
+    updateStep: jest.fn(),
+    removeStep: jest.fn(),
+    listResults: jest.fn().mockResolvedValue([
+      {
+        date,
+        kind: 'task',
+        targetId: dailyTask.id,
+        taskId: dailyTask.id,
+        outcome: 'completed',
+        title: dailyTask.title,
+        goalId,
+      },
+    ]),
+    record: jest.fn(),
+    undo: jest.fn(),
+    undoBatch: jest.fn(),
+  };
+  try {
+    const screen = await render(
+      <TasksScreen
+        repository={repository}
+        recommendationMode
+        recommendations={recommendations}
+        planningTimezone="Asia/Tokyo"
+        now={new Date(date + 'T04:00Z')}
+      />,
+    );
+    await fireEvent.press(await screen.findByRole('button', { name: '完了済み（3）' }));
+    expect(screen.getByText('繰り返しタスクの今日の実施')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: '複数選択' }));
+    expect(screen.queryByRole('checkbox', { name: '散歩を選択' })).toBeNull();
+    for (const item of done)
+      await fireEvent.press(screen.getByRole('checkbox', { name: item.title + 'を選択' }));
+    await fireEvent.press(screen.getByRole('button', { name: '2件を削除' }));
+    expect(removeCompleted).not.toHaveBeenCalled();
+    const [title, message, actions] = confirm.mock.calls[0];
+    expect(title).toBe('2件のタスクを削除しますか？');
+    expect(message).toMatch(/実施記録や時間割の記録は残ります/);
+    await act(async () => actions?.find((button) => button.style === 'destructive')?.onPress?.());
+    expect(removeCompleted).toHaveBeenCalledWith(done.map((item) => item.id));
+  } finally {
+    confirm.mockRestore();
+  }
+});
