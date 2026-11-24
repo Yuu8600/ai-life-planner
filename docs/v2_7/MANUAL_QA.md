@@ -1,6 +1,6 @@
 # V2.7 手動QA
 
-V2.7専用のSimulatorアプリ「AI Life Planner V2.7 QA」と分離したSupabase（API `127.0.0.1:56821`、DB `56822`）を使う。ブラウザのWeb Demoは旧デモ用のサンプル体験。端末予定、認証、AI相談を確認するにはNative版を開く。
+Simulatorアプリ「AI Life Planner QA」と共通ローカルSupabase（API `127.0.0.1:56821`、DB `56822`）を使う。ブラウザのWeb Demoは旧デモ用のサンプル体験。端末予定、認証、AI相談を確認するにはNative版を開く。
 
 ## 今日・予定・タスク
 
@@ -21,16 +21,7 @@ V2.7専用のSimulatorアプリ「AI Life Planner V2.7 QA」と分離したSupab
 
 ## AI相談と承認
 
-### ローカルAIの設定
-
-56821の認証付き `GET /functions/v1/v2-chat` が `configured: false` を返すと送信は無効。今回はQAランタイムのキーが空で、モデルと入出力単価も未設定だった。QA用アカウントの確認時の残枠は月額上限と同じ0.50 USD相当。予算超過とは別の状態。
-
-1. `supabase/config.toml` のプロジェクトIDが `ai-life-planner-v27-qa`、APIのポートが `56821` のQA作業ディレクトリで作業する。
-2. Git管理外に作成済みの `qa-ai.env` をTextEditなどで開く。QA用OpenAIプロジェクトで発行したキーを `V2_OPENAI_API_KEY`、利用できるモデルIDを `V2_OPENAI_MODEL`、同じモデルの入力・出力それぞれ100万トークン当たりのUSD単価を `V2_OPENAI_INPUT_USD_PER_MILLION` と `V2_OPENAI_OUTPUT_USD_PER_MILLION` に入れる。単価は正の数。ファイルは `chmod 600 qa-ai.env`。アプリの `EXPO_PUBLIC_*` やGit管理ファイルにキーを入れない。
-3. QAのEdgeだけを起動し直す。起動済みの端末ではその `functions serve` をCtrl+Cで停止する。以前のプロセスを操作できない場合は `docker stop supabase_edge_runtime_ai-life-planner-v27-qa` でQA Edgeだけを停止する。その後、同じQA作業ディレクトリで `supabase functions serve --env-file qa-ai.env` を実行する。プロジェクト固定のCLIを使う場合は実行コマンドの `supabase` をリポジトリ内の `node_modules/.bin/supabase` の絶対パスに置き換える。
-4. アプリのAI相談で「AIの設定を再確認」を押す。状態照会にはOpenAI APIリクエストが発生しない。「今月の残り予算」が出れば4項目を読み取れた。キー・モデルがOpenAIで利用可能かは、次の有料送信で初めて確認できる。
-
-残枠はユーザーごと・UTC月ごとの0.50 USD相当。送信前に入力サイズと最大出力から使用見込みを予約し、結果で精算する。キー・モデル未設定時はTask管理、Today、既存の会話や下書きが利用できる。以下の実応答を伴う項目は、外部送信と利用料を了承した環境で実施する。
+共通QAの起動・ビルドとAI設定は[環境運用](../qa-environments.md)を参照。下記の実応答を伴う確認は、外部送信と利用料を了承した環境で実施する。
 
 | 操作                                                                                                     | 期待結果                                                                                                                 |
 | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |

@@ -123,12 +123,12 @@ Settingsは元へ戻し、Calendar予定は作成・変更・削除していな�
 2. 同じ開発cloneで次を実行し、自分のiPhoneを選ぶ。
 
    ```sh
-   npm run ios:release
+   npm run ios:cloud
    ```
 
 3. 上書きinstall後、USBを抜き、ホーム画面から起動する。Metro起動は不要。
 
-このscriptは`expo run:ios --configuration Release --device --no-bundler`を実行する。
+このscriptは [環境運用](qa-environments.md#iosビルド) の接続先とクラウド対応状況を確認してから、`expo run:ios --configuration Release --device <接続したiPhone> --no-bundler` を実行する。確認だけなら `npm run ios:cloud -- --check` を使う。
 初回用に同じCLI・flagsのUDID指定実行は検証済み。署名が実際に失効した後のprofile更新はまだ未検証。
 Xcodeの認証更新やprofile再発行が必要になりCLIが失敗する場合は、次の手順を使う。
 
@@ -137,7 +137,7 @@ Xcodeの認証更新やprofile再発行が必要になりCLIが失敗する場�
    bundleIdentifierは変えない。
 3. Product → Scheme → Edit Scheme → Run → Build ConfigurationをReleaseにし、自分のiPhoneを選んでRun。
    必要なprofile更新・Keychain許可・端末側の信頼は本人が行う。
-4. 成功後にUSBを抜いて起動確認。以降は同じ生成済みiosで`npm run ios:release`を使う。
+4. 成功後にUSBを抜いて起動確認。以降は同じ生成済みiosで`npm run ios:cloud`を使う。
 
 無料profile更新のために、毎回アプリ削除やclean prebuildをする必要はない。
 Xcodeが同じ署名情報で上書きできない場合も、削除を先に試さず、Team / bundleIdentifier / profileを確認する。
