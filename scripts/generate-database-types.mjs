@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { qaCli } from './qa-settings.mjs';
 
 const generationMode = process.argv[2];
 
@@ -19,31 +20,31 @@ if (!existsSync(cliEntry)) {
   process.exit(1);
 }
 
-const result = spawnSync(
-  process.execPath,
-  [cliEntry, 'gen', 'types', generationMode, '--schema', 'public'],
-  {
-    cwd: projectRoot,
-    encoding: 'utf8',
-    shell: false,
-  },
-);
-
-if (result.stderr) {
-  process.stderr.write(result.stderr);
-}
-
-if (result.error || result.status !== 0) {
-  console.error(result.error?.message ?? 'Supabase database型の生成に失敗しました。');
-  process.exit(result.status ?? 1);
-}
-
-if (!result.stdout.trim()) {
-  console.error('Supabase CLIからDatabase型が返されなかったため、既存ファイルを保持します。');
+let types;
+try {
+  if (generationMode === '--local') {
+    types = qaCli(['gen', 'types', '--local', '--schema', 'public']);
+  } else {
+    const result = spawnSync(
+      process.execPath,
+      [cliEntry, 'gen', 'types', '--linked', '--schema', 'public'],
+      {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        shell: false,
+      },
+    );
+    if (result.error || result.status !== 0)
+      throw new Error('リンク先からDatabase型を生成できませんでした。');
+    types = result.stdout;
+  }
+  if (!types?.trim()) throw new Error('Database型が返されませんでした。');
+} catch (error) {
+  console.error(error.message);
   process.exit(1);
 }
 
 const outputPath = resolve(projectRoot, 'src', 'services', 'supabase', 'database.types.ts');
 mkdirSync(dirname(outputPath), { recursive: true });
-writeFileSync(outputPath, result.stdout, 'utf8');
+writeFileSync(outputPath, types, 'utf8');
 console.log(`Generated ${outputPath}`);
