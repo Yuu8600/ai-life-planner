@@ -1,13 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { uuid } from 'expo-modules-core';
 
 import { getTaskErrorMessage } from '@/features/tasks/errors';
 import type { CreateTaskInput, TaskRepository } from '@/features/tasks/repositories/TaskRepository';
 import type { Database } from '@/services/supabase/database.types';
 import { SupabaseTaskRepository } from '@/services/supabase/repositories/SupabaseTaskRepository';
-
-jest.mock('expo-modules-core', () => ({
-  uuid: { v4: () => '33333333-3333-4333-8333-333333333333' },
-}));
 
 jest.mock('@/services/supabase/client', () => ({
   getSupabaseClient: jest.fn(),
@@ -77,6 +74,14 @@ function createRepository(builder: Builder) {
 }
 
 describe('SupabaseTaskRepository', () => {
+  beforeEach(() => {
+    jest.spyOn(uuid, 'v4').mockReturnValue(taskId);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('lists only the signed-in user tasks and maps generated database fields', async () => {
     const { builder, from, repository } = createRepository(
       createBuilder({ data: [taskRow], error: null }),
