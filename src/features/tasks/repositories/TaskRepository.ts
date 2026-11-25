@@ -6,7 +6,7 @@ export type TaskStatus = 'completed' | 'pending' | 'scheduled' | 'skipped';
 export type Task = {
   createdAt: string;
   deadline: string | null;
-  estimatedMinutes: number;
+  estimatedMinutes: number | null;
   localDeadline?: string | null;
   recurrence?: { kind: Recurrence; weekdays: number[] };
   goalId: string | null;
@@ -43,5 +43,6 @@ export interface TaskRepository {
   list(): Promise<Task[]>;
   listGoalOptions(): Promise<TaskGoalOption[]>;
   remove(id: string): Promise<void>;
+  removeCompleted?(ids: string[]): Promise<void>;
   update(id: string, input: UpdateTaskInput): Promise<Task>;
 }

@@ -32,3 +32,5 @@ export {
   validatePlanningTimes,
 } from './planningTime';
 export type { PlanningTimeSettings } from './planningTime';
+export { axisPosition, axisTicks, layoutTimeAxis, AXIS_TAP_HEIGHT } from './timeAxis';
+export type { AxisWindow } from './timeAxis';

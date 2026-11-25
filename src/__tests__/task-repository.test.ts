@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { uuid } from 'expo-modules-core';
 
+import { getTaskErrorMessage } from '@/features/tasks/errors';
 import type { CreateTaskInput, TaskRepository } from '@/features/tasks/repositories/TaskRepository';
 import type { Database } from '@/services/supabase/database.types';
 import { SupabaseTaskRepository } from '@/services/supabase/repositories/SupabaseTaskRepository';
@@ -72,6 +74,14 @@ function createRepository(builder: Builder) {
 }
 
 describe('SupabaseTaskRepository', () => {
+  beforeEach(() => {
+    jest.spyOn(uuid, 'v4').mockReturnValue(taskId);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('lists only the signed-in user tasks and maps generated database fields', async () => {
     const { builder, from, repository } = createRepository(
       createBuilder({ data: [taskRow], error: null }),
@@ -110,6 +120,7 @@ describe('SupabaseTaskRepository', () => {
     await repository.create({ ...createInput, goalId: selectedGoalId });
 
     expect(builder.insert).toHaveBeenCalledWith({
+      id: taskId,
       deadline: createInput.deadline,
       estimated_minutes: 30,
       goal_id: selectedGoalId,
@@ -118,6 +129,88 @@ describe('SupabaseTaskRepository', () => {
       title: 'TOEIC Listening',
       user_id: userId,
     });
+  });
+
+  it('writes and immediately maps a task with a NULL estimate', async () => {
+    const row = { ...taskRow, estimated_minutes: null };
+    const { builder, repository } = createRepository(createBuilder({ data: row, error: null }));
+
+    await expect(
+      repository.create({ ...createInput, estimatedMinutes: null }),
+    ).resolves.toMatchObject({
+      id: taskId,
+      estimatedMinutes: null,
+    });
+    expect(builder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ estimated_minutes: null }),
+    );
+  });
+
+  it('reports the original SQL error for a QA database missing the nullable migration', async () => {
+    const message =
+      'null value in column "estimated_minutes" of relation "tasks" violates not-null constraint';
+    const error = { code: '23502', message, details: 'rejected row content' };
+    const log = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { builder, repository } = createRepository(createBuilder({ data: null, error }));
+      await expect(repository.create({ ...createInput, estimatedMinutes: null })).rejects.toBe(
+        error,
+      );
+      expect(builder.maybeSingle).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith('[TaskRepository]', {
+        operation: 'create.insert',
+        code: '23502',
+        message,
+      });
+      expect(getTaskErrorMessage(error)).toContain('V2.5用の接続先');
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('recovers an unreadable INSERT response by fetching the saved ID', async () => {
+    const log = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const source = createBuilder({ data: taskRow, error: null });
+      source.single.mockResolvedValueOnce({ data: null, error: null, status: 201 });
+      const { builder, repository } = createRepository(source);
+      await expect(repository.create(createInput)).resolves.toMatchObject({ id: taskId });
+      expect(builder.eq).toHaveBeenCalledWith('id', taskId);
+      expect(builder.eq).toHaveBeenCalledWith('user_id', userId);
+      expect(log).toHaveBeenCalledWith('[TaskRepository]', {
+        operation: 'create.decode',
+        code: undefined,
+        message: 'Task response did not include a row',
+      });
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('reuses the original row ID if the initial result is lost', async () => {
+    const log = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const source = createBuilder({ data: taskRow, error: null });
+      source.single
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'Network request failed' },
+          status: 0,
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { code: '23505', message: 'duplicate key' },
+          status: 409,
+        });
+      const { builder, repository } = createRepository(source);
+      await expect(repository.create(createInput)).rejects.toMatchObject({ result: 'unconfirmed' });
+      await expect(repository.create(createInput)).resolves.toMatchObject({ id: taskId });
+      expect(builder.insert).toHaveBeenCalledTimes(2);
+      expect(builder.insert.mock.calls[1][0]).toEqual(builder.insert.mock.calls[0][0]);
+      expect(builder.maybeSingle).toHaveBeenCalledTimes(1);
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('updates only an owned task and never writes user_id', async () => {

@@ -29,3 +29,7 @@ export type {
   CalendarEventBufferOverride,
   CalendarEventBufferRepository,
 } from './eventBuffers';
+
+export { DayAgenda, type AgendaWindowInput } from './DayAgenda';
+export type { FixedEventRepository } from './FixedEventRepository';
+export { nextCalendarWindow, type AgendaAvailability } from './recommendationCalendar';

@@ -9,6 +9,57 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      action_steps: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          effort: string | null
+          estimated_minutes: number | null
+          id: string
+          repeatable: boolean
+          task_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          effort?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          repeatable?: boolean
+          task_id: string
+          title: string
+          user_id?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          effort?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          repeatable?: boolean
+          task_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_steps_task_id_user_id_fkey"
+            columns: ["task_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "action_steps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_logs: {
         Row: {
           action_title: string
@@ -306,12 +357,136 @@ export type Database = {
         }
         Relationships: []
       }
+      recommendation_policies: {
+        Row: {
+          created_at: string
+          draft_key: string | null
+          end_date: string
+          id: string
+          policy_kind: string
+          revision: number
+          source: string
+          source_draft_id: string | null
+          start_date: string
+          status: string
+          target_goal_id: string | null
+          target_task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          draft_key?: string | null
+          end_date: string
+          id?: string
+          policy_kind: string
+          revision?: number
+          source?: string
+          source_draft_id?: string | null
+          start_date: string
+          status?: string
+          target_goal_id?: string | null
+          target_task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          draft_key?: string | null
+          end_date?: string
+          id?: string
+          policy_kind?: string
+          revision?: number
+          source?: string
+          source_draft_id?: string | null
+          start_date?: string
+          status?: string
+          target_goal_id?: string | null
+          target_task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_policies_source_draft_id_fkey"
+            columns: ["source_draft_id"]
+            isOneToOne: false
+            referencedRelation: "v2_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendation_policies_target_goal_id_user_id_fkey"
+            columns: ["target_goal_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recommendation_policies_target_task_id_user_id_fkey"
+            columns: ["target_task_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recommendation_policies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recommendation_results: {
+        Row: {
+          created_at: string
+          goal_id: string | null
+          local_date: string
+          outcome: string
+          previous_task_status: string | null
+          target_id: string
+          target_kind: string
+          task_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          goal_id?: string | null
+          local_date: string
+          outcome: string
+          previous_task_status?: string | null
+          target_id: string
+          target_kind: string
+          task_id: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          goal_id?: string | null
+          local_date?: string
+          outcome?: string
+          previous_task_status?: string | null
+          target_id?: string
+          target_kind?: string
+          task_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_results_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           created_at: string
           deadline: string | null
           deadline_local: string | null
-          estimated_minutes: number
+          estimated_minutes: number | null
           goal_id: string | null
           id: string
           priority: string
@@ -326,7 +501,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           deadline_local?: string | null
-          estimated_minutes: number
+          estimated_minutes?: number | null
           goal_id?: string | null
           id?: string
           priority: string
@@ -341,7 +516,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           deadline_local?: string | null
-          estimated_minutes?: number
+          estimated_minutes?: number | null
           goal_id?: string | null
           id?: string
           priority?: string
@@ -371,6 +546,7 @@ export type Database = {
       }
       v2_ai_usage: {
         Row: {
+          calendar_thread_id: string | null
           cost_micros: number | null
           created_at: string
           id: string
@@ -383,6 +559,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          calendar_thread_id?: string | null
           cost_micros?: number | null
           created_at?: string
           id: string
@@ -395,6 +572,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          calendar_thread_id?: string | null
           cost_micros?: number | null
           created_at?: string
           id?: string
@@ -418,28 +596,34 @@ export type Database = {
       }
       v2_drafts: {
         Row: {
+          applied_keys: string[] | null
           approved_at: string | null
           created_at: string
           id: string
           items: Json
+          rejected_at: string | null
           revision: string
           thread_id: string
           user_id: string
         }
         Insert: {
+          applied_keys?: string[] | null
           approved_at?: string | null
           created_at?: string
           id?: string
           items: Json
+          rejected_at?: string | null
           revision?: string
           thread_id: string
           user_id: string
         }
         Update: {
+          applied_keys?: string[] | null
           approved_at?: string | null
           created_at?: string
           id?: string
           items?: Json
+          rejected_at?: string | null
           revision?: string
           thread_id?: string
           user_id?: string
@@ -608,6 +792,48 @@ export type Database = {
           },
         ]
       }
+      v26_task_edit_receipts: {
+        Row: {
+          applied_revision: string
+          before_values: Json
+          draft_id: string
+          task_id: string
+          undone_at: string | null
+          user_id: string
+        }
+        Insert: {
+          applied_revision: string
+          before_values: Json
+          draft_id: string
+          task_id: string
+          undone_at?: string | null
+          user_id: string
+        }
+        Update: {
+          applied_revision?: string
+          before_values?: Json
+          draft_id?: string
+          task_id?: string
+          undone_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v26_task_edit_receipts_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "v2_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v26_task_edit_receipts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -626,6 +852,15 @@ export type Database = {
       }
       planning_instant: {
         Args: { p_local: string; p_timezone: string }
+        Returns: string
+      }
+      record_recommendation_result: {
+        Args: {
+          p_date: string
+          p_id: string
+          p_kind: string
+          p_outcome: string
+        }
         Returns: string
       }
       replace_daily_plan:
@@ -682,6 +917,15 @@ export type Database = {
               saved_action_count: number
             }[]
           }
+      undo_recommendation_result: {
+        Args: {
+          p_date: string
+          p_expected: string
+          p_id: string
+          p_kind: string
+        }
+        Returns: undefined
+      }
       update_planned_action_status: {
         Args: { p_action_id: string; p_target_status: string }
         Returns: {
@@ -733,6 +977,49 @@ export type Database = {
         Returns: string
       }
       v2_unique_weekdays: { Args: { days: number[] }; Returns: boolean }
+      v26_policy_status: {
+        Args: { p_active: boolean; p_id: string; p_revision: number }
+        Returns: undefined
+      }
+      v26_reject_draft: {
+        Args: { p_id: string; p_revision: string }
+        Returns: undefined
+      }
+      v26_undo_task_edit: {
+        Args: { p_draft: string; p_task: string }
+        Returns: undefined
+      }
+      v27_approve_calendar_policies: {
+        Args: { p_id: string; p_policies: Json; p_thread: string }
+        Returns: boolean
+      }
+      v27_approve_edited_draft: {
+        Args: {
+          p_id: string
+          p_items: Json
+          p_revision: string
+          p_selected: string[]
+        }
+        Returns: boolean
+      }
+      v27_delete_completed_tasks: {
+        Args: { p_ids: string[] }
+        Returns: undefined
+      }
+      v27_reserve_calendar_ai: {
+        Args: {
+          p_amount: number
+          p_id: string
+          p_model: string
+          p_thread: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      v27_undo_daily_results: {
+        Args: { p_date: string; p_items: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

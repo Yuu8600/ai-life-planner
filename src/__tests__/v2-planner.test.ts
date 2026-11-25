@@ -1,4 +1,9 @@
-import { approvePlan, loadDay, previewPlan } from '@/features/planner/v2/dayService';
+import {
+  approvePlan,
+  loadDay,
+  previewInitialPlan,
+  previewPlan,
+} from '@/features/planner/v2/dayService';
 import {
   calendarConflicts,
   changeDailyPlan,
@@ -79,6 +84,21 @@ it('excludes past deadlines and runs scheduled weekdays with Monday week boundar
   expect(weeklyCompletedDays('weekly', '2026-11-23', [completed])).toBe(0);
 });
 
+it('leaves unestimated tasks out of new placement and keeps their existing sessions usable', () => {
+  const saved = createDailyPlan(day);
+  const unestimated = { ...day, tasks: [{ ...task, duration: null }] };
+  const fresh = createDailyPlan(unestimated);
+  expect(fresh.sessions).toEqual([]);
+  expect(fresh.unplaced).toEqual([
+    { taskId: task.id, reason: 'タスクの詳細で所要時間を登録してください。' },
+  ]);
+  const updated = changeDailyPlan(unestimated, saved, {
+    kind: 'complete',
+    id: saved.sessions[0].id,
+  });
+  expect(updated.sessions[0]).toMatchObject({ id: saved.sessions[0].id, status: 'completed' });
+});
+
 it('creates a preview, locks manual edits and records work separately from the Task', () => {
   const input = { ...day, tasks: [{ ...task, duration: 180 }] };
   const original = createDailyPlan(input);
@@ -110,6 +130,10 @@ it('requires current inputs and an explicit approval before writing a preview', 
   const saved = createDailyPlan(day);
   const save = jest.fn(async () => {});
   let source = 'first';
+  let existing: { revision: string; plan: ReturnType<typeof createDailyPlan> } | null = {
+    revision: 'same',
+    plan: saved,
+  };
   const deps = {
     now: () => day.now,
     repository: {
@@ -121,7 +145,7 @@ it('requires current inputs and an explicit approval before writing a preview', 
         gap: day.gap,
         history: [],
         tasks: [task],
-        saved: { revision: 'same', plan: saved },
+        saved: existing,
       }),
       save,
       addEvent: jest.fn(),
@@ -152,4 +176,12 @@ it('requires current inputs and an explicit approval before writing a preview', 
       sessions: expect.arrayContaining([expect.objectContaining({ status: 'completed' })]),
     }),
   );
+
+  existing = null;
+  save.mockClear();
+  const empty = await loadDay(deps, date, false);
+  const initial = previewInitialPlan(empty);
+  expect(save).not.toHaveBeenCalled();
+  await approvePlan(deps, initial, false);
+  expect(save).toHaveBeenCalledWith(date, null, 'first', initial.plan);
 });

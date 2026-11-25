@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/features/auth';
+import { LegacyPlanHistory } from '@/features/planner/v2/LegacyPlanHistory';
+import { createSupabaseActivityLogRepository } from '@/services/supabase/repositories/SupabaseActivityLogRepository';
+import { createSupabaseTodayRepository } from '@/services/supabase/repositories/SupabaseTodayRepository';
 import { DailyPlanningScreen } from '@/features/planner/v2/DailyPlanningScreen';
 import { createExpoCalendarRepository } from '@/services/calendar/ExpoCalendarRepository';
 import { createSupabaseDailyPlanningRepository } from '@/services/supabase/repositories/SupabaseDailyPlanningRepository';
@@ -13,6 +16,7 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
     taskId?: string;
     date?: string;
     review?: string;
+    plannerMode?: string;
   }>();
   const deps = useMemo(
     () =>
@@ -25,23 +29,41 @@ function DailyRoute({ mode }: { mode: 'today' | 'calendar' }) {
         : null,
     [userId],
   );
+  const legacy = useMemo(
+    () =>
+      userId && mode === 'today'
+        ? {
+            plans: createSupabaseTodayRepository(userId),
+            activities: createSupabaseActivityLogRepository(userId),
+          }
+        : null,
+    [userId, mode],
+  );
   if (!deps) return null;
   return (
     <DailyPlanningScreen
-      key={`${userId}-${review ?? ''}`}
+      key={`${userId}-${mode}-${review ?? ''}-${date ?? ''}`}
       deps={deps}
       mode={mode}
-      initialDate={mode === 'today' ? date : undefined}
+      initialDate={date}
       review={mode === 'today' ? review : undefined}
       initialTaskId={mode === 'today' && typeof taskId === 'string' ? taskId : undefined}
+      renderLegacyHistory={
+        legacy ? (day) => <LegacyPlanHistory key={day} date={day} {...legacy} /> : undefined
+      }
+      openDayPlan={(day) =>
+        router.navigate({
+          pathname: '/advanced-planner',
+          params: { date: day, taskId: undefined, review: undefined, plannerMode: undefined },
+        })
+      }
       openSettings={() => router.push('/settings')}
+      closeAdvanced={() => (router.canGoBack() ? router.back() : router.replace('/today'))}
     />
   );
 }
 
-export function TodayRoute() {
-  return <DailyRoute mode="today" />;
-}
-export function CalendarRoute() {
-  return <DailyRoute mode="calendar" />;
+export default function AdvancedPlannerRoute() {
+  const { plannerMode } = useLocalSearchParams<{ plannerMode?: string }>();
+  return <DailyRoute mode={plannerMode === 'calendar' ? 'calendar' : 'today'} />;
 }

@@ -13,6 +13,7 @@ type CalendarDateNavigatorProps = {
   onNext: () => void;
   onPrevious: () => void;
   onToday: () => void;
+  onSelectDate?: () => void;
 };
 
 export function CalendarDateNavigator({
@@ -22,6 +23,7 @@ export function CalendarDateNavigator({
   onNext,
   onPrevious,
   onToday,
+  onSelectDate,
 }: CalendarDateNavigatorProps) {
   return (
     <View style={styles.container}>
@@ -33,9 +35,19 @@ export function CalendarDateNavigator({
           style={styles.button}
           variant="secondary"
         />
-        <Text accessibilityRole="header" style={styles.date}>
-          {getCalendarDateLabel(selectedDate, timeZone)}
-        </Text>
+        {onSelectDate ? (
+          <ActionButton
+            label={getCalendarDateLabel(selectedDate, timeZone)}
+            accessibilityLabel={`日付を選ぶ。表示中は${getCalendarDateLabel(selectedDate, timeZone)}`}
+            variant="ghost"
+            style={{ flex: 1 }}
+            onPress={onSelectDate}
+          />
+        ) : (
+          <Text accessibilityRole="header" style={styles.date}>
+            {getCalendarDateLabel(selectedDate, timeZone)}
+          </Text>
+        )}
         <ActionButton
           accessibilityLabel="次の日を表示"
           label="→"

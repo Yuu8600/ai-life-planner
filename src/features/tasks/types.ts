@@ -2,7 +2,7 @@ import type { TaskPriority, TaskStatus } from './repositories/TaskRepository';
 
 export type TaskSummary = {
   deadlineLabel: string;
-  estimatedMinutes: number;
+  estimatedMinutes: number | null;
   goalId: string | null;
   goalTitle: string;
   id: string;
@@ -18,4 +18,4 @@ export type TaskFilter = {
   label: string;
 };
 
-export type TaskFilterId = 'all' | 'today' | 'unscheduled';
+export type TaskFilterId = 'all' | 'today' | 'unscheduled' | 'open' | 'completed' | 'overdue';

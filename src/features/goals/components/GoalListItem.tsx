@@ -9,6 +9,7 @@ import type { GoalListItemModel } from '../types';
 
 type GoalListItemProps = {
   disabled?: boolean;
+  compactActions?: boolean;
   goal: GoalListItemModel;
   isDeleting?: boolean;
   isLast?: boolean;
@@ -17,6 +18,7 @@ type GoalListItemProps = {
 };
 export function GoalListItem({
   disabled = false,
+  compactActions = false,
   goal,
   isDeleting = false,
   onDelete,
@@ -29,16 +31,27 @@ export function GoalListItem({
   );
   return (
     <Card testID={`goal-card-${goal.id}`}>
-      <Text
-        style={{
-          ...typography.bodyStrong,
-          color: colors.textPrimary,
-          flexShrink: 1,
-          maxWidth: '100%',
-        }}
-      >
-        {goal.title}
-      </Text>
+      {compactActions ? (
+        <ActionButton
+          label={goal.title}
+          accessibilityLabel={`${goal.title}を編集する`}
+          disabled={disabled}
+          variant="ghost"
+          onPress={onEdit}
+          style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
+        />
+      ) : (
+        <Text
+          style={{
+            ...typography.bodyStrong,
+            color: colors.textPrimary,
+            flexShrink: 1,
+            maxWidth: '100%',
+          }}
+        >
+          {goal.title}
+        </Text>
+      )}
       <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
         期限 {goal.deadlineLabel}
       </Text>
@@ -76,6 +89,7 @@ export function GoalListItem({
       ) : null}
       <ItemActions
         title={goal.title}
+        hideEdit={compactActions}
         disabled={disabled}
         isDeleting={isDeleting}
         onEdit={onEdit}

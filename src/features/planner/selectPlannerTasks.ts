@@ -18,7 +18,7 @@ export type PlannerGoalSource = {
 
 export type PlannerTaskSource = {
   deadline: string | null;
-  estimatedMinutes: number;
+  estimatedMinutes: number | null;
   goalId: string | null;
   id: string;
   priority: PlannerPriority;
@@ -110,7 +110,7 @@ export function selectPlannerTasks({
   );
   const rankedTasks = tasks
     .flatMap((task): RankedPlannerTask[] => {
-      if (task.status !== 'pending') return [];
+      if (task.status !== 'pending' || task.estimatedMinutes === null) return [];
 
       const activeGoal = task.goalId === null ? null : activeGoals.get(task.goalId);
       if (task.goalId !== null && !activeGoal) return [];

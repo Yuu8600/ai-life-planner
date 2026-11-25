@@ -2,11 +2,13 @@ import {
   loadCalendarPlanningEvents,
   type CalendarEvent,
   type CalendarEventBufferRepository,
+  type CalendarEventBufferOverride,
   type CalendarRepository,
 } from '@/features/calendar';
 import { getPlanningWindow } from '@/features/today';
 import { calculateFreeTime } from '../index';
 import { changeDailyPlan, createDailyPlan } from './engine';
+import { reportPlanningIssue } from './planningDiagnostics';
 import { PlanConflictError, type DailyPlanningRepository } from './repository';
 import type { DailyPlan, DayInput, PlanChange } from './types';
 
@@ -29,11 +31,15 @@ export async function loadDay(
   let external: DayInput['busy'] = [];
   let calendarError: string | null = null;
   let deviceEvents: CalendarEvent[] = [];
+  let timelineDeviceEvents: CalendarEvent[] = [];
+  let calendarOverrides: CalendarEventBufferOverride[] = [];
+  let calendarOperation = 'calendar.permission';
   try {
     const permission = await deps.calendar.getPermission();
     if (permission.status !== 'granted') {
       calendarError = 'iPhoneカレンダーの読み取りを許可してください。';
     } else {
+      calendarOperation = 'calendar.read';
       const events = await loadCalendarPlanningEvents(
         deps.calendar,
         date,
@@ -44,6 +50,8 @@ export async function loadDay(
         settings.planningEndDayOffset,
       );
       deviceEvents = events.events;
+      timelineDeviceEvents = events.calculationEvents;
+      calendarOverrides = events.overrides;
       external = calculateFreeTime({
         ...settings,
         events: events.calculationEvents,
@@ -52,8 +60,12 @@ export async function loadDay(
         timezone,
       }).busyIntervals;
     }
-  } catch {
-    calendarError = 'iPhoneカレンダーの取得に失敗しました。';
+  } catch (error) {
+    reportPlanningIssue(calendarOperation, error);
+    calendarError =
+      calendarOperation === 'calendar.permission'
+        ? 'iPhoneカレンダーの許可状態を確認できませんでした。'
+        : 'iPhoneカレンダーの取得に失敗しました。';
   }
   const busy = [
     ...external,
@@ -85,6 +97,8 @@ export async function loadDay(
     input,
     calendarError,
     deviceEvents,
+    timelineDeviceEvents,
+    calendarOverrides,
     allowed: !calendarError || allowLimited,
     calendarRevision: JSON.stringify([
       calendarError,
@@ -103,17 +117,6 @@ export type PlanPreview = {
   calendarRevision: string;
   plan: DailyPlan;
 };
-
-export async function generateFirstPlan(deps: DailyPlanningDependencies, day: LoadedDay) {
-  if (!day.allowed || day.saved || Date.parse(day.input.window.endAt) <= day.input.now) return day;
-  const initial = createDailyPlan(day.input);
-  try {
-    await deps.repository.save(initial.date, null, day.source, initial);
-  } catch (error) {
-    if (!(error instanceof PlanConflictError)) throw error;
-  }
-  return loadDay(deps, initial.date, day.input.limited);
-}
 
 export function previewPlan(day: LoadedDay, change: PlanChange): PlanPreview {
   if (!day.saved) throw new Error('計画を開いてください。');
@@ -142,6 +145,8 @@ export function previewPlan(day: LoadedDay, change: PlanChange): PlanPreview {
 
 export function previewInitialPlan(day: LoadedDay, taskId?: string): PlanPreview {
   if (!day.allowed || day.saved) throw new PlanConflictError();
+  if (Date.parse(day.input.window.endAt) <= day.input.now)
+    throw new Error('活動時間が終了している日の時間割は作成できません。');
   const initial = createDailyPlan(day.input);
   const plan =
     taskId && !initial.sessions.some((item) => item.taskId === taskId)

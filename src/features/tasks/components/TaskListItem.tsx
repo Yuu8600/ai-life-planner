@@ -8,9 +8,11 @@ import type { TaskSummary } from '../types';
 
 type TaskListItemProps = {
   disabled?: boolean;
+  compactActions?: boolean;
   isDeleting?: boolean;
   isLast?: boolean;
   overdue?: boolean;
+  recommendationMode?: boolean;
   onComplete?: () => void;
   onReplan?: () => void;
   onDelete: () => void;
@@ -19,8 +21,10 @@ type TaskListItemProps = {
 };
 export function TaskListItem({
   disabled = false,
+  compactActions = false,
   isDeleting = false,
   overdue,
+  recommendationMode,
   onComplete,
   onReplan,
   onDelete,
@@ -38,12 +42,25 @@ export function TaskListItem({
           : 'neutral';
   return (
     <Card testID={`task-card-${task.id}`} style={{ gap: spacing.sm }}>
-      <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>{task.title}</Text>
+      {compactActions ? (
+        <ActionButton
+          label={task.title}
+          accessibilityLabel={`${task.title}を編集する`}
+          disabled={disabled}
+          variant="ghost"
+          onPress={onEdit}
+          style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
+        />
+      ) : (
+        <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>{task.title}</Text>
+      )}
       <View
         style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, alignItems: 'baseline' }}
       >
         <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>
-          所要時間 {task.estimatedMinutes}分
+          {task.estimatedMinutes === null
+            ? '所要時間未設定'
+            : `所要時間 ${task.estimatedMinutes}分`}
         </Text>
         <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
           {task.deadlineLabel}
@@ -80,16 +97,32 @@ export function TaskListItem({
         </View>
         <ItemActions
           title={task.title}
+          hideEdit={compactActions}
+          additional={
+            compactActions && onComplete ? (
+              <ActionButton
+                label="タスクを完了にする"
+                variant="ghost"
+                disabled={disabled}
+                onPress={onComplete}
+              />
+            ) : undefined
+          }
           disabled={disabled}
           isDeleting={isDeleting}
           onEdit={onEdit}
           onDelete={onDelete}
         />
       </View>
-      {overdue ? <Badge label="期限切れ・自動配置を保留" tone="warning" /> : null}
-      {onComplete || onReplan ? (
+      {overdue ? (
+        <Badge
+          label={recommendationMode ? '期限を見直す' : '期限切れ・自動配置を保留'}
+          tone="warning"
+        />
+      ) : null}
+      {(!compactActions && onComplete) || onReplan ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          {onComplete ? (
+          {onComplete && !compactActions ? (
             <ActionButton
               label="タスクを完了にする"
               variant="ghost"
@@ -97,7 +130,7 @@ export function TaskListItem({
               onPress={onComplete}
             />
           ) : null}
-          {overdue ? (
+          {overdue && !compactActions ? (
             <ActionButton label="期限を編集" variant="ghost" disabled={disabled} onPress={onEdit} />
           ) : null}
           {onReplan ? (

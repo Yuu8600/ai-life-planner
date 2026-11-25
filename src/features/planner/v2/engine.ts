@@ -90,6 +90,7 @@ function reason(
   sessions: readonly WorkSession[],
   explicit?: string,
 ) {
+  if (task.duration === null) return 'タスクの詳細で所要時間を登録してください。';
   if (!Number.isSafeInteger(task.duration) || task.duration < 1 || task.duration > 1500)
     return '作業時間が活動時間を超えています。';
   if (sessions.some((item) => item.taskId === task.id && item.status === 'skipped'))
@@ -200,15 +201,17 @@ function schedule(input: DayInput, plan: DailyPlan, explicit?: string, allowAddi
   const sessions = [...plan.sessions];
   const blocks = [...input.busy, ...plan.lifestyle, ...plan.leisure];
   const unplaced: DailyPlan['unplaced'] = [];
-  const candidates = rank(input, explicit).filter((task) => {
-    const excluded = reason(task, input, sessions, explicit);
-    if (excluded === null) return true;
-    if (excluded !== '繰り返しの対象曜日ではありません。')
-      unplaced.push({ taskId: task.id, reason: excluded });
-    return false;
-  });
+  const candidates = rank(input, explicit).filter(
+    (task): task is PlanningTask & { duration: number } => {
+      const excluded = reason(task, input, sessions, explicit);
+      if (excluded === null) return task.duration !== null;
+      if (excluded !== '繰り返しの対象曜日ではありません。')
+        unplaced.push({ taskId: task.id, reason: excluded });
+      return false;
+    },
+  );
   const urgentEnd = addLocalDays(input.date, 1);
-  const tryTask = (task: PlanningTask) =>
+  const tryTask = (task: PlanningTask & { duration: number }) =>
     place(task.id, task.title, task.duration * minute, sessions, blocks, input);
   for (const task of candidates) {
     if (sessions.some((item) => item.taskId === task.id && active(item))) continue;

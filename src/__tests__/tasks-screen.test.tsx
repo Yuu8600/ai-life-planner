@@ -285,3 +285,138 @@ describe('Clear deletion controls', () => {
     await waitFor(() => expect(screen.queryByText('TOEIC Listening')).toBeNull());
   });
 });
+
+it('strikes through a recurring task after completion and lets the user undo from the same row', async () => {
+  const date = '2026-11-18';
+  const dailyTask: Task = { ...task, recurrence: { kind: 'weekly', weekdays: [3] } };
+  let completed = false;
+  const recommendations = {
+    listSteps: jest.fn(),
+    addStep: jest.fn(),
+    updateStep: jest.fn(),
+    removeStep: jest.fn(),
+    listResults: jest.fn(async () =>
+      completed
+        ? [
+            {
+              date,
+              kind: 'task' as const,
+              targetId: task.id,
+              taskId: task.id,
+              outcome: 'completed' as const,
+              title: task.title,
+              goalId,
+            },
+          ]
+        : [],
+    ),
+    record: jest.fn(async () => {
+      completed = true;
+      return 'completed' as const;
+    }),
+    undo: jest.fn(async () => {
+      completed = false;
+    }),
+  };
+  const repository = createRepository({ list: jest.fn(async () => [dailyTask]) });
+  const screen = await render(
+    <TasksScreen
+      repository={repository}
+      recommendationMode
+      recommendations={recommendations}
+      planningTimezone="Asia/Tokyo"
+      now={new Date(date + 'T04:00Z')}
+    />,
+  );
+  await fireEvent.press(
+    await screen.findByRole('checkbox', { name: 'TOEIC Listeningの今日の実施を記録' }),
+  );
+  expect(recommendations.record).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
+  expect(await screen.findByRole('button', { name: '元に戻す' })).toBeTruthy();
+  expect(screen.getByText('TOEIC Listening')).toHaveStyle({ textDecorationLine: 'line-through' });
+  expect(await screen.findByText(/今日の実施済み/)).toBeTruthy();
+  const undo = screen.getByRole('checkbox', { name: 'TOEIC Listeningの今日の実施を取り消す' });
+  expect(undo.props.accessibilityState.checked).toBe(true);
+  await fireEvent.press(undo);
+  expect(recommendations.undo).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
+  expect(await screen.findByRole('button', { name: '完了済み（0）' })).toBeTruthy();
+  expect(screen.getByText('TOEIC Listening')).not.toHaveStyle({
+    textDecorationLine: 'line-through',
+  });
+  expect(repository.update).not.toHaveBeenCalled();
+
+  await fireEvent.press(await screen.findByRole('button', { name: 'TOEIC Listeningを編集する' }));
+  expect(screen.queryByText('状態')).toBeNull();
+  expect(
+    screen.getByRole('radio', { name: '繰り返し（任意） 曜日を選ぶ' }).props.accessibilityState
+      .checked,
+  ).toBe(true);
+  expect(screen.getByRole('button', { name: 'タスクを削除' })).toBeTruthy();
+});
+
+it('limits bulk deletion to completed Tasks and confirms the count before writing', async () => {
+  const date = '2026-11-18';
+  const done: Task[] = [
+    { ...task, title: '読み終えた本', status: 'completed' },
+    { ...task, id: 'second', title: '送信したメール', status: 'completed' },
+  ];
+  const dailyTask: Task = {
+    ...task,
+    id: 'daily',
+    title: '散歩',
+    recurrence: { kind: 'daily', weekdays: [] },
+  };
+  const removeCompleted = jest.fn(async (_ids: string[]) => undefined);
+  const repository = createRepository({
+    list: jest.fn(async () => [...done, dailyTask]),
+    removeCompleted,
+  });
+  const confirm = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const recommendations = {
+    listSteps: jest.fn(),
+    addStep: jest.fn(),
+    updateStep: jest.fn(),
+    removeStep: jest.fn(),
+    listResults: jest.fn().mockResolvedValue([
+      {
+        date,
+        kind: 'task',
+        targetId: dailyTask.id,
+        taskId: dailyTask.id,
+        outcome: 'completed',
+        title: dailyTask.title,
+        goalId,
+      },
+    ]),
+    record: jest.fn(),
+    undo: jest.fn(),
+    undoBatch: jest.fn(),
+  };
+  try {
+    const screen = await render(
+      <TasksScreen
+        repository={repository}
+        recommendationMode
+        recommendations={recommendations}
+        planningTimezone="Asia/Tokyo"
+        now={new Date(date + 'T04:00Z')}
+      />,
+    );
+    expect(screen.getByText('読み終えた本')).toHaveStyle({ textDecorationLine: 'line-through' });
+    await fireEvent.press(await screen.findByRole('button', { name: '完了済み（3）' }));
+    expect(screen.getByText('繰り返しタスクの今日の実施')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: '複数選択' }));
+    expect(screen.queryByRole('checkbox', { name: '散歩を選択' })).toBeNull();
+    for (const item of done)
+      await fireEvent.press(screen.getByRole('checkbox', { name: item.title + 'を選択' }));
+    await fireEvent.press(screen.getByRole('button', { name: '2件を削除' }));
+    expect(removeCompleted).not.toHaveBeenCalled();
+    const [title, message, actions] = confirm.mock.calls[0];
+    expect(title).toBe('2件のタスクを削除しますか？');
+    expect(message).toMatch(/実施記録や時間割の記録は残ります/);
+    await act(async () => actions?.find((button) => button.style === 'destructive')?.onPress?.());
+    expect(removeCompleted).toHaveBeenCalledWith(done.map((item) => item.id));
+  } finally {
+    confirm.mockRestore();
+  }
+});

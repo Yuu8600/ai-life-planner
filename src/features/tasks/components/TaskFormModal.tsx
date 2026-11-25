@@ -32,6 +32,10 @@ type TaskFormModalProps = {
   onSubmit: (input: CreateTaskInput) => Promise<boolean>;
   task: Task | null;
   planningTimezone?: string;
+  recommendationMode?: boolean;
+  onDelete?: () => void;
+  onAskAI?: () => void;
+  onOpenSteps?: () => void;
 };
 
 export function TaskFormModal({
@@ -45,6 +49,10 @@ export function TaskFormModal({
   onSubmit,
   task,
   planningTimezone,
+  recommendationMode = false,
+  onOpenSteps,
+  onAskAI,
+  onDelete,
 }: TaskFormModalProps) {
   const [values, setValues] = useState<TaskFormValues>(() =>
     createTaskFormValues(
@@ -54,12 +62,14 @@ export function TaskFormModal({
             localDeadline: task.localDeadline ?? getLocalDate(task.deadline, planningTimezone),
           }
         : (task ?? undefined),
+      recommendationMode,
     ),
   );
   const [recurrence, setRecurrence] = useState<Recurrence>(task?.recurrence?.kind ?? 'once');
   const [weekdays, setWeekdays] = useState(task?.recurrence?.weekdays ?? []);
   const [recurrenceError, setRecurrenceError] = useState('');
   const usesWeekdays = recurrence === 'weekdays' || recurrence === 'weekly';
+  const [showGoalOptions, setShowGoalOptions] = useState(false);
   const initialDeadline = useRef(values.deadline);
   const [fieldErrors, setFieldErrors] = useState<TaskFormErrors>({});
   const submitLock = useRef(false);
@@ -79,27 +89,34 @@ export function TaskFormModal({
     if (isSubmitting || submitLock.current) return;
 
     const allowedGoalIds = new Set(displayedGoalOptions.map((goal) => goal.id));
-    const validation = validateTaskForm(values, allowedGoalIds);
+    const validation = validateTaskForm(
+      values,
+      allowedGoalIds,
+      recommendationMode || task?.estimatedMinutes === null,
+    );
 
     if (!validation.input) {
       setFieldErrors(validation.errors);
       return;
     }
 
-    if (planningTimezone && usesWeekdays && weekdays.length === 0) {
+    if ((planningTimezone || recommendationMode) && usesWeekdays && weekdays.length === 0) {
       setRecurrenceError('曜日を1日以上選んでください。');
       return;
     }
     submitLock.current = true;
 
     try {
-      if (planningTimezone) {
+      if (planningTimezone || recommendationMode) {
         const date = values.deadline.trim();
-        const deadline = date
-          ? new Date(
-              Date.parse(getUtcDayBounds(addLocalDays(date, 1), planningTimezone).startAt) - 1,
-            ).toISOString()
-          : null;
+        const deadline =
+          task && date === initialDeadline.current
+            ? task.deadline
+            : date && planningTimezone
+              ? new Date(
+                  Date.parse(getUtcDayBounds(addLocalDays(date, 1), planningTimezone).startAt) - 1,
+                ).toISOString()
+              : validation.input.deadline;
         await onSubmit({
           ...validation.input,
           deadline,
@@ -122,7 +139,9 @@ export function TaskFormModal({
   return (
     <ModalFrame
       title={isEditing ? 'タスクを編集' : '新しいタスク'}
-      description="実行時間と関連するGoalを登録します。"
+      description={
+        planningTimezone || recommendationMode ? undefined : '実行時間と関連するGoalを登録します。'
+      }
       onClose={onClose}
       closeLabel="タスクフォームを閉じる"
       closeDisabled={isSubmitting}
@@ -149,19 +168,43 @@ export function TaskFormModal({
         />
       </FormField>
 
-      <FormField error={fieldErrors.estimatedMinutes} label="所要時間（分・必須）">
+      {onAskAI ? (
+        <ActionButton
+          label="このタスクをAIに相談"
+          variant="ghost"
+          disabled={isSubmitting}
+          onPress={onAskAI}
+        />
+      ) : null}
+      {onOpenSteps ? (
+        <ActionButton
+          label="小さな行動を見る・追加する"
+          variant="secondary"
+          disabled={isSubmitting}
+          onPress={onOpenSteps}
+        />
+      ) : null}
+      <FormField
+        error={fieldErrors.estimatedMinutes}
+        label={
+          recommendationMode || task?.estimatedMinutes === null
+            ? '所要時間（分・任意）'
+            : '所要時間（分・必須）'
+        }
+      >
         <FormInput
           accessibilityLabel="タスクの所要時間"
           editable={!isSubmitting}
           keyboardType="number-pad"
           onChangeText={(value) => updateValue('estimatedMinutes', value)}
-          placeholder="30"
+          placeholder={recommendationMode ? '未設定' : '30'}
           value={values.estimatedMinutes}
         />
       </FormField>
 
       <DeadlineField
         accessibilityLabel="タスクの期限"
+        label={recommendationMode ? '期限（任意）' : undefined}
         disabled={isSubmitting}
         error={fieldErrors.deadline}
         onChange={(value) => updateValue('deadline', value)}
@@ -171,40 +214,57 @@ export function TaskFormModal({
       <OptionGroup
         disabled={isSubmitting}
         error={fieldErrors.priority}
-        label="優先度"
+        label={recommendationMode ? '重要度（任意）' : '優先度'}
         onChange={(value) => updateValue('priority', value)}
         options={TASK_PRIORITIES}
         selectedValue={values.priority}
       />
 
-      <OptionGroup
-        disabled={isSubmitting}
-        error={fieldErrors.status}
-        label="状態"
-        onChange={(value) => updateValue('status', value)}
-        options={TASK_STATUSES}
-        selectedValue={values.status}
-      />
+      {!recommendationMode ? (
+        <OptionGroup
+          disabled={isSubmitting}
+          error={fieldErrors.status}
+          label="状態"
+          onChange={(value) => updateValue('status', value)}
+          options={TASK_STATUSES}
+          selectedValue={values.status}
+        />
+      ) : null}
 
-      {planningTimezone ? (
+      {planningTimezone || recommendationMode ? (
         <>
           <OptionGroup
-            label="繰り返し"
+            label={recommendationMode ? '繰り返し（任意）' : '繰り返し'}
             disabled={isSubmitting}
-            selectedValue={recurrence}
+            selectedValue={recommendationMode && recurrence === 'weekly' ? 'weekdays' : recurrence}
             onChange={(value) => {
               setRecurrence(value as Recurrence);
               setRecurrenceError('');
             }}
-            options={[
-              { value: 'once', label: '単発' },
-              { value: 'daily', label: '毎日' },
-              { value: 'weekdays', label: '曜日指定' },
-              { value: 'weekly', label: `週${weekdays.length || 'N'}回` },
-            ]}
+            options={
+              recommendationMode
+                ? [
+                    { value: 'once', label: 'なし' },
+                    { value: 'daily', label: '毎日' },
+                    { value: 'weekdays', label: '曜日を選ぶ' },
+                  ]
+                : [
+                    { value: 'once', label: '単発' },
+                    { value: 'daily', label: '毎日' },
+                    { value: 'weekdays', label: '曜日指定' },
+                    { value: 'weekly', label: `週${weekdays.length || 'N'}回` },
+                  ]
+            }
           />
           {usesWeekdays ? (
-            <FormField label="実行する曜日" error={recurrenceError}>
+            <FormField
+              label={
+                recommendationMode && weekdays.length
+                  ? `実行する曜日（週${weekdays.length}回）`
+                  : '実行する曜日'
+              }
+              error={recurrenceError}
+            >
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
                 {['月', '火', '水', '木', '金', '土', '日'].map((label, index) => {
                   const day = index + 1;
@@ -232,49 +292,83 @@ export function TaskFormModal({
           ) : null}
         </>
       ) : null}
-      <View style={styles.field}>
-        <Text style={styles.label}>関連するGoal（任意）</Text>
-        {isLoadingGoalOptions ? (
-          <Text accessibilityLiveRegion="polite" style={styles.helperText}>
-            Goal候補を読み込んでいます。
+      {planningTimezone || recommendationMode ? (
+        <ActionButton
+          label={
+            showGoalOptions
+              ? recommendationMode
+                ? '目標の候補を閉じる'
+                : 'Goalの候補を閉じる'
+              : (displayedGoalOptions.find(({ id }) => id === values.goalId)?.title ??
+                (recommendationMode ? '関連する目標を選ぶ（任意）' : '関連するGoalを選ぶ（任意）'))
+          }
+          accessibilityLabel={recommendationMode ? '関連する目標を選ぶ' : '関連するGoalを選ぶ'}
+          variant="secondary"
+          expanded={showGoalOptions}
+          disabled={isSubmitting}
+          onPress={() => setShowGoalOptions(!showGoalOptions)}
+        />
+      ) : null}
+      {(!planningTimezone && !recommendationMode) || showGoalOptions || fieldErrors.goalId ? (
+        <View style={styles.field}>
+          <Text style={styles.label}>
+            {recommendationMode ? '関連する目標（任意）' : '関連するGoal（任意）'}
           </Text>
-        ) : null}
-        {goalOptionsError ? (
-          <View style={styles.goalErrorRow}>
-            <Text accessibilityRole="alert" style={styles.goalErrorText}>
-              {goalOptionsError}
+          {isLoadingGoalOptions ? (
+            <Text accessibilityLiveRegion="polite" style={styles.helperText}>
+              Goal候補を読み込んでいます。
             </Text>
-            <Pressable
-              accessibilityLabel="Goal候補を再読み込み"
-              accessibilityRole="button"
-              disabled={isSubmitting || isLoadingGoalOptions}
-              onPress={onRetryGoalOptions}
-              style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
-            >
-              <Text style={styles.retryLabel}>再読み込み</Text>
-            </Pressable>
-          </View>
-        ) : null}
-        <View accessibilityRole="radiogroup" style={styles.goalOptions}>
-          <GoalOption
-            disabled={isSubmitting}
-            label="Goalなし"
-            onPress={() => updateValue('goalId', '')}
-            selected={!values.goalId}
-          />
-          {displayedGoalOptions.map((goal) => (
+          ) : null}
+          {goalOptionsError ? (
+            <View style={styles.goalErrorRow}>
+              <Text accessibilityRole="alert" style={styles.goalErrorText}>
+                {goalOptionsError}
+              </Text>
+              <Pressable
+                accessibilityLabel="Goal候補を再読み込み"
+                accessibilityRole="button"
+                disabled={isSubmitting || isLoadingGoalOptions}
+                onPress={onRetryGoalOptions}
+                style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
+              >
+                <Text style={styles.retryLabel}>再読み込み</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          <View accessibilityRole="radiogroup" style={styles.goalOptions}>
             <GoalOption
               disabled={isSubmitting}
-              key={goal.id}
-              label={goal.title}
-              onPress={() => updateValue('goalId', goal.id)}
-              selected={values.goalId === goal.id}
+              label="Goalなし"
+              onPress={() => {
+                updateValue('goalId', '');
+                setShowGoalOptions(false);
+              }}
+              selected={!values.goalId}
             />
-          ))}
+            {displayedGoalOptions.map((goal) => (
+              <GoalOption
+                disabled={isSubmitting}
+                key={goal.id}
+                label={goal.title}
+                onPress={() => {
+                  updateValue('goalId', goal.id);
+                  setShowGoalOptions(false);
+                }}
+                selected={values.goalId === goal.id}
+              />
+            ))}
+          </View>
+          {fieldErrors.goalId ? <Text style={styles.fieldError}>{fieldErrors.goalId}</Text> : null}
         </View>
-        {fieldErrors.goalId ? <Text style={styles.fieldError}>{fieldErrors.goalId}</Text> : null}
-      </View>
-
+      ) : null}
+      {onDelete ? (
+        <ActionButton
+          label="タスクを削除"
+          disabled={isSubmitting}
+          variant="ghost"
+          onPress={onDelete}
+        />
+      ) : null}
       {errorMessage ? <Notice tone="error" message={errorMessage} /> : null}
     </ModalFrame>
   );

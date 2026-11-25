@@ -11,14 +11,16 @@ import type { ActivityLogsState } from '../useActivityLogs';
 export function ActivityLogSection({
   state,
   onRetry,
+  title = '今日の実行履歴',
 }: {
   state: ActivityLogsState;
   onRetry: () => void;
+  title?: string;
 }) {
   return (
     <View testID="today-activity-log-section">
       <SectionHeader
-        title="今日の実行履歴"
+        title={title}
         detail={state.status === 'success' ? `${state.logs.length}件` : undefined}
       />
       {state.status === 'loading' ? (

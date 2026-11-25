@@ -8,7 +8,7 @@ export type PlanningTask = {
   goalId: string | null;
   priority: PlannerPriority;
   deadline: string | null;
-  duration: number;
+  duration: number | null;
   completed: boolean;
   recurrence: Recurrence;
   weekdays: readonly number[];

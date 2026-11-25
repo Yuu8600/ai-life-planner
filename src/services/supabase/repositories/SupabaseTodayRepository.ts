@@ -210,6 +210,24 @@ export class SupabaseTodayRepository implements TodayRepository {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
+  async getPlanForDate(date: string): Promise<TodayDailyPlan | null> {
+    const plan = await this.loadPlanRecord(date);
+    if (!plan) return null;
+    const { actions, tasksById, goalsById } = await this.loadPlanDetails(plan, []);
+    return this.toTodayDailyPlan(plan, actions, tasksById, goalsById);
+  }
+
+  private async loadPlanRecord(date: string): Promise<DailyPlanRecord | null> {
+    const { data, error } = await this.client
+      .from('daily_plans')
+      .select('id, user_id, plan_date, timezone, summary, window_start_at, window_end_at')
+      .eq('user_id', this.userId)
+      .eq('plan_date', date)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? readDailyPlan(data, this.userId, date) : null;
+  }
+
   async getToday(): Promise<TodayProjection> {
     const { data: profile, error: profileError } = await this.client
       .from('profiles')
@@ -233,13 +251,8 @@ export class SupabaseTodayRepository implements TodayRepository {
     const localDate = getPlanningDate(currentInstant, planningSettings);
     const planningWindow = getPlanningWindow(localDate, planningSettings);
     const profileDayBounds = getUtcDayBounds(localDate, profileTimezone);
-    const [dailyPlanResult, deadlineTaskResult] = await Promise.all([
-      this.client
-        .from('daily_plans')
-        .select('id, user_id, plan_date, timezone, summary, window_start_at, window_end_at')
-        .eq('user_id', this.userId)
-        .eq('plan_date', localDate)
-        .maybeSingle(),
+    const [dailyPlan, deadlineTaskResult] = await Promise.all([
+      this.loadPlanRecord(localDate),
       this.client
         .from('tasks')
         .select('id, user_id, goal_id, title, deadline, status')
@@ -249,7 +262,6 @@ export class SupabaseTodayRepository implements TodayRepository {
         .order('deadline', { ascending: true }),
     ]);
 
-    if (dailyPlanResult.error) throw dailyPlanResult.error;
     if (deadlineTaskResult.error) throw deadlineTaskResult.error;
 
     const profileStartBound = Date.parse(profileDayBounds.startAt);
@@ -257,28 +269,10 @@ export class SupabaseTodayRepository implements TodayRepository {
     const deadlineTaskRecords = (deadlineTaskResult.data ?? []).map((task) =>
       readDeadlineTask(task, this.userId, profileStartBound, profileEndBound),
     );
-    const dailyPlan = dailyPlanResult.data
-      ? readDailyPlan(dailyPlanResult.data, this.userId, localDate)
-      : null;
-    const actionRecords = dailyPlan ? await this.loadActions(dailyPlan) : [];
-    const deadlineTasksById = new Map(
-      deadlineTaskRecords.map((task) => [task.id, task] satisfies [string, TaskRecord]),
+    const { actions, goalsById, tasksById } = await this.loadPlanDetails(
+      dailyPlan,
+      deadlineTaskRecords,
     );
-    const missingActionTaskIds = [
-      ...new Set(
-        actionRecords.flatMap((action) =>
-          action.taskId && !deadlineTasksById.has(action.taskId) ? [action.taskId] : [],
-        ),
-      ),
-    ];
-    const actionTasksById = await this.loadActionTasks(missingActionTaskIds);
-    const tasksById = new Map([...deadlineTasksById, ...actionTasksById]);
-    const goalIds = [
-      ...new Set(
-        [...tasksById.values()].flatMap((task) => (task.goalId === null ? [] : [task.goalId])),
-      ),
-    ];
-    const goalsById = await this.loadGoals(goalIds);
     const deadlineTasks: TodayDeadlineTask[] = deadlineTaskRecords.map((task) => ({
       deadlineAt: task.deadlineAt,
       goalTitle: task.goalId ? (goalsById.get(task.goalId) ?? null) : null,
@@ -286,9 +280,7 @@ export class SupabaseTodayRepository implements TodayRepository {
       status: task.status,
       title: task.title,
     }));
-    const plan = dailyPlan
-      ? this.toTodayDailyPlan(dailyPlan, actionRecords, tasksById, goalsById)
-      : null;
+    const plan = dailyPlan ? this.toTodayDailyPlan(dailyPlan, actions, tasksById, goalsById) : null;
 
     return {
       planningWindow,
@@ -298,6 +290,22 @@ export class SupabaseTodayRepository implements TodayRepository {
       plan,
       profileTimezone,
     };
+  }
+
+  private async loadPlanDetails(plan: DailyPlanRecord | null, deadlineTasks: TaskRecord[]) {
+    const actions = plan ? await this.loadActions(plan) : [];
+    const tasksById = new Map(deadlineTasks.map((task) => [task.id, task]));
+    const missingIds = [
+      ...new Set(
+        actions.flatMap(({ taskId }) => (taskId && !tasksById.has(taskId) ? [taskId] : [])),
+      ),
+    ];
+    for (const [id, task] of await this.loadActionTasks(missingIds)) tasksById.set(id, task);
+    const goalIds = [
+      ...new Set([...tasksById.values()].flatMap(({ goalId }) => (goalId ? [goalId] : []))),
+    ];
+    const goalsById = await this.loadGoals(goalIds);
+    return { actions, tasksById, goalsById };
   }
 
   private async loadActions(dailyPlan: DailyPlanRecord): Promise<PlannedActionRecord[]> {
@@ -411,6 +419,6 @@ export class SupabaseTodayRepository implements TodayRepository {
   }
 }
 
-export function createSupabaseTodayRepository(userId: string): TodayRepository {
+export function createSupabaseTodayRepository(userId: string): SupabaseTodayRepository {
   return new SupabaseTodayRepository(getSupabaseClient(), userId);
 }

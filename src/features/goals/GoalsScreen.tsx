@@ -18,9 +18,17 @@ import { GoalStatePanel } from './components/GoalStatePanel';
 
 type GoalsScreenProps = {
   repository: GoalRepository | null;
+  compactActions?: boolean;
+  onOpenAI?: (goal: Goal) => void;
+  onBack?: () => void;
 };
 
-export function GoalsScreen({ repository }: GoalsScreenProps) {
+export function GoalsScreen({
+  repository,
+  compactActions = false,
+  onOpenAI,
+  onBack,
+}: GoalsScreenProps) {
   const {
     clearMutationError,
     createGoal,
@@ -84,7 +92,7 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
             <ActionButton
               accessibilityLabel="新しい目標を作成する"
               disabled={isMutating}
-              label="＋ 追加"
+              label={compactActions ? '目標を追加' : '＋ 追加'}
               onPress={openCreateForm}
               style={styles.addButton}
               variant="primary"
@@ -93,6 +101,7 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
         }
       />
 
+      {onBack ? <ActionButton label="タスクに戻る" variant="ghost" onPress={onBack} /> : null}
       {isLoading ? (
         <GoalStatePanel
           isLoading
@@ -110,7 +119,7 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
         />
       ) : goals.length === 0 ? (
         <GoalStatePanel
-          message="「目標を追加」から、達成したいことを登録しましょう。次にTasksで具体的な行動を登録します。"
+          message="「目標を追加」から、達成したいことを登録しましょう。タスクの編集画面から目標に紐付けられます。"
           testID="goals-empty-state"
           title="まだ目標がありません"
         />
@@ -119,6 +128,7 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
           {goals.map((goal, index) => (
             <GoalListItem
               disabled={isMutating}
+              compactActions={compactActions}
               goal={toGoalListItemModel(goal)}
               isDeleting={pendingMutation === `delete:${goal.id}`}
               isLast={index === goals.length - 1}
@@ -141,6 +151,14 @@ export function GoalsScreen({ repository }: GoalsScreenProps) {
           isSubmitting={isSaving}
           onClose={() => setEditingGoal(undefined)}
           onSubmit={saveGoal}
+          onOpenAI={
+            editingGoal && onOpenAI
+              ? () => {
+                  setEditingGoal(undefined);
+                  onOpenAI(editingGoal);
+                }
+              : undefined
+          }
         />
       ) : null}
     </AppScreen>

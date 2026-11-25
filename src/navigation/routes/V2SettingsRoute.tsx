@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
 import { useRouter } from 'expo-router';
+import { ActionButton } from '@/shared/components/ActionButton';
+import { Card } from '@/shared/components/Card';
+import { SectionHeader } from '@/shared/components/SectionHeader';
 import { AccountSection, useAuth } from '@/features/auth';
 import { SettingsScreen } from '@/features/settings/SettingsScreen';
 import { PlannerGapSettings } from '@/features/settings/components/PlannerGapSettings';
@@ -21,13 +24,31 @@ export default function V2SettingsRoute() {
   return (
     <SettingsScreen
       CloseControl={SettingsExitControl}
-      accountSection={
-        <>
-          {planner ? <PlannerGapSettings key={userId} repository={planner} /> : null}
-          <AccountSection />
-        </>
+      planningAccessory={
+        planner ? (
+          <Card>
+            <SectionHeader title="高度な時間割" />
+            <ActionButton
+              label="時間割を開く"
+              variant="secondary"
+              onPress={() => router.push('/advanced-planner')}
+            />
+            <ActionButton
+              label="固定・生活予定を管理"
+              variant="ghost"
+              onPress={() =>
+                router.push({ pathname: '/advanced-planner', params: { plannerMode: 'calendar' } })
+              }
+            />
+          </Card>
+        ) : null
       }
-      onPressBack={() => router.back()}
+      advancedSettings={
+        planner ? <PlannerGapSettings key={userId} repository={planner} /> : undefined
+      }
+      sections={[]}
+      accountSection={<AccountSection />}
+      onPressBack={() => (router.canGoBack() ? router.back() : router.replace('/today'))}
       repository={repository}
     />
   );

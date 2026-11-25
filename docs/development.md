@@ -3,6 +3,8 @@
 API・アカウント不要で試す場合は[Web Demo](web-demo.md#ローカルで開く)を使う。
 以下は自分のSupabase開発プロジェクトとNative開発環境を用意する場合の手順。
 
+共通QA・実機ビルド・クラウド移行は[環境運用](qa-environments.md)を参照。
+
 ## 必要な環境
 
 - Node.js `^22.13.0 || >=24`、npm。lockfileのバージョンを使うため`npm ci`を使用。
@@ -61,7 +63,7 @@ npm run start:dev
 iPhoneでLAN接続する場合の確認記録は[iPhone verification](ios-device-core-v1-verification.md)。
 Personal TeamのSigningは各自のローカル環境へ設定し、Team ID・UDID・profileをcommitしない。
 Personal Team署名のRelease buildで、Metro停止・USB解除後のiPhone単体利用も確認済み。
-再build・上書きinstallは`npm run ios:release`。署名期限後の更新、データ保持、検証範囲は
+共通QAのSimulatorは `npm run ios:qa`、クラウドの実機は `npm run ios:cloud`（`ios:release` も同じガードを使用）。署名期限後の更新、データ保持、検証範囲は
 [Personal Team Release](ios-personal-release.md)を参照。
 
 ## Calendar / planning settings
@@ -74,15 +76,15 @@ Calendarの権限はアプリ内の許可操作で要求し、通常予定・終
 AndroidではCalendar package / pluginがREADとWRITEの両権限を宣言するが、アプリの処理は読み取りのみ。
 iOSのフルアクセス拒否・再許可、終日予定のdate-only境界、timezoneについては[検証記録](ios-settings-calendar-verification.md)を参照。
 
-## Optional OpenAI
+## 旧PlannerのOpenAI設定
 
 標準ProviderはRuleBasedで、OpenAI未設定でもCoreは動く。Web DemoにはOpenAI経路を含めない。
 Nativeの任意Providerは`Supabase Edge Function → OpenAI Responses API`を通り、共通Validatorで検証する。
 
-利用する場合は自分のSupabase Edge Function Secretとして`OPENAI_API_KEY`と`OPENAI_MODEL`を設定する。
+旧 `planner-generate` を利用する場合は自分のSupabase Edge Function Secretとして`OPENAI_API_KEY`と`OPENAI_MODEL`を設定する。
 clientの.envやGitへ実キーを置かない。Functionの稼働とavailabilityを確認してから明示選択する。
 model対応・料金は利用時の公式資料で確認する。今回の公開準備ではSecret設定・remote deploy・実API呼び出しを行っていない。
-Provider失敗時に自動で別Providerへ切り替える構成ではない。
+Todayの「AI相談」が使う `v2-chat` の設定は[環境運用](qa-environments.md#ai設定)を参照。
 
 ## Schema / types / verification
 

@@ -23,6 +23,7 @@ import {
 } from '../validation';
 
 type PlanningSettingsFormProps = {
+  advancedSettings?: ReactNode;
   renderLayout?: (
     body: ReactNode,
     footer: ReactNode,
@@ -39,6 +40,7 @@ type PlanningSettingsFormProps = {
 
 export function PlanningSettingsForm({
   clearSaveFeedback,
+  advancedSettings,
   renderLayout,
   isSaving,
   onSubmit,
@@ -49,6 +51,7 @@ export function PlanningSettingsForm({
   const [values, setValues] = useState<SettingsFormValues>(() =>
     createSettingsFormValues(settings),
   );
+  const [showPlanner, setShowPlanner] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<SettingsFormErrors>({});
   const submitLock = useRef(false);
   const saveAreaRef = useRef<View>(null);
@@ -103,8 +106,8 @@ export function PlanningSettingsForm({
     }
   };
 
-  const body = (
-    <View style={styles.form} testID="planning-settings-form">
+  const plannerFields = (
+    <>
       <Card>
         <SectionHeader compact title="活動時間" />
         <TimeSelectionRow
@@ -176,28 +179,57 @@ export function PlanningSettingsForm({
           );
         })}
       </Card>
-      <Card>
-        <SectionHeader compact title="地域・時間帯" />
-        <FormField
-          error={fieldErrors.timezone}
-          helper="例: Asia/Tokyo（IANA形式）"
-          label="タイムゾーン"
-        >
-          <FormInput
-            accessibilityLabel="タイムゾーン"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isSaving}
-            maxLength={100}
-            onChangeText={(value) => updateValue('timezone', value)}
-            placeholder="Asia/Tokyo"
-            value={values.timezone}
+    </>
+  );
+  const plannerTip = (
+    <Text style={styles.helper}>
+      保存済みの計画は自動変更されません。反映には明示的な再計画が必要です。
+    </Text>
+  );
+  const regionFields = (
+    <Card>
+      <SectionHeader compact title="地域・時間帯" />
+      <FormField error={fieldErrors.timezone} helper="例：日本は Asia/Tokyo" label="タイムゾーン">
+        <FormInput
+          accessibilityLabel="タイムゾーン"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isSaving}
+          maxLength={100}
+          onChangeText={(value) => updateValue('timezone', value)}
+          placeholder="Asia/Tokyo"
+          value={values.timezone}
+        />
+      </FormField>
+    </Card>
+  );
+  const body = (
+    <View style={styles.form} testID="planning-settings-form">
+      {advancedSettings ? (
+        <>
+          {regionFields}
+          <ActionButton
+            label={showPlanner ? '時間割専用の設定を閉じる' : '時間割専用の設定を表示'}
+            variant="secondary"
+            expanded={showPlanner}
+            disabled={isSaving}
+            onPress={() => setShowPlanner(!showPlanner)}
           />
-        </FormField>
-      </Card>
-      <Text style={styles.helper}>
-        保存済みの計画は自動変更されません。反映には明示的な再計画が必要です。
-      </Text>
+          {showPlanner ? (
+            <>
+              {plannerFields}
+              {advancedSettings}
+              {plannerTip}
+            </>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {plannerFields}
+          {regionFields}
+          {plannerTip}
+        </>
+      )}
     </View>
   );
   const footer = (

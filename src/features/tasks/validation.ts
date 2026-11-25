@@ -68,10 +68,10 @@ function deadlineToDateInput(deadline: string | null): string {
   return formatDateInput(parsed);
 }
 
-export function createTaskFormValues(task?: Task): TaskFormValues {
+export function createTaskFormValues(task?: Task, allowUnestimated = false): TaskFormValues {
   return {
     deadline: task?.localDeadline ?? deadlineToDateInput(task?.deadline ?? null),
-    estimatedMinutes: task ? String(task.estimatedMinutes) : '30',
+    estimatedMinutes: task ? String(task.estimatedMinutes ?? '') : allowUnestimated ? '' : '30',
     goalId: task?.goalId ?? '',
     priority: task?.priority ?? 'medium',
     status: task?.status ?? 'pending',
@@ -82,6 +82,7 @@ export function createTaskFormValues(task?: Task): TaskFormValues {
 export function validateTaskForm(
   values: TaskFormValues,
   allowedGoalIds: ReadonlySet<string>,
+  allowUnestimated = false,
 ): TaskValidationResult {
   const errors: TaskFormErrors = {};
   const title = values.title.trim();
@@ -93,9 +94,10 @@ export function validateTaskForm(
   if (!title) errors.title = 'タイトルを入力してください。';
 
   if (
-    !POSITIVE_INTEGER_PATTERN.test(estimatedMinutesValue) ||
-    !Number.isSafeInteger(estimatedMinutes) ||
-    estimatedMinutes > POSTGRES_INTEGER_MAX
+    (estimatedMinutesValue || !allowUnestimated) &&
+    (!POSITIVE_INTEGER_PATTERN.test(estimatedMinutesValue) ||
+      !Number.isSafeInteger(estimatedMinutes) ||
+      estimatedMinutes > POSTGRES_INTEGER_MAX)
   ) {
     errors.estimatedMinutes = '所要時間は1以上の整数で入力してください。';
   }
@@ -117,7 +119,7 @@ export function validateTaskForm(
     errors: null,
     input: {
       deadline: deadline ? dateInputToDeadline(deadline) : null,
-      estimatedMinutes,
+      estimatedMinutes: estimatedMinutesValue ? estimatedMinutes : null,
       goalId: goalId || null,
       priority: values.priority as TaskPriority,
       status: values.status as TaskStatus,
