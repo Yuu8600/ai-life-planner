@@ -423,6 +423,8 @@ export function createChatHandler({
             : 'このリクエストでは相談回答のみ、itemsは空にする。')
         : '');
     const input = JSON.stringify({
+      // JSON mode checks the input messages for the word JSON.
+      responseInstruction: 'JSON形式で、instructionsに従った回答を返してください。',
       prompt,
       context,
       ...(calendar ? { untrustedCalendar: calendar } : {}),

@@ -86,7 +86,11 @@ it('returns only a request ID after storing a reply and draft with bounded usage
   expect(await result.json()).toEqual({ requestId: id });
   const model = fetcher.mock.calls.find(([url]) => url.startsWith('https://api.openai.com'))?.[1];
   const payload = JSON.parse(String(model?.body));
-  expect(JSON.parse(payload.input)).not.toHaveProperty('untrustedCalendar');
+  const input = JSON.parse(payload.input);
+  expect(input.prompt).not.toMatch(/json/i);
+  expect(input.responseInstruction).toBe('JSON形式で、instructionsに従った回答を返してください。');
+  expect(input).not.toHaveProperty('untrustedCalendar');
+  expect(payload.text.format.type).toBe('json_object');
   expect(payload.max_output_tokens).toBe(900);
   const reservation = fetcher.mock.calls.find(([url]) => url.includes('/rpc/v2_reserve_ai'));
   expect(JSON.parse(String(reservation?.[1]?.body)).p_amount).toBe(
