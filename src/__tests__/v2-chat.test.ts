@@ -293,7 +293,7 @@ it('allows structured policies in a private turn while leaving all model output 
   );
   expect(await result.json()).toEqual({
     requestId: id,
-    ephemeralReply: policy.title,
+    ephemeralReply: '操作を提案しました。下のカードで内容を確認し、追加・適用してください。',
     policyProposals: [
       {
         key: 'policy-1',
@@ -449,3 +449,28 @@ it.each([
     }
   },
 );
+
+it('does not report a completed operation when the model supplies no action proposal', async () => {
+  const { handler, request, fetcher } = makeHandler(true, true, () =>
+    Response.json({
+      status: 'completed',
+      output: [
+        {
+          content: [
+            {
+              type: 'output_text',
+              text: JSON.stringify({ reply: 'タスクを追加しました', items: [] }),
+            },
+          ],
+        },
+      ],
+      usage: { input_tokens: 10, output_tokens: 10 },
+    }),
+  );
+  expect((await handler(request())).status).toBe(200);
+  const finish = fetcher.mock.calls.find(([url]) => url.includes('/rpc/v2_finish_ai'));
+  const saved = JSON.parse(String(finish?.[1]?.body));
+  expect(saved.p_reply).not.toContain('追加しました');
+  expect(saved.p_reply).toContain('承認が必要');
+  expect(saved.p_items).toEqual([]);
+});

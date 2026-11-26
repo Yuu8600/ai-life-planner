@@ -410,6 +410,7 @@ export function createChatHandler({
       }
     }
     const system =
+      '承認前の操作は提案です。追加しました・変更しました等の実行済み表現は禁止。アプリの提案カードで承認が必要と案内してください。' +
       '日本語で回答。JSON {reply,items} を返す。itemsは必要な場合だけ。' +
       '許可する案は task（作成・編集）、step（既存Taskの小さな行動作成）、policy（推薦だけの一時方針）。' +
       'taskはkey,kind,title,priority,deadline,minutes,goalId,recurrence,weekdaysを使う。編集はtargetIdと変更する項目だけを返す。未設定はnull。曜日は月1〜日7。' +
@@ -640,7 +641,17 @@ export function createChatHandler({
             },
           ];
         });
-        reply = string(decoded.reply).trim().slice(0, 8000) || null;
+        reply = items.length
+          ? '操作を提案しました。下のカードで内容を確認し、追加・適用してください。'
+          : asList(decoded.items).length
+            ? '保存可能な操作の提案を作れませんでした。対象と変更内容を具体的にして、もう一度相談してください。'
+            : string(decoded.reply)
+                .replace(
+                  /(追加|変更|更新|作成|登録|設定|適用)(しました|済み|しておきました)/g,
+                  '$1の提案です（保存にはカードでの承認が必要です）',
+                )
+                .trim()
+                .slice(0, 8000) || null;
         if (!reply) throw new ModelError('MODEL_FORMAT');
       } else {
         const body = asObject(await result.json().catch(() => null));

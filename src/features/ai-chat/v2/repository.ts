@@ -61,6 +61,7 @@ export type CalendarShare =
     };
 export type DraftItem = RecordProposal | PlanProposal | StepProposal | PolicyProposal;
 export type Draft = {
+  createdAt?: string;
   id: string;
   revision: string;
   approvedAt: string | null;
@@ -74,7 +75,12 @@ export type PrivateConsultation = { reply: string; requestId: string; policies: 
 export type Thread = { id: string; title: string };
 export type MessageCursor = { id: string; createdAt: string };
 export type MessagePage = { messages: ChatMessage[]; olderCursor: MessageCursor | null };
-export type ChatMessage = { id: string; role: 'user' | 'assistant'; body: string };
+export type ChatMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  body: string;
+  createdAt?: string;
+};
 export type Usage = {
   configured: boolean;
   calendarSharing?: boolean;
