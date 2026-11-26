@@ -69,6 +69,72 @@ const headers = { 'cache-control': 'no-store' };
 const response = (data: unknown, status = 200) => Response.json(data, { status, headers });
 const fail = (code: string, status: number) => response({ code }, status);
 
+const modelStatuses = {
+  MODEL_CONFIG: 503,
+  MODEL_QUOTA: 503,
+  MODEL_RATE_LIMIT: 429,
+  MODEL_TIMEOUT: 504,
+  MODEL_OUTPUT_LIMIT: 502,
+  MODEL_FORMAT: 502,
+  MODEL_REFUSED: 502,
+  MODEL_NETWORK: 502,
+  MODEL: 502,
+} as const;
+type ModelErrorCode = keyof typeof modelStatuses;
+
+// Only known machine codes may go to logs. Never log the provider message or body.
+const providerCodes = new Set([
+  'invalid_api_key',
+  'invalid_request_error',
+  'model_not_found',
+  'permission_denied',
+  'insufficient_quota',
+  'billing_hard_limit_reached',
+  'rate_limit_exceeded',
+  'unsupported_value',
+  'unsupported_parameter',
+  'server_error',
+  'context_length_exceeded',
+]);
+const providerParameters = new Set([
+  'model',
+  'reasoning',
+  'reasoning.effort',
+  'max_output_tokens',
+  'text',
+  'text.format',
+  'text.format.type',
+]);
+
+class ModelError extends Error {
+  constructor(
+    readonly code: ModelErrorCode,
+    readonly providerCode?: string,
+    readonly providerParameter?: string,
+  ) {
+    super(code);
+  }
+}
+
+function providerFailure(status: number, value: unknown) {
+  const error = asObject(value);
+  const raw = string(error.code) || string(error.type);
+  const providerCode = providerCodes.has(raw) ? raw : raw ? 'other' : undefined;
+  const param = string(error.param);
+  const providerParameter = providerParameters.has(param) ? param : undefined;
+  if (providerCode === 'insufficient_quota' || providerCode === 'billing_hard_limit_reached')
+    return new ModelError('MODEL_QUOTA', providerCode);
+  if (status === 429 || providerCode === 'rate_limit_exceeded')
+    return new ModelError('MODEL_RATE_LIMIT', providerCode);
+  if (status === 408 || status === 504) return new ModelError('MODEL_TIMEOUT', providerCode);
+  if (
+    [400, 401, 403, 404, 422].includes(status) ||
+    ['invalid_api_key', 'model_not_found', 'permission_denied'].includes(providerCode ?? '')
+  )
+    return new ModelError('MODEL_CONFIG', providerCode, providerParameter);
+  return new ModelError('MODEL', providerCode);
+}
+
 class UpstreamError extends Error {
   constructor(
     readonly status: number,
@@ -389,6 +455,11 @@ export function createChatHandler({
     let items: RecordValue[] = [];
     let inputTokens: number | null = null;
     let outputTokens: number | null = null;
+    let modelFailure: ModelErrorCode = 'MODEL';
+    let providerStatus: number | undefined;
+    let providerRequestId: string | undefined;
+    const startedAt = Date.now();
+    const signal = AbortSignal.timeout(25_000);
     try {
       const result = await fetcher('https://api.openai.com/v1/responses', {
         method: 'POST',
@@ -401,8 +472,11 @@ export function createChatHandler({
           store: false,
           text: { format: { type: 'json_object' } },
         }),
-        signal: AbortSignal.timeout(25_000),
+        signal,
       });
+      providerStatus = result.status;
+      const requestId = result.headers.get('x-request-id');
+      if (requestId && /^req_[a-z0-9]{8,64}$/i.test(requestId)) providerRequestId = requestId;
       if (result.ok) {
         const data = asObject(await result.json());
         const usage = asObject(data.usage);
@@ -410,8 +484,17 @@ export function createChatHandler({
           typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
         inputTokens = tokens(usage.input_tokens);
         outputTokens = tokens(usage.output_tokens);
-        const content = asList(data.output)
-          .flatMap((entry) => asList(entry.content))
+        if (data.status === 'incomplete') {
+          const reason = asObject(data.incomplete_details).reason;
+          if (reason === 'max_output_tokens') throw new ModelError('MODEL_OUTPUT_LIMIT');
+          if (reason === 'content_filter') throw new ModelError('MODEL_REFUSED');
+          throw new ModelError('MODEL_FORMAT');
+        }
+        if (data.status === 'failed') throw providerFailure(result.status, data.error);
+        if (data.status !== 'completed') throw new ModelError('MODEL_FORMAT');
+        const parts = asList(data.output).flatMap((entry) => asList(entry.content));
+        if (parts.some((entry) => entry.type === 'refusal')) throw new ModelError('MODEL_REFUSED');
+        const content = parts
           .filter((entry) => entry.type === 'output_text')
           .map((entry) => string(entry.text))
           .join('');
@@ -556,9 +639,30 @@ export function createChatHandler({
           ];
         });
         reply = string(decoded.reply).trim().slice(0, 8000) || null;
+        if (!reply) throw new ModelError('MODEL_FORMAT');
+      } else {
+        const body = asObject(await result.json().catch(() => null));
+        throw providerFailure(result.status, body.error);
       }
-    } catch {
-      /* Record the reservation conservatively when the request outcome is unknown. */
+    } catch (error) {
+      items = [];
+      const failure =
+        error instanceof ModelError
+          ? error
+          : signal.aborted || (error instanceof Error && error.name === 'TimeoutError')
+            ? new ModelError('MODEL_TIMEOUT')
+            : error instanceof SyntaxError
+              ? new ModelError('MODEL_FORMAT')
+              : new ModelError('MODEL_NETWORK');
+      modelFailure = failure.code;
+      console.warn('[v2-chat] model request failed', {
+        code: failure.code,
+        providerStatus,
+        providerCode: failure.providerCode,
+        providerParameter: failure.providerParameter,
+        providerRequestId,
+        elapsedMs: Date.now() - startedAt,
+      });
     }
     const cost =
       inputTokens !== null && outputTokens !== null
@@ -592,7 +696,7 @@ export function createChatHandler({
               }
             : { requestId: id },
         )
-      : fail('MODEL', 502);
+      : fail(modelFailure, modelStatuses[modelFailure]);
   };
 }
 export default { fetch: createChatHandler() };

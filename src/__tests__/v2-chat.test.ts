@@ -13,15 +13,17 @@ const environment: Record<string, string> = {
   V2_OPENAI_OUTPUT_USD_PER_MILLION: '2',
 };
 
-function makeHandler(allow: boolean, configured = true) {
+function makeHandler(allow: boolean, configured = true, modelResponse?: () => Response) {
   const fetcher = jest.fn(async (url: string, _init?: RequestInit) => {
     if (url.endsWith('/auth/v1/user')) return Response.json({ id });
     if (url.includes('/v2_threads?')) return Response.json([{ id }]);
     if (url.includes('/rpc/v2_ai_month_usage')) return Response.json(0);
     if (url.includes('/rpc/v2_reserve_ai')) return Response.json(allow);
     if (url.includes('/rpc/v2_finish_ai')) return new Response(null, { status: 204 });
+    if (url.startsWith('https://api.openai.com') && modelResponse) return modelResponse();
     if (url.startsWith('https://api.openai.com'))
       return Response.json({
+        status: 'completed',
         output: [
           {
             content: [
@@ -83,7 +85,13 @@ it('returns only a request ID after storing a reply and draft with bounded usage
   const result = await handler(request());
   expect(await result.json()).toEqual({ requestId: id });
   const model = fetcher.mock.calls.find(([url]) => url.startsWith('https://api.openai.com'))?.[1];
-  expect(JSON.parse(JSON.parse(String(model?.body)).input)).not.toHaveProperty('untrustedCalendar');
+  const payload = JSON.parse(String(model?.body));
+  expect(JSON.parse(payload.input)).not.toHaveProperty('untrustedCalendar');
+  expect(payload.max_output_tokens).toBe(900);
+  const reservation = fetcher.mock.calls.find(([url]) => url.includes('/rpc/v2_reserve_ai'));
+  expect(JSON.parse(String(reservation?.[1]?.body)).p_amount).toBe(
+    new TextEncoder().encode(payload.instructions + payload.input).length + 1024 + 900 * 2,
+  );
   const call = fetcher.mock.calls.find(([url]) => url.includes('/rpc/v2_finish_ai'));
   const init = (call as unknown as [string, RequestInit])[1];
   expect(JSON.parse(String(init.body))).toMatchObject({
@@ -118,6 +126,7 @@ it('binds focused Step drafts to an owned task and ignores unrelated model opera
     if (url.includes('/rpc/v2_finish_ai')) return new Response(null, { status: 204 });
     if (url.startsWith('https://api.openai.com'))
       return Response.json({
+        status: 'completed',
         output: [
           {
             content: [
@@ -226,6 +235,7 @@ it('allows structured policies in a private turn while leaving all model output 
     if (url.includes('/rpc/v2_finish_ai')) return new Response(null, { status: 204 });
     if (url.startsWith('https://api.openai.com'))
       return Response.json({
+        status: 'completed',
         output: [
           {
             content: [
@@ -303,3 +313,135 @@ it('allows structured policies in a private turn while leaving all model output 
   expect(reserve).not.toHaveProperty('p_prompt');
   expect(finish).toMatchObject({ p_items: [], p_reply: '[v26:unsaved-calendar-response]' });
 });
+
+it.each([
+  [401, 'invalid_api_key', 'MODEL_CONFIG', 503],
+  [403, 'permission_denied', 'MODEL_CONFIG', 503],
+  [404, 'model_not_found', 'MODEL_CONFIG', 503],
+  [400, 'unsupported_value', 'MODEL_CONFIG', 503],
+  [429, 'insufficient_quota', 'MODEL_QUOTA', 503],
+  [429, 'rate_limit_exceeded', 'MODEL_RATE_LIMIT', 429],
+] as const)(
+  'classifies provider HTTP %s (%s) without logging its message',
+  async (status, code, expected, expectedStatus) => {
+    const logs = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { handler, request, fetcher } = makeHandler(true, true, () =>
+        Response.json(
+          {
+            error: {
+              code,
+              param: status === 400 ? 'text.format' : 'private parameter',
+              message: 'private provider payload',
+            },
+          },
+          { status, headers: { 'x-request-id': 'req_012345abcdef' } },
+        ),
+      );
+      const result = await handler(request());
+      expect(result.status).toBe(expectedStatus);
+      expect(await result.json()).toEqual({ code: expected });
+      expect(logs).toHaveBeenCalledWith(
+        '[v2-chat] model request failed',
+        expect.objectContaining({
+          code: expected,
+          providerStatus: status,
+          providerCode: code,
+          providerParameter: status === 400 ? 'text.format' : undefined,
+          providerRequestId: 'req_012345abcdef',
+        }),
+      );
+      expect(JSON.stringify(logs.mock.calls)).not.toContain('private provider payload');
+      expect(JSON.stringify(logs.mock.calls)).not.toContain('private parameter');
+      const settlement = fetcher.mock.calls.find(([url]) => url.includes('/rpc/v2_finish_ai'));
+      expect(JSON.parse(String(settlement?.[1]?.body))).toMatchObject({
+        p_reply: null,
+        p_cost: null,
+      });
+    } finally {
+      logs.mockRestore();
+    }
+  },
+);
+
+it('rejects incomplete output, retains real token usage and discards partial proposals', async () => {
+  const logs = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    const { handler, request, fetcher } = makeHandler(true, true, () =>
+      Response.json({
+        status: 'incomplete',
+        incomplete_details: { reason: 'max_output_tokens' },
+        usage: {
+          input_tokens: 100,
+          output_tokens: 900,
+          output_tokens_details: { reasoning_tokens: 800 },
+        },
+        output: [
+          { content: [{ type: 'output_text', text: '{"reply":"partial reply","items":[]}' }] },
+        ],
+      }),
+    );
+    const result = await handler(request());
+    expect(result.status).toBe(502);
+    expect(await result.json()).toEqual({ code: 'MODEL_OUTPUT_LIMIT' });
+    const settlement = fetcher.mock.calls.find(([url]) => url.includes('/rpc/v2_finish_ai'));
+    expect(JSON.parse(String(settlement?.[1]?.body))).toMatchObject({
+      p_reply: null,
+      p_items: [],
+      p_cost: 1900,
+      p_input: 100,
+      p_output: 900,
+    });
+  } finally {
+    logs.mockRestore();
+  }
+});
+
+it.each([
+  [
+    'MODEL_TIMEOUT',
+    504,
+    () => {
+      throw new DOMException('private timeout details', 'TimeoutError');
+    },
+  ],
+  [
+    'MODEL_NETWORK',
+    502,
+    () => {
+      throw new TypeError('private network details');
+    },
+  ],
+  [
+    'MODEL_FORMAT',
+    502,
+    () =>
+      Response.json({
+        status: 'completed',
+        output: [{ content: [{ type: 'output_text', text: 'broken JSON' }] }],
+      }),
+  ],
+  [
+    'MODEL_REFUSED',
+    502,
+    () =>
+      Response.json({
+        status: 'completed',
+        output: [{ content: [{ type: 'refusal', refusal: 'private refusal details' }] }],
+      }),
+  ],
+] as const)(
+  'classifies %s and keeps raw content out of logs',
+  async (code, status, modelResponse) => {
+    const logs = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { handler, request } = makeHandler(true, true, modelResponse);
+      const result = await handler(request());
+      expect(result.status).toBe(status);
+      expect(await result.json()).toEqual({ code });
+      expect(JSON.stringify(logs.mock.calls)).not.toMatch(/private|broken JSON/);
+    } finally {
+      logs.mockRestore();
+    }
+  },
+);
