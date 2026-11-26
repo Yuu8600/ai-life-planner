@@ -68,10 +68,11 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
     const page = data.slice(0, pageSize);
     const oldest = page.at(-1);
     return {
-      messages: page.reverse().map(({ id, role, body }) => ({
+      messages: page.reverse().map(({ id, role, body, created_at }) => ({
         id,
         role: role === 'user' ? 'user' : 'assistant',
         body,
+        createdAt: created_at,
       })),
       olderCursor:
         oldest && data.length > pageSize ? { id: oldest.id, createdAt: oldest.created_at } : null,
@@ -100,7 +101,7 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
         client
           .from('v2_drafts')
           .select(
-            'id,revision,approved_at,rejected_at,applied_keys,items,v26_task_edit_receipts(task_id,undone_at)',
+            'id,created_at,revision,approved_at,rejected_at,applied_keys,items,v26_task_edit_receipts(task_id,undone_at)',
           )
           .eq('user_id', userId)
           .eq('thread_id', thread)
@@ -111,6 +112,7 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
         ...messages,
         drafts: drafts.data.map((item) => ({
           id: item.id,
+          createdAt: item.created_at,
           revision: item.revision,
           approvedAt: item.approved_at,
           rejectedAt: item.rejected_at,

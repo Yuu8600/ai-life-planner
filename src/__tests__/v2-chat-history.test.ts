@@ -39,7 +39,7 @@ it('pages within the same timestamp without including another user or thread', a
   const older = await repository.listOlder('thread', latest.olderCursor);
 
   expect(older).toEqual({
-    messages: [{ id: descendingRows[100].id, role: 'user', body: '1' }],
+    messages: [{ id: descendingRows[100].id, role: 'user', body: '1', createdAt: timestamp }],
     olderCursor: null,
   });
   expect(filters.mock.calls).toEqual([

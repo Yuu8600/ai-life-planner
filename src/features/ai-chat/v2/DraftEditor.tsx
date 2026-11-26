@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { FormField, FormInput } from '@/shared/components/FormField';
-import { ModalFrame } from '@/shared/components/ModalFrame';
+import { ModalFrame, type ModalFrameProps } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
 import { colors, spacing, typography } from '@/shared/theme';
@@ -61,6 +61,15 @@ function detail(
   return `${item.title} ・ 優先度 ${priorityLabels[item.priority]} ・ ${item.deadline ?? '期限なし'}${item.minutes ? ` ・ ${item.minutes}分` : ''}`;
 }
 
+function InlineFrame({ children, footer }: ModalFrameProps) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      {children}
+      {footer}
+    </View>
+  );
+}
+
 export function DraftEditor({
   repository,
   draft,
@@ -69,7 +78,9 @@ export function DraftEditor({
   reviewPlan,
   loadGoals,
   discardPrivate,
+  inline = false,
 }: {
+  inline?: boolean;
   repository: ChatRepository;
   draft: Draft;
   close: () => void;
@@ -98,6 +109,7 @@ export function DraftEditor({
     (item): item is RecordProposal | StepProposal | PolicyProposal =>
       item.kind !== 'plan' && item.kind !== 'goal' && (item.kind !== 'task' || !item.goalKey),
   );
+  const Frame = inline ? InlineFrame : ModalFrame;
   const closed = !!draft.approvedAt || !!draft.rejectedAt;
   const chosen = records.filter((item) => selected.includes(item.key));
 
@@ -157,7 +169,7 @@ export function DraftEditor({
       values.includes(key) ? values.filter((value) => value !== key) : [...values, key],
     );
   return (
-    <ModalFrame
+    <Frame
       title={
         confirmation ? '採用内容を確認' : draft.calendarThreadId ? '推薦方針の提案' : '提案の下書き'
       }
@@ -177,12 +189,20 @@ export function DraftEditor({
             {records.length ? (
               <ActionButton
                 label={
-                  confirmation ? `${chosen.length}件を承認` : `${chosen.length}件の採用内容を確認`
+                  inline
+                    ? chosen.every(
+                        (item) => item.kind === 'step' || (item.kind === 'task' && !item.targetId),
+                      )
+                      ? '追加'
+                      : '適用'
+                    : confirmation
+                      ? `${chosen.length}件を承認`
+                      : `${chosen.length}件の採用内容を確認`
                 }
                 disabled={!selected.length}
                 loading={pending}
                 onPress={() => {
-                  if (confirmation) void save(true);
+                  if (inline || confirmation) void save(true);
                   else if (validate(true)) {
                     setError('');
                     setConfirmation(true);
@@ -538,7 +558,7 @@ export function DraftEditor({
           </View>
         );
       })}
-    </ModalFrame>
+    </Frame>
   );
 }
 

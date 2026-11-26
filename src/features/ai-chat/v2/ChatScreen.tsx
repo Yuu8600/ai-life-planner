@@ -273,6 +273,65 @@ export function ChatScreen({
     return () => cancelAnimationFrame(frame);
   }, [conversation]);
 
+  const messages = conversation?.messages ?? [];
+  const drafts = conversation?.drafts ?? [];
+  const owner = (draft: Draft) =>
+    messages
+      .filter(
+        (message) =>
+          message.role === 'assistant' &&
+          message.createdAt &&
+          draft.createdAt &&
+          Date.parse(message.createdAt) <= Date.parse(draft.createdAt),
+      )
+      .at(-1)?.id;
+  const proposalCard = (draft: Draft) => (
+    <Card key={draft.id} style={{ gap: spacing.sm }}>
+      {draft.approvedAt || draft.rejectedAt ? (
+        <>
+          <Text style={{ color: colors.textPrimary }}>
+            {draft.approvedAt ? '保存しました' : '提案を取り消しました'}
+            {'　'}
+            {draft.items
+              .filter((item) => !draft.appliedKeys || draft.appliedKeys.includes(item.key))
+              .map((item) => item.title)
+              .join('、')}
+          </Text>
+          {draft.approvedAt && openApplied ? (
+            <ActionButton
+              label="保存内容を見る"
+              variant="ghost"
+              onPress={() => openApplied(draft.items.some((item) => item.kind === 'policy'))}
+            />
+          ) : null}
+          {draft.undoTaskIds?.length ? (
+            <ActionButton
+              label="変更を確認・取り消す"
+              variant="ghost"
+              onPress={() => setWorkingDraft(draft)}
+            />
+          ) : null}
+        </>
+      ) : (
+        <>
+          <Text style={{ color: colors.textPrimary }}>操作の提案 · 確認後に保存されます</Text>
+          <DraftEditor
+            key={draft.revision}
+            inline
+            draft={draft}
+            repository={repository}
+            loadGoals={loadGoals}
+            close={() => undefined}
+            refreshed={async () => {
+              if (current) await refreshConversation(current.id);
+            }}
+            reviewPlan={reviewPlan}
+          />
+        </>
+      )}
+    </Card>
+  );
+
   const recheckAI = (
     <ActionButton
       label="AIの設定を再確認"
@@ -379,93 +438,51 @@ export function ChatScreen({
                 onPress={() => void loadOlder()}
               />
             ) : null}
-            {conversation?.messages.map((item) => (
-              <Card
-                key={item.id}
-                style={item.role === 'user' ? styles.userMessage : styles.assistantMessage}
-              >
-                <Text
-                  accessibilityRole="header"
-                  style={{ ...typography.label, color: colors.textSecondary }}
-                >
-                  {item.role === 'user' ? 'あなた' : 'AI'}
-                </Text>
-                <Text style={{ ...typography.body, color: colors.textPrimary }}>{item.body}</Text>
-              </Card>
-            ))}
-            {conversation?.drafts.map((draft) => (
-              <Card key={draft.id} style={{ gap: spacing.sm }}>
-                <Text style={{ color: colors.textPrimary }}>
-                  {draft.approvedAt
-                    ? '適用しました'
-                    : draft.rejectedAt
-                      ? '却下済み'
-                      : '提案の下書き'}
-                  　
-                  {draft.items
-                    .filter((item) => !draft.appliedKeys || draft.appliedKeys.includes(item.key))
-                    .map((item) => item.title)
-                    .join('、')}
-                </Text>
-                <ActionButton
-                  label="下書きを開く"
-                  variant="secondary"
-                  disabled={pending || loadingOlder}
-                  onPress={() => setWorkingDraft(draft)}
-                />
-                {draft.appliedKeys && openApplied ? (
-                  <ActionButton
-                    label={
-                      draft.items.some(
-                        (item) => item.kind === 'policy' && draft.appliedKeys?.includes(item.key),
-                      )
-                        ? '今日で確認'
-                        : 'タスクを見る'
-                    }
-                    variant="ghost"
-                    onPress={() =>
-                      openApplied(
-                        draft.items.some(
-                          (item) => item.kind === 'policy' && draft.appliedKeys?.includes(item.key),
-                        ),
-                      )
-                    }
-                  />
-                ) : null}
-                {!draft.approvedAt && !draft.rejectedAt ? (
-                  <ActionButton
-                    label={
-                      referencedDraft === draft.id
-                        ? 'この下書きへの相談を解除'
-                        : 'この下書きについて相談'
-                    }
-                    variant="ghost"
-                    disabled={pending || loadingOlder}
-                    onPress={() =>
-                      setReferencedDraft(referencedDraft === draft.id ? undefined : draft.id)
-                    }
-                  />
-                ) : null}
-              </Card>
+            {drafts.filter((draft) => !owner(draft)).map(proposalCard)}
+            {messages.map((item) => (
+              <View key={item.id} style={{ gap: spacing.sm }}>
+                <Card style={item.role === 'user' ? styles.userMessage : styles.assistantMessage}>
+                  <Text
+                    accessibilityRole="header"
+                    style={{ ...typography.label, color: colors.textSecondary }}
+                  >
+                    {item.role === 'user' ? 'あなた' : 'AI'}
+                  </Text>
+                  <Text style={{ ...typography.body, color: colors.textPrimary }}>
+                    {item.role === 'assistant' && drafts.some((draft) => owner(draft) === item.id)
+                      ? '操作を提案しました。下のカードで確認してください。'
+                      : item.body}
+                  </Text>
+                </Card>
+                {drafts.filter((draft) => owner(draft) === item.id).map(proposalCard)}
+              </View>
             ))}
             {privateReply ? (
               <Card style={{ gap: spacing.sm }}>
                 <Text style={styles.small}>履歴に保存されない回答</Text>
                 <Text style={{ color: colors.textPrimary }}>{privateReply.reply}</Text>
                 {privateReply.policies.length ? (
-                  <ActionButton
-                    label="推薦方針の提案を確認"
-                    variant="secondary"
-                    disabled={pending || loadingOlder}
-                    onPress={() =>
-                      setWorkingDraft({
-                        id: privateReply.requestId,
-                        revision: privateReply.requestId,
-                        approvedAt: null,
-                        calendarThreadId: current.id,
-                        items: privateReply.policies,
-                      })
+                  <DraftEditor
+                    inline
+                    key={privateReply.requestId}
+                    draft={{
+                      id: privateReply.requestId,
+                      revision: privateReply.requestId,
+                      approvedAt: null,
+                      calendarThreadId: current.id,
+                      items: privateReply.policies,
+                    }}
+                    loadGoals={loadGoals}
+                    repository={repository}
+                    close={() => undefined}
+                    refreshed={async () => {
+                      await refreshConversation(current.id);
+                      setPrivateReply((value) => value && { ...value, policies: [] });
+                    }}
+                    discardPrivate={() =>
+                      setPrivateReply((value) => value && { ...value, policies: [] })
                     }
+                    reviewPlan={reviewPlan}
                   />
                 ) : null}
               </Card>
