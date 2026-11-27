@@ -2,14 +2,16 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { AuthProvider, useAuth } from '@/features/auth';
-import { colors } from '@/shared/theme';
+import { useThemeColors, ThemeProvider, useTheme } from '@/shared/theme';
 
 export function RootNavigator() {
+  const colors = useThemeColors();
+  const { name } = useTheme();
   const { isRestoring, session } = useAuth();
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={name === 'clear-dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: colors.background },
@@ -34,8 +36,10 @@ export function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <ThemeProvider followSystem>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

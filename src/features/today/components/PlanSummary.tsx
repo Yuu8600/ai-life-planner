@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/shared/theme';
+import { radius, spacing, useThemeColors } from '@/shared/theme';
 
 type PlanSummaryProps = {
   completedActions: number;
@@ -9,6 +9,8 @@ type PlanSummaryProps = {
 };
 
 export function PlanSummary({ completedActions, summary, totalActions }: PlanSummaryProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <View style={styles.container}>
       <View style={styles.copy}>
@@ -28,47 +30,48 @@ export function PlanSummary({ completedActions, summary, totalActions }: PlanSum
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.lg,
-    padding: spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentSoft,
-  },
-  copy: {
-    flexGrow: 1,
-    flexBasis: 160,
-  },
-  label: {
-    marginBottom: spacing.xs,
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  summary: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  count: {
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  countValue: {
-    color: colors.accent,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  countLabel: {
-    marginTop: 2,
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: spacing.lg,
+      padding: spacing.lg,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.accent,
+      borderRadius: radius.md,
+      backgroundColor: colors.accentSoft,
+    },
+    copy: {
+      flexGrow: 1,
+      flexBasis: 160,
+    },
+    label: {
+      marginBottom: spacing.xs,
+      color: colors.accent,
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 0.4,
+    },
+    summary: {
+      color: colors.text,
+      fontSize: 15,
+      lineHeight: 22,
+    },
+    count: {
+      minWidth: 80,
+      alignItems: 'center',
+    },
+    countValue: {
+      color: colors.accent,
+      fontSize: 22,
+      fontWeight: '800',
+    },
+    countLabel: {
+      marginTop: 2,
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+  });

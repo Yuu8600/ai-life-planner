@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/shared/theme';
+import { radius, spacing, useThemeColors } from '@/shared/theme';
 
 type GoalOptionsNoticeProps = {
   isLoading: boolean;
@@ -9,6 +9,8 @@ type GoalOptionsNoticeProps = {
 };
 
 export function GoalOptionsNotice({ isLoading, message, onRetry }: GoalOptionsNoticeProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   if (!isLoading && !message) return null;
 
   return (
@@ -30,33 +32,34 @@ export function GoalOptionsNotice({ isLoading, message, onRetry }: GoalOptionsNo
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    backgroundColor: colors.warningSoft,
-  },
-  message: {
-    flex: 1,
-    color: colors.warning,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  retry: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
-  },
-  retryLabel: {
-    color: colors.warning,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  pressed: {
-    opacity: 0.65,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.lg,
+      padding: spacing.md,
+      borderRadius: radius.sm,
+      backgroundColor: colors.warningSoft,
+    },
+    message: {
+      flex: 1,
+      color: colors.warning,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    retry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.sm,
+    },
+    retryLabel: {
+      color: colors.warning,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    pressed: {
+      opacity: 0.65,
+    },
+  });

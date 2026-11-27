@@ -14,7 +14,7 @@ import {
 import { CalendarTimelineCard } from '@/features/calendar';
 import { SelectionPanel, type PanelAnchor } from '@/shared/components/timeSelection/SelectionPanel';
 import { ActionButton } from '@/shared/components/ActionButton';
-import { colors, spacing, radius } from '@/shared/theme';
+import { spacing, radius, useThemeColors } from '@/shared/theme';
 import { formatPlanningTime } from '../planningTime';
 import {
   axisPosition,
@@ -41,6 +41,8 @@ export function Timeline(
     isLoading?: boolean;
   },
 ) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const {
     items,
     calendarEvents = [],
@@ -369,98 +371,99 @@ export function Timeline(
     </View>
   );
 }
-const styles = StyleSheet.create({
-  root: { gap: spacing.md, marginTop: spacing.md },
-  legend: { color: colors.textMuted, fontSize: 13 },
-  helper: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
-  heading: { color: colors.text, fontSize: 17, fontWeight: '700' },
-  axisHeading: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  viewport: {
-    maxHeight: 560,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-  },
-  tick: {
-    height: 0,
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tickLabel: {
-    position: 'absolute',
-    left: 0,
-    top: -8,
-    width: 78,
-    fontSize: 11,
-    color: colors.textMuted,
-    paddingLeft: 4,
-    fontVariant: ['tabular-nums'],
-  },
-  tickLine: {
-    position: 'absolute',
-    left: 82,
-    right: 0,
-    top: 0,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  block: { position: 'absolute', overflow: 'hidden' },
-  blockLabels: { paddingHorizontal: 6, paddingTop: 4 },
-  duration: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    borderLeftWidth: 3,
-    borderRightWidth: 1,
-    borderRadius: 4,
-  },
-  blockTitle: { fontSize: 13, fontWeight: '700', lineHeight: 18 },
-  blockTime: { fontSize: 11, lineHeight: 16, color: colors.textMuted },
-  free: {
-    position: 'absolute',
-    backgroundColor: colors.availableSoft,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.availableBorder,
-    overflow: 'hidden',
-  },
-  freeLabel: { fontSize: 11, color: colors.available, padding: 4 },
-  now: {
-    height: 0,
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 5,
-  },
-  nowLabel: {
-    position: 'absolute',
-    left: 0,
-    top: -8,
-    width: 78,
-    fontSize: 11,
-    color: colors.nowIndicator,
-    backgroundColor: colors.surface,
-    fontWeight: '700',
-    paddingLeft: 4,
-  },
-  nowLine: {
-    position: 'absolute',
-    left: 82,
-    right: 0,
-    top: 0,
-    height: 2,
-    backgroundColor: colors.nowIndicator,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    root: { gap: spacing.md, marginTop: spacing.md },
+    legend: { color: colors.textMuted, fontSize: 13 },
+    helper: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
+    heading: { color: colors.text, fontSize: 17, fontWeight: '700' },
+    axisHeading: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+    },
+    viewport: {
+      maxHeight: 560,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+    },
+    tick: {
+      height: 0,
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    tickLabel: {
+      position: 'absolute',
+      left: 0,
+      top: -8,
+      width: 78,
+      fontSize: 11,
+      color: colors.textMuted,
+      paddingLeft: 4,
+      fontVariant: ['tabular-nums'],
+    },
+    tickLine: {
+      position: 'absolute',
+      left: 82,
+      right: 0,
+      top: 0,
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    block: { position: 'absolute', overflow: 'hidden' },
+    blockLabels: { paddingHorizontal: 6, paddingTop: 4 },
+    duration: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      borderLeftWidth: 3,
+      borderRightWidth: 1,
+      borderRadius: 4,
+    },
+    blockTitle: { fontSize: 13, fontWeight: '700', lineHeight: 18 },
+    blockTime: { fontSize: 11, lineHeight: 16, color: colors.textMuted },
+    free: {
+      position: 'absolute',
+      backgroundColor: colors.availableSoft,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.availableBorder,
+      overflow: 'hidden',
+    },
+    freeLabel: { fontSize: 11, color: colors.available, padding: 4 },
+    now: {
+      height: 0,
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      zIndex: 5,
+    },
+    nowLabel: {
+      position: 'absolute',
+      left: 0,
+      top: -8,
+      width: 78,
+      fontSize: 11,
+      color: colors.nowIndicator,
+      backgroundColor: colors.surface,
+      fontWeight: '700',
+      paddingLeft: 4,
+    },
+    nowLine: {
+      position: 'absolute',
+      left: 82,
+      right: 0,
+      top: 0,
+      height: 2,
+      backgroundColor: colors.nowIndicator,
+    },
+  });

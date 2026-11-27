@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 
 import type { SettingItem } from '../data';
 
@@ -10,6 +10,8 @@ type SettingRowProps = {
 };
 
 export function SettingRow({ isLast, item }: SettingRowProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <View
       accessible
@@ -25,38 +27,39 @@ export function SettingRow({ isLast, item }: SettingRowProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    minHeight: 64,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  lastRow: {
-    borderBottomWidth: 0,
-  },
-  copy: {
-    flexGrow: 1,
-    flexBasis: 180,
-    minWidth: 0,
-  },
-  label: {
-    color: colors.text,
-    ...typography.bodyStrong,
-  },
-  detail: {
-    marginTop: spacing.xs,
-    color: colors.textMuted,
-    ...typography.secondary,
-  },
-  value: {
-    flexShrink: 1,
-    maxWidth: '100%',
-    color: colors.textMuted,
-    ...typography.secondary,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    row: {
+      minHeight: 64,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    lastRow: {
+      borderBottomWidth: 0,
+    },
+    copy: {
+      flexGrow: 1,
+      flexBasis: 180,
+      minWidth: 0,
+    },
+    label: {
+      color: colors.text,
+      ...typography.bodyStrong,
+    },
+    detail: {
+      marginTop: spacing.xs,
+      color: colors.textMuted,
+      ...typography.secondary,
+    },
+    value: {
+      flexShrink: 1,
+      maxWidth: '100%',
+      color: colors.textMuted,
+      ...typography.secondary,
+    },
+  });

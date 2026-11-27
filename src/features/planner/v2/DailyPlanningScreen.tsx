@@ -11,7 +11,7 @@ import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import {
   approvePlan,
   loadDay,
@@ -24,7 +24,7 @@ import {
 import { calendarConflicts, weeklyCompletedDays } from './engine';
 import { EventEditor, readPlanTime } from './EventEditor';
 import { CalendarAgenda } from './CalendarAgenda';
-import { DayTimeline, timelineKinds } from './DayTimeline';
+import { DayTimeline, createTimelineKinds } from './DayTimeline';
 import {
   focusedTimelineWindow,
   sessionLabel,
@@ -64,6 +64,9 @@ export function DailyPlanningScreen({
   openDayPlan?: (date: string) => void;
   renderLegacyHistory?: (date: string) => ReactNode;
 }) {
+  const colors = useThemeColors();
+  const timelineKinds = createTimelineKinds(colors);
+  const styles = createStyles(colors);
   const [selected, setSelected] = useState(initialDate);
   const [dateDraft, setDateDraft] = useState<string>();
   const [now, setNow] = useState(Date.now);
@@ -682,10 +685,11 @@ export function DailyPlanningScreen({
     </AppScreen>
   );
 }
-const styles = StyleSheet.create({
-  screen: { gap: spacing.md },
-  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs },
-  card: { gap: spacing.sm },
-  heading: { ...typography.sectionTitle, color: colors.textPrimary },
-  text: { ...typography.body, color: colors.textPrimary },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    screen: { gap: spacing.md },
+    row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs },
+    card: { gap: spacing.sm },
+    heading: { ...typography.sectionTitle, color: colors.textPrimary },
+    text: { ...typography.body, color: colors.textPrimary },
+  });

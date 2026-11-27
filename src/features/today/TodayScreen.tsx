@@ -18,7 +18,7 @@ import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
-import { colors, radius, spacing } from '@/shared/theme';
+import { radius, spacing, useThemeColors } from '@/shared/theme';
 
 import { formatTodayDateLabel, toDeadlineTaskItems, toTimelineItems } from './presentation';
 import type { TodayRepository } from './repositories/TodayRepository';
@@ -61,6 +61,8 @@ export function TodayScreen({
   executionRepository = null,
   activityLogRepository = null,
 }: TodayScreenProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const { dataRevision, isLoading, loadError, refresh, retry, today } = useToday(
     repository,
     refreshToken,
@@ -213,7 +215,7 @@ export function TodayScreen({
           {today.plan ? (
             <>
               {today.plan.actions.length === 0 && calendar.events.length > 0 ? (
-                <Text>予定されたアクションはありません</Text>
+                <Text style={{ color: colors.textPrimary }}>予定されたアクションはありません</Text>
               ) : null}
               <Timeline
                 completedActions={completedActions ?? 0}
@@ -348,25 +350,26 @@ export function TodayScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  settingsButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-  },
-  settingsIcon: {
-    color: colors.text,
-    fontSize: 20,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  aiButton: {
-    marginTop: spacing.xl,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    settingsButton: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+    },
+    settingsIcon: {
+      color: colors.text,
+      fontSize: 20,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    aiButton: {
+      marginTop: spacing.xl,
+    },
+  });

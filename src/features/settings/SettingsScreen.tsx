@@ -5,7 +5,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-na
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
-import { colors, spacing } from '@/shared/theme';
+import { spacing, useThemeColors } from '@/shared/theme';
 
 import {
   SettingsCloseControl,
@@ -37,6 +37,8 @@ export function SettingsScreen({
   onPressBack,
   repository,
 }: SettingsScreenProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const {
     clearSaveFeedback,
     isLoading,
@@ -123,7 +125,8 @@ export function SettingsScreen({
     layout(null)
   );
 }
-const styles = StyleSheet.create({
-  keyboardView: { flex: 1, backgroundColor: colors.background },
-  content: { width: '100%', maxWidth: 720, alignSelf: 'center', gap: spacing.lg },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    keyboardView: { flex: 1, backgroundColor: colors.background },
+    content: { width: '100%', maxWidth: 720, alignSelf: 'center', gap: spacing.lg },
+  });

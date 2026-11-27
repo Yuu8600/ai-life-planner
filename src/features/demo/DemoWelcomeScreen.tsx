@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { Card } from '@/shared/components/Card';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 
 const steps = [
   { title: '計画を作る', detail: '予定の合間に、サンプルのタスクが自動で入ります。' },
@@ -13,6 +13,8 @@ const steps = [
 ];
 
 export function DemoWelcomeScreen() {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const router = useRouter();
   return (
     <AppScreen testID="demo-welcome" contentContainerStyle={styles.content}>
@@ -60,18 +62,19 @@ export function DemoWelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  content: { maxWidth: 880, gap: spacing.lg },
-  hero: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.primarySoft },
-  eyebrow: { ...typography.label, color: colors.primary },
-  heading: { ...typography.screenTitle, color: colors.textPrimary },
-  body: { ...typography.body, color: colors.textSecondary },
-  ready: { ...typography.bodyStrong, color: colors.textPrimary },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, maxWidth: 560 },
-  action: { flexBasis: 245, flexGrow: 1 },
-  sectionTitle: { ...typography.sectionTitle, color: colors.textPrimary },
-  steps: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  step: { flexBasis: 210, flexGrow: 1, gap: spacing.xs },
-  stepTitle: { ...typography.bodyStrong, color: colors.textPrimary },
-  note: { ...typography.secondary, color: colors.textSecondary },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    content: { maxWidth: 880, gap: spacing.lg },
+    hero: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.primarySoft },
+    eyebrow: { ...typography.label, color: colors.primary },
+    heading: { ...typography.screenTitle, color: colors.textPrimary },
+    body: { ...typography.body, color: colors.textSecondary },
+    ready: { ...typography.bodyStrong, color: colors.textPrimary },
+    actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, maxWidth: 560 },
+    action: { flexBasis: 245, flexGrow: 1 },
+    sectionTitle: { ...typography.sectionTitle, color: colors.textPrimary },
+    steps: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+    step: { flexBasis: 210, flexGrow: 1, gap: spacing.xs },
+    stepTitle: { ...typography.bodyStrong, color: colors.textPrimary },
+    note: { ...typography.secondary, color: colors.textSecondary },
+  });

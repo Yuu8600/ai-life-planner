@@ -1,9 +1,11 @@
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 
 export function AuthLoadingScreen() {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <SafeAreaView style={styles.safeArea} testID="auth-loading-screen">
       <View
@@ -23,20 +25,21 @@ export function AuthLoadingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-  },
-  message: {
-    color: colors.textMuted,
-    ...typography.body,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.md,
+      padding: spacing.lg,
+    },
+    message: {
+      color: colors.textMuted,
+      ...typography.body,
+    },
+  });

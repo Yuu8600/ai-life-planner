@@ -18,7 +18,7 @@ import {
   TAB_CONFIG,
   TAB_LABEL_SIZE,
 } from '@/shared/navigation/tabs';
-import { colors, controls, radius, spacing, typography } from '@/shared/theme';
+import { controls, radius, spacing, typography, useThemeColors } from '@/shared/theme';
 
 const icons = {
   today: require('../../assets/navigation/today.png'),
@@ -42,6 +42,8 @@ const usesSidebar = () =>
 const usesSidebarOnServer = () => false;
 
 function TabButton({ style, ...props }: BottomTabBarButtonProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [focused, setFocused] = useState(false);
   return (
     <PlatformPressable
@@ -55,6 +57,8 @@ function TabButton({ style, ...props }: BottomTabBarButtonProps) {
 }
 
 export default function PrimaryTabs() {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const web = Platform.OS === 'web';
@@ -129,44 +133,45 @@ export default function PrimaryTabs() {
   );
 }
 
-const styles = StyleSheet.create({
-  bar: {
-    backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSubtle,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: -4 },
-      },
-      android: { elevation: 8 },
-      web: { boxShadow: '0 -2px 10px rgba(15, 23, 42, 0.04)' } as object,
-    }),
-  },
-  sidebar: { width: 184, minWidth: 184, paddingHorizontal: spacing.sm },
-  webBottom: { height: 'auto', minHeight: 58 },
-  target: { minHeight: controls.minimumTarget, minWidth: controls.minimumTarget },
-  focus: Platform.select({
-    web: {
-      outlineStyle: 'solid',
-      outlineColor: colors.focusRing,
-      outlineWidth: 2,
-      outlineOffset: -2,
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    bar: {
+      backgroundColor: colors.surface,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSubtle,
+      ...Platform.select({
+        ios: {
+          shadowColor: colors.shadow,
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
+        },
+        android: { elevation: 8 },
+        web: { boxShadow: '0 -2px 10px rgba(15, 23, 42, 0.04)' } as object,
+      }),
     },
-    default: { borderWidth: 2, borderColor: colors.focusRing },
-  })!,
-  label: { fontWeight: '600', flexShrink: 1, minWidth: 0 },
-  bottomLabel: { fontSize: TAB_LABEL_SIZE, maxWidth: '100%', textAlign: 'center' },
-  sideLabel: { ...typography.label, marginStart: spacing.sm },
-  iconFrame: {
-    width: 48,
-    height: 30,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectedIcon: { backgroundColor: colors.primarySoft },
-  icon: { width: 22, height: 22 },
-});
+    sidebar: { width: 184, minWidth: 184, paddingHorizontal: spacing.sm },
+    webBottom: { height: 'auto', minHeight: 58 },
+    target: { minHeight: controls.minimumTarget, minWidth: controls.minimumTarget },
+    focus: Platform.select({
+      web: {
+        outlineStyle: 'solid',
+        outlineColor: colors.focusRing,
+        outlineWidth: 2,
+        outlineOffset: -2,
+      },
+      default: { borderWidth: 2, borderColor: colors.focusRing },
+    })!,
+    label: { fontWeight: '600', flexShrink: 1, minWidth: 0 },
+    bottomLabel: { fontSize: TAB_LABEL_SIZE, maxWidth: '100%', textAlign: 'center' },
+    sideLabel: { ...typography.label, marginStart: spacing.sm },
+    iconFrame: {
+      width: 48,
+      height: 30,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    selectedIcon: { backgroundColor: colors.primarySoft },
+    icon: { width: 22, height: 22 },
+  });

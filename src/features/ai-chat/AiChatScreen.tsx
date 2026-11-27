@@ -9,13 +9,15 @@ import {
 
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
-import { colors, radius, spacing } from '@/shared/theme';
+import { radius, spacing, useThemeColors } from '@/shared/theme';
 
 import { ChatBubble } from './components/ChatBubble';
 import { ChangeProposal } from './components/ChangeProposal';
 import { DUMMY_CONVERSATION } from './data';
 
 export function AiChatScreen() {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <AppScreen contentContainerStyle={styles.screen} scroll={false} testID="ai-screen">
       <KeyboardAvoidingView
@@ -58,64 +60,65 @@ export function AiChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    paddingHorizontal: 0,
-  },
-  keyboardArea: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-  },
-  conversation: {
-    flexGrow: 1,
-    justifyContent: 'flex-end',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-  },
-  composer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 104,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 11,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    color: colors.text,
-    backgroundColor: colors.background,
-    fontSize: 15,
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.accent,
-  },
-  sendArrow: {
-    width: 0,
-    height: 0,
-    marginLeft: 3,
-    borderTopWidth: 6,
-    borderBottomWidth: 6,
-    borderLeftWidth: 9,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: colors.surface,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    screen: {
+      paddingHorizontal: 0,
+    },
+    keyboardArea: {
+      flex: 1,
+    },
+    header: {
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.lg,
+    },
+    conversation: {
+      flexGrow: 1,
+      justifyContent: 'flex-end',
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.xl,
+    },
+    composer: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    input: {
+      flex: 1,
+      minHeight: 44,
+      maxHeight: 104,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 11,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      color: colors.text,
+      backgroundColor: colors.background,
+      fontSize: 15,
+    },
+    sendButton: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.pill,
+      backgroundColor: colors.accent,
+    },
+    sendArrow: {
+      width: 0,
+      height: 0,
+      marginLeft: 3,
+      borderTopWidth: 6,
+      borderBottomWidth: 6,
+      borderLeftWidth: 9,
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent',
+      borderLeftColor: colors.surface,
+    },
+  });

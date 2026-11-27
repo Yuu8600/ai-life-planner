@@ -2,7 +2,7 @@ import { Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { Notice } from '@/shared/components/Notice';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import { sessionLabel } from './timelineEntries';
 import type { PlanChange, WorkSession } from './types';
 
@@ -21,6 +21,7 @@ export function WorkSessionDetails({
   edit: () => void;
   suggest: (change: PlanChange) => void;
 }) {
+  const colors = useThemeColors();
   const scheduled = item.status === 'scheduled';
   const future = scheduled && Date.parse(item.startAt) > now;
   return (

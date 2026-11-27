@@ -2,7 +2,7 @@ import { DurationSelectionRow } from '@/shared/components/timeSelection/Duration
 import { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { Badge } from '@/shared/components/Badge';
@@ -33,6 +33,8 @@ export function EventBufferEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [custom, setCustom] = useState(Boolean(individual));
   const [before, setBefore] = useState(String(individual?.bufferBeforeMinutes ?? commonBefore));
   const [after, setAfter] = useState(String(individual?.bufferAfterMinutes ?? commonAfter));
@@ -142,9 +144,10 @@ export function EventBufferEditor({
     </ModalFrame>
   );
 }
-const styles = StyleSheet.create({
-  title: { ...typography.sectionTitle, color: colors.textPrimary },
-  time: { ...typography.bodyStrong, color: colors.calendar },
-  detail: { ...typography.secondary, color: colors.textSecondary },
-  actions: { gap: spacing.sm },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    title: { ...typography.sectionTitle, color: colors.textPrimary },
+    time: { ...typography.bodyStrong, color: colors.calendar },
+    detail: { ...typography.secondary, color: colors.textSecondary },
+    actions: { gap: spacing.sm },
+  });

@@ -3,7 +3,7 @@ import { ActionButton } from '@/shared/components/ActionButton';
 import { Badge } from '@/shared/components/Badge';
 import { Card } from '@/shared/components/Card';
 import { SectionHeader } from '@/shared/components/SectionHeader';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import type { CalendarEventViewModel } from '../presentation';
 
 type DayTimelineProps = {
@@ -21,6 +21,8 @@ export function DayTimeline({
   individualKeys = [],
   sourceLabel = '端末カレンダー（読み取り専用）',
 }: DayTimelineProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const { width, fontScale } = useWindowDimensions();
   const columns = width >= 768 && fontScale < 1.4;
   return (
@@ -59,17 +61,18 @@ export function DayTimeline({
     </View>
   );
 }
-const styles = StyleSheet.create({
-  container: { gap: spacing.md },
-  event: { borderLeftWidth: 3, borderLeftColor: colors.calendar },
-  layout: { gap: spacing.sm },
-  columns: { flexDirection: 'row', gap: spacing.lg },
-  timeColumn: { flexBasis: 180, flexShrink: 1 },
-  body: { flex: 1, minWidth: 0, gap: spacing.sm },
-  time: { ...typography.bodyStrong, color: colors.calendar, fontVariant: ['tabular-nums'] },
-  title: { ...typography.bodyStrong, color: colors.textPrimary },
-  metadata: { ...typography.secondary, color: colors.textSecondary },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  canceled: { textDecorationLine: 'line-through' },
-  edit: { alignSelf: 'flex-start', maxWidth: '100%' },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    container: { gap: spacing.md },
+    event: { borderLeftWidth: 3, borderLeftColor: colors.calendar },
+    layout: { gap: spacing.sm },
+    columns: { flexDirection: 'row', gap: spacing.lg },
+    timeColumn: { flexBasis: 180, flexShrink: 1 },
+    body: { flex: 1, minWidth: 0, gap: spacing.sm },
+    time: { ...typography.bodyStrong, color: colors.calendar, fontVariant: ['tabular-nums'] },
+    title: { ...typography.bodyStrong, color: colors.textPrimary },
+    metadata: { ...typography.secondary, color: colors.textSecondary },
+    badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    canceled: { textDecorationLine: 'line-through' },
+    edit: { alignSelf: 'flex-start', maxWidth: '100%' },
+  });

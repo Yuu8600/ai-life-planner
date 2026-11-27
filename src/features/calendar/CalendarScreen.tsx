@@ -3,7 +3,7 @@ import { bufferKey, eventBufferKey, type CalendarEventBufferRepository } from '.
 import { isBlockingCalendarEvent, calculateFreeTime } from '@/features/planner';
 import type { CalendarEvent } from './types';
 import { StyleSheet, Text } from 'react-native';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import { useMemo, useState, type ReactNode } from 'react';
 
 import { getLocalDate } from '@/features/today';
@@ -41,6 +41,8 @@ export function CalendarScreen({
   refreshToken = 0,
   settingsRepository,
 }: CalendarScreenProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const calendar = useDeviceCalendar(
     calendarRepository,
     settingsRepository,
@@ -262,7 +264,8 @@ export function CalendarScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  content: { width: '100%', maxWidth: 880, alignSelf: 'center', gap: spacing.lg },
-  caption: { ...typography.secondary, color: colors.textSecondary },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    content: { width: '100%', maxWidth: 880, alignSelf: 'center', gap: spacing.lg },
+    caption: { ...typography.secondary, color: colors.textSecondary },
+  });

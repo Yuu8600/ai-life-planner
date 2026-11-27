@@ -3,7 +3,7 @@ import { useTheme } from '@/shared/theme';
 import type { DeadlineCalendarProps } from './DeadlineCalendar';
 
 export function DeadlineCalendar({ label, value, onChange }: DeadlineCalendarProps) {
-  const { colors, controls, radius, spacing, typography } = useTheme();
+  const { name, colors, controls, radius, spacing, typography } = useTheme();
   return (
     <input
       aria-label={label}
@@ -17,6 +17,7 @@ export function DeadlineCalendar({ label, value, onChange }: DeadlineCalendarPro
         if (input.validity.valid) onChange(input.value);
       }}
       style={{
+        colorScheme: name === 'clear-dark' ? 'dark' : 'light',
         width: '100%',
         minWidth: 0,
         minHeight: controls.inputHeight,

@@ -3,9 +3,11 @@ import { StyleSheet, View } from 'react-native';
 
 import { DemoBanner } from '@/features/demo/DemoBanner';
 import { DemoProvider } from '@/features/demo/DemoProvider';
-import { colors } from '@/shared/theme';
+import { useThemeColors, ThemeProvider } from '@/shared/theme';
 
-export default function WebRootLayout() {
+function WebRootContent() {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <DemoProvider>
       <View style={styles.background}>
@@ -28,17 +30,25 @@ export default function WebRootLayout() {
     </DemoProvider>
   );
 }
-const styles = StyleSheet.create({
-  background: { flex: 1, backgroundColor: colors.background },
-  frame: {
-    width: '100%',
-    maxWidth: 1280,
-    flex: 1,
-    alignSelf: 'center',
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: colors.border,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    background: { flex: 1, backgroundColor: colors.background },
+    frame: {
+      width: '100%',
+      maxWidth: 1280,
+      flex: 1,
+      alignSelf: 'center',
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      borderColor: colors.border,
+    },
+  });
 
+export default function WebRootLayout() {
+  return (
+    <ThemeProvider followSystem>
+      <WebRootContent />
+    </ThemeProvider>
+  );
+}
 export { WebRootLayout as RootNavigator };

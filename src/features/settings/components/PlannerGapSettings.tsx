@@ -2,7 +2,7 @@ import { Text } from 'react-native';
 import { Card } from '@/shared/components/Card';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { DurationSelectionRow } from '@/shared/components/timeSelection/DurationSelectionRow';
-import { colors, typography } from '@/shared/theme';
+import { typography, useThemeColors } from '@/shared/theme';
 
 export function PlannerGapSettings({
   value,
@@ -15,6 +15,7 @@ export function PlannerGapSettings({
   error?: string;
   onChange: (value: string) => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Card>
       <SectionHeader compact title="作業枠の間隔" />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { radius, spacing, typography, useThemeColors } from '@/shared/theme';
 
 import type { TaskFilter } from '../types';
 
@@ -12,6 +12,8 @@ type TaskFiltersProps = {
 };
 
 export function TaskFilters({ activeFilter, filters, onChange }: TaskFiltersProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [focused, setFocused] = useState<string | null>(null);
   return (
     <View accessibilityLabel="タスクのフィルター" style={styles.container}>
@@ -55,33 +57,34 @@ export function TaskFilters({ activeFilter, filters, onChange }: TaskFiltersProp
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  filter: {
-    minHeight: 44,
-    maxWidth: '100%',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.borderControl,
-    borderRadius: radius.control,
-    backgroundColor: colors.surface,
-  },
-  selectedFilter: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accent,
-  },
-  label: {
-    color: colors.textMuted,
-    ...typography.label,
-  },
-  selectedLabel: {
-    color: colors.surface,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    filter: {
+      minHeight: 44,
+      maxWidth: '100%',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.borderControl,
+      borderRadius: radius.control,
+      backgroundColor: colors.surface,
+    },
+    selectedFilter: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
+    },
+    label: {
+      color: colors.textMuted,
+      ...typography.label,
+    },
+    selectedLabel: {
+      color: colors.surface,
+    },
+  });
