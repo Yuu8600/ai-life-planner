@@ -1,10 +1,18 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
-import { colors, spacing, typography } from '@/shared/theme';
+import { colors, controls, radius, spacing, typography } from '@/shared/theme';
+
+export type ScreenHeaderBackAction = {
+  accessibilityLabel?: string;
+  disabled?: boolean;
+  label?: string;
+  onPress: () => void;
+};
 
 type ScreenHeaderProps = {
   action?: ReactNode;
+  backAction?: ScreenHeaderBackAction;
   compact?: boolean;
   eyebrow?: string;
   subtitle?: string;
@@ -13,6 +21,7 @@ type ScreenHeaderProps = {
 
 export function ScreenHeader({
   action,
+  backAction,
   compact = false,
   eyebrow,
   subtitle,
@@ -20,51 +29,97 @@ export function ScreenHeader({
 }: ScreenHeaderProps) {
   const { fontScale } = useWindowDimensions();
   return (
-    <View style={[styles.container, compact && styles.compactContainer]}>
-      <View key={fontScale} style={styles.copy}>
-        {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-        <Text accessibilityRole="header" style={styles.title}>
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text style={[styles.subtitle, compact && styles.compactSubtitle]}>{subtitle}</Text>
-        ) : null}
+    <View style={[styles.wrapper, compact && styles.compactContainer]}>
+      {backAction ? (
+        <Pressable
+          accessibilityLabel={backAction.accessibilityLabel ?? backAction.label ?? '戻る'}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: backAction.disabled === true }}
+          disabled={backAction.disabled}
+          onPress={backAction.onPress}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && !backAction.disabled && { backgroundColor: colors.primarySoft },
+            backAction.disabled && { opacity: 0.45 },
+          ]}
+        >
+          <Text style={styles.backChevron} accessible={false}>
+            ‹
+          </Text>
+          <Text style={styles.backLabel}>{backAction.label ?? '戻る'}</Text>
+        </Pressable>
+      ) : null}
+      <View style={styles.container}>
+        <View key={fontScale} style={styles.copy}>
+          {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
+          <Text accessibilityRole="header" style={styles.title}>
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text style={[styles.subtitle, compact && styles.compactSubtitle]}>{subtitle}</Text>
+          ) : null}
+        </View>
+        {action ? <View style={styles.action}>{action}</View> : null}
       </View>
-      {action ? <View style={styles.action}>{action}</View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
   container: {
-    marginBottom: spacing.lg,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   compactContainer: { marginBottom: spacing.xs },
+  backButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: controls.minimumTarget,
+    paddingHorizontal: spacing.sm,
+    marginLeft: -spacing.sm,
+    borderRadius: radius.pill,
+  },
+  backChevron: {
+    color: colors.primary,
+    fontSize: 24,
+    lineHeight: 26,
+    fontWeight: '500',
+  },
+  backLabel: {
+    ...typography.button,
+    color: colors.primary,
+  },
   copy: {
     flex: 1,
+    minWidth: 0,
   },
   eyebrow: {
-    marginBottom: spacing.xs,
-    color: colors.textMuted,
-    ...typography.secondary,
+    marginBottom: 2,
+    color: colors.textSecondary,
+    ...typography.caption,
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
   title: {
     ...typography.screenTitle,
-    color: colors.text,
-    letterSpacing: -0.4,
+    color: colors.textPrimary,
+    letterSpacing: -0.6,
   },
   subtitle: {
-    ...typography.body,
-    marginTop: spacing.sm,
-    color: colors.textMuted,
+    ...typography.secondary,
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
   },
-  compactSubtitle: { marginTop: spacing.xs },
+  compactSubtitle: { marginTop: 2 },
   action: {
-    paddingTop: spacing.xs,
+    justifyContent: 'center',
   },
 });

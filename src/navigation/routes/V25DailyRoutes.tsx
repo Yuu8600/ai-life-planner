@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Platform } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth';
 import { DayAgenda, nextCalendarWindow, type AgendaWindowInput } from '@/features/calendar';
@@ -15,6 +15,7 @@ import {
 import { addLocalDays, getUtcDayBounds, type LocalDate } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
+import { Card } from '@/shared/components/Card';
 import { DeadlineCalendar } from '@/shared/components/DeadlineCalendar';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
@@ -48,7 +49,7 @@ function readConditions(key: string): Conditions {
 
 function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: string }) {
   const router = useRouter();
-  const { spacing } = useTheme();
+  const { colors, controls, spacing, typography } = useTheme();
   const { settings, fixed, calendar, repository, taskRepository } = useMemo(
     () => ({
       settings: createSupabaseSettingsRepository(userId),
@@ -71,7 +72,23 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
     mode === 'today' ? readConditions(key) : DEFAULT_CONDITIONS,
   );
   const settingsButton = (
-    <ActionButton label="設定" variant="ghost" onPress={() => router.push('/settings')} />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="設定"
+      onPress={() => router.push('/settings')}
+      style={({ pressed }) => ({
+        minHeight: 38,
+        paddingHorizontal: spacing.md,
+        borderRadius: 999,
+        backgroundColor: pressed ? colors.primarySoft : colors.surface,
+        borderWidth: 1,
+        borderColor: colors.borderSubtle,
+        justifyContent: 'center',
+        alignItems: 'center',
+      })}
+    >
+      <Text style={{ ...typography.label, color: colors.textPrimary }}>設定</Text>
+    </Pressable>
   );
 
   if (!today || !timezone) {
@@ -91,9 +108,7 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
   }
   const date = mode === 'calendar' ? (selected ?? today) : today;
   const scheduleForDate =
-    schedule?.date === date && schedule.timezone === timezone && schedule.revision === revision
-      ? schedule
-      : undefined;
+    schedule?.date === date && schedule.timezone === timezone ? schedule : undefined;
   const agenda = (
     <DayAgenda
       date={date}
@@ -117,6 +132,7 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         taskRepository={taskRepository}
         agenda={agenda}
         calendarLoading={scheduleForDate?.loading ?? true}
+        calendarPermissionMissing={scheduleForDate?.permissionMissing ?? false}
         calendarWindow={
           scheduleForDate && scheduleForDate.availability !== 'none'
             ? {
@@ -129,6 +145,7 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
               }
             : undefined
         }
+        openCalendar={() => router.navigate('/calendar')}
         openChat={() => openChat(date)}
         initialConditions={initialConditions}
         saveConditions={(value) => {
@@ -164,12 +181,34 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         onSelectDate={() => setDateDraft(date)}
       />
       {agenda}
-      <ActionButton label="この日の予定をAIに相談" variant="ghost" onPress={() => openChat(date)} />
-      <ActionButton
-        label="アプリ内に予定を追加"
-        variant="ghost"
-        onPress={() => setEditDate(date)}
-      />
+      <View style={{ gap: spacing.sm }}>
+        <ActionButton
+          label="アプリ内に予定を追加"
+          variant="primary"
+          onPress={() => setEditDate(date)}
+        />
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="この日の予定をAIに相談"
+            onPress={() => openChat(date)}
+            style={({ pressed }) => ({
+              minHeight: controls.buttonHeight,
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: pressed ? colors.primarySoft : colors.surface,
+            })}
+          >
+            <Text style={{ ...typography.bodyStrong, color: colors.primary }}>
+              この日の予定をAIに相談
+            </Text>
+            <Text style={{ ...typography.sectionTitle, color: colors.textSecondary }}>›</Text>
+          </Pressable>
+        </Card>
+      </View>
       {dateDraft ? (
         Platform.OS === 'android' ? (
           <DeadlineCalendar

@@ -39,7 +39,7 @@ export function DeadlineCalendar({
             neutralButton: { label: '期限なし' },
             onNeutralButtonPress: onClear,
           }
-        : { display: 'inline' as const, accentColor: colors.primary })}
+        : { display: 'inline' as const, accentColor: colors.primary, locale: 'ja-JP' })}
     />
   );
 }

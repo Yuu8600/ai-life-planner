@@ -36,10 +36,10 @@ export const FormInput = forwardRef<TextInput, FormInputProps>(function FormInpu
           minHeight: controls.inputHeight,
           paddingHorizontal: spacing.md,
           paddingVertical: spacing.md,
-          borderWidth: controls.borderWidth,
-          borderColor: invalid ? c.error : focused ? c.focusRing : c.borderControl,
+          borderWidth: focused || invalid ? 1.5 : controls.borderWidth,
+          borderColor: invalid ? c.error : focused ? c.focusRing : c.borderSubtle,
           borderRadius: radius.control,
-          backgroundColor: editable === false ? c.disabledSurface : c.surface,
+          backgroundColor: editable === false ? c.disabledSurface : focused ? c.surface : '#F8FAFC',
           ...typography.body,
           color: editable === false ? c.disabledText : c.textPrimary,
         },
@@ -73,26 +73,30 @@ export function FormField({
 }) {
   const { colors: c, spacing, typography } = useTheme();
   const id = useId();
-  const input =
-    isValidElement<FormInputProps>(children) && children.type === FormInput
-      ? cloneElement(children, {
-          accessibilityLabel: children.props.accessibilityLabel ?? label,
-          accessibilityHint:
-            children.props.accessibilityHint ?? [helper, error].filter(Boolean).join('、'),
-          'aria-labelledby': children.props.accessibilityLabel
-            ? children.props['aria-labelledby']
-            : `${id}-label`,
-          invalid: Boolean(error),
-        })
-      : children;
+  const hasFormInput = isValidElement<FormInputProps>(children) && children.type === FormInput;
+  const input = hasFormInput
+    ? cloneElement(children, {
+        accessibilityLabel: children.props.accessibilityLabel ?? label,
+        accessibilityHint:
+          children.props.accessibilityHint ?? [helper, error].filter(Boolean).join('、'),
+        'aria-labelledby': children.props.accessibilityLabel
+          ? children.props['aria-labelledby']
+          : `${id}-label`,
+        invalid: Boolean(error),
+      })
+    : children;
   return (
-    <View style={[{ minWidth: 0, gap: spacing.sm }, style]}>
-      <Text nativeID={`${id}-label`} style={{ ...typography.label, color: c.textPrimary }}>
+    <View style={[{ minWidth: 0, gap: spacing.xs + 2 }, style]}>
+      <Text
+        accessible={Platform.OS === 'web' || !hasFormInput}
+        nativeID={`${id}-label`}
+        style={{ ...typography.label, color: c.textSecondary }}
+      >
         {label}
       </Text>
       {input}
       {helper ? (
-        <Text style={{ ...typography.secondary, color: c.textSecondary }}>{helper}</Text>
+        <Text style={{ ...typography.caption, color: c.textSecondary }}>{helper}</Text>
       ) : null}
       {error ? (
         <Text

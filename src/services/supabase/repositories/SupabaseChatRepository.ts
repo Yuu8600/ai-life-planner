@@ -100,14 +100,28 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
         listMessages(thread),
         client
           .from('v2_drafts')
-          .select(
-            'id,created_at,revision,approved_at,rejected_at,applied_keys,items,v26_task_edit_receipts(task_id,undone_at)',
-          )
+          .select('id,created_at,revision,approved_at,rejected_at,applied_keys,items')
           .eq('user_id', userId)
           .eq('thread_id', thread)
           .order('created_at', { ascending: false }),
       ]);
       if (drafts.error) throw drafts.error;
+      const undoByDraft = new Map<string, string[]>();
+      const draftIds = drafts.data.map((item) => item.id);
+      if (draftIds.length > 0) {
+        const receipts = await client
+          .from('v26_task_edit_receipts')
+          .select('draft_id,task_id,undone_at')
+          .in('draft_id', draftIds);
+        if (!receipts.error && receipts.data) {
+          for (const receipt of receipts.data) {
+            if (receipt.undone_at) continue;
+            const list = undoByDraft.get(receipt.draft_id) ?? [];
+            list.push(receipt.task_id);
+            undoByDraft.set(receipt.draft_id, list);
+          }
+        }
+      }
       return {
         ...messages,
         drafts: drafts.data.map((item) => ({
@@ -117,10 +131,7 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
           approvedAt: item.approved_at,
           rejectedAt: item.rejected_at,
           appliedKeys: item.applied_keys ?? undefined,
-          undoTaskIds:
-            item.v26_task_edit_receipts
-              ?.filter((receipt) => !receipt.undone_at)
-              .map((receipt) => receipt.task_id) ?? [],
+          undoTaskIds: undoByDraft.get(item.id) ?? [],
           items: Array.isArray(item.items)
             ? (item.items as DraftItem[]).filter(
                 (draft) =>

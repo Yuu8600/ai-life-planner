@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
+import { useAuth } from '@/features/auth';
 import type { SettingsRepository } from '@/features/settings';
 import { getLocalDate, resolveTimeZone } from '@/features/today';
 import { getTaskErrorMessage } from '@/features/tasks/errors';
 
 export function useV25Date(settings: SettingsRepository) {
+  const accessToken = useAuth().session?.access_token;
   const [timezone, setTimezone] = useState<string>();
   const [now, setNow] = useState(() => new Date());
   const [revision, setRevision] = useState(0);
@@ -47,7 +49,7 @@ export function useV25Date(settings: SettingsRepository) {
     return () => {
       active = false;
     };
-  }, [settings, revision]);
+  }, [settings, revision, accessToken]);
 
   return {
     timezone,

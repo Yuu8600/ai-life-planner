@@ -7,15 +7,18 @@ import { CompletionCheckbox } from '@/shared/components/CompletionCheckbox';
 import { getTaskErrorMessage } from './errors';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ToastBanner } from '@/shared/components/ToastBanner';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
+import { Badge } from '@/shared/components/Badge';
+import { Card } from '@/shared/components/Card';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
-import { spacing, useTheme } from '@/shared/theme';
+import { radius, spacing, useTheme } from '@/shared/theme';
 
 import { GoalOptionsNotice } from './components/GoalOptionsNotice';
 import { TaskFilters } from './components/TaskFilters';
@@ -35,6 +38,7 @@ type TasksScreenProps = {
   dayError?: string;
   retryDay?: () => void;
   initialFilter?: TaskFilterId;
+  filterEntry?: string;
   onOpenSteps?: (taskId: string) => void;
   onAskAI?: (task: Task) => void;
   onOpenGoals?: () => void;
@@ -52,6 +56,7 @@ export function TasksScreen({
   dayError,
   retryDay,
   initialFilter,
+  filterEntry,
   onOpenSteps,
   onOpenGoals,
   onAskAI,
@@ -73,6 +78,7 @@ export function TasksScreen({
     loadError,
     mutationError,
     pendingMutation,
+    refreshSilent,
     retry,
     retryGoalOptions,
     tasks,
@@ -80,6 +86,15 @@ export function TasksScreen({
   } = useTasks(repository, refreshToken);
   const [mountedAt] = useState(() => new Date());
   const [activeFilter, setActiveFilter] = useState<TaskFilterId>(initialFilter ?? 'all');
+  const [nativeFilter, setNativeFilter] = useState<'all' | 'overdue' | 'recurring'>(
+    initialFilter === 'overdue' ? 'overdue' : 'all',
+  );
+  const filterSyncKey = `${initialFilter ?? ''}:${filterEntry ?? ''}`;
+  const [lastFilterSync, setLastFilterSync] = useState(filterSyncKey);
+  if (filterSyncKey !== lastFilterSync) {
+    setLastFilterSync(filterSyncKey);
+    if (initialFilter === 'overdue') setNativeFilter('overdue');
+  }
   const [showCompleted, setShowCompleted] = useState(false);
   const [taskSelection, setTaskSelection] = useState<string[] | null>(null);
   const [batchMessage, setBatchMessage] = useState('');
@@ -95,8 +110,10 @@ export function TasksScreen({
     undo?: boolean;
   }>();
   const [actionBusy, setActionBusy] = useState(false);
+  const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [dailyAttempt, setDailyAttempt] = useState(0);
   const actionLock = useRef(false);
+
   useEffect(() => {
     if (!recommendations || !today) return;
     let active = true;
@@ -135,17 +152,29 @@ export function TasksScreen({
       (task.recurrence?.kind ?? 'once') === 'once' && !!(deadline && today && deadline < today)
     );
   };
+  const goalTitleById = new Map(goalOptions.map((goal) => [goal.id, goal.title]));
+  const overdueCount = recommendationMode
+    ? tasks.filter((task) => !isComplete(task) && isOverdue(task)).length
+    : 0;
+  const recurringCount = recommendationMode
+    ? tasks.filter((task) => (task.recurrence?.kind ?? 'once') !== 'once').length
+    : 0;
   const visibleTasks = recommendationMode
-    ? [...tasks]
+    ? tasks.filter((task) => {
+        if (nativeFilter === 'overdue') return !isComplete(task) && isOverdue(task);
+        if (nativeFilter === 'recurring') return (task.recurrence?.kind ?? 'once') !== 'once';
+        return true;
+      })
     : tasks.filter((task) => matchesTaskFilter(task, activeFilter, now));
   const completedTasks = recommendationMode ? tasks.filter(isComplete) : [];
   const finishedTasks = completedTasks.filter((task) => task.status === 'completed');
   const performedToday = completedTasks.filter((task) => task.status !== 'completed');
   const selectedTasks = finishedTasks.filter((task) => taskSelection?.includes(task.id));
-  if (recommendationMode && initialFilter === 'overdue') {
+  if (recommendationMode && (initialFilter === 'overdue' || nativeFilter === 'overdue')) {
     visibleTasks.sort((a, b) => Number(isOverdue(b)) - Number(isOverdue(a)));
   }
-  const isMutating = pendingMutation !== null || actionBusy || (recommendationMode && isLoading);
+  const initialLoading = isLoading && (!recommendationMode || !tasks.length);
+  const isMutating = pendingMutation !== null || actionBusy;
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
 
   async function toggle(task: Task) {
@@ -154,6 +183,7 @@ export function TasksScreen({
     const outcome = results.get(task.id);
     actionLock.current = true;
     setActionBusy(true);
+    setBusyTaskId(task.id);
     setActionMessage('');
     setLastAction(undefined);
     try {
@@ -193,9 +223,10 @@ export function TasksScreen({
       setActionMessage(getTaskErrorMessage(error));
       setDailyAttempt((value) => value + 1);
     } finally {
-      retry();
+      refreshSilent();
       actionLock.current = false;
       setActionBusy(false);
+      setBusyTaskId(null);
     }
   }
 
@@ -213,7 +244,7 @@ export function TasksScreen({
     } catch (error) {
       setActionMessage(getTaskErrorMessage(error));
     } finally {
-      retry();
+      refreshSilent();
       setDailyAttempt((value) => value + 1);
       actionLock.current = false;
       setActionBusy(false);
@@ -254,6 +285,10 @@ export function TasksScreen({
       ],
     );
   }
+
+  const dismissActionToast = useCallback(() => {
+    setLastAction(undefined);
+  }, []);
 
   const openCreateForm = () => {
     if (isMutating || !repository) return;
@@ -297,30 +332,34 @@ export function TasksScreen({
     );
   };
 
-  function taskRow(task: Task, selecting = false) {
+  function taskRow(task: Task, selecting = false, isLast = false) {
     const deadline = deadlineOf(task);
     const checked = isComplete(task);
+    const overdue = !checked && isOverdue(task);
     const skipped = !checked && results.get(task.id) === 'skipped';
     const recurring = (task.recurrence?.kind ?? 'once') !== 'once';
     const dailyCheck = recurring && (!checked || results.get(task.id) === 'completed');
-    const detail = [
-      !checked && isOverdue(task) ? `期限切れ ${deadline}` : deadline ? `期限 ${deadline}` : null,
-      checked ? (dailyCheck ? '今日の実施済み' : '完了') : recurring ? '繰り返し' : null,
-      skipped ? 'あとで' : null,
-    ]
-      .filter(Boolean)
-      .join(' ・ ');
+    const goalTitle = task.goalId ? goalTitleById.get(task.goalId) : undefined;
+    const rowBusy = busyTaskId === task.id;
+
     return (
       <View
         key={task.id}
-        style={[styles.taskRow, { borderColor: theme.colors.borderSubtle }]}
+        style={[
+          styles.taskRow,
+          rowBusy && { opacity: 0.55 },
+          !isLast && {
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderColor: theme.colors.borderSubtle,
+          },
+        ]}
         testID={`task-card-${task.id}`}
       >
         {selecting ? (
           <CompletionCheckbox
             checked={taskSelection?.includes(task.id) ?? false}
             label={`${task.title}を選択`}
-            disabled={isMutating || isLoading}
+            disabled={isMutating}
             onPress={() =>
               setTaskSelection((prior) =>
                 prior?.includes(task.id)
@@ -359,20 +398,41 @@ export function TasksScreen({
           }}
           style={({ pressed }) => [styles.rowTitle, pressed && { opacity: 0.65 }]}
         >
-          <Text
-            style={[
-              { ...theme.typography.bodyStrong, color: theme.colors.textPrimary },
-              checked && {
-                color: theme.colors.textSecondary,
-                textDecorationLine: 'line-through',
-              },
-            ]}
-          >
-            {task.title}
-          </Text>
-          {detail ? (
-            <Text style={{ ...theme.typography.secondary, color: theme.colors.textSecondary }}>
-              {detail}
+          <View style={styles.rowContent}>
+            <Text
+              style={[
+                {
+                  ...theme.typography.bodyStrong,
+                  color: theme.colors.textPrimary,
+                  flexShrink: 1,
+                },
+                checked && {
+                  color: theme.colors.textSecondary,
+                  textDecorationLine: 'line-through',
+                },
+              ]}
+            >
+              {task.title}
+            </Text>
+            <View style={styles.metaPills}>
+              {overdue ? <Badge label={`期限切れ ${deadline}`} tone="error" /> : null}
+              {!overdue && deadline ? <Badge label={`期限 ${deadline}`} tone="neutral" /> : null}
+              {!checked && task.priority === 'high' ? <Badge label="高" tone="warning" /> : null}
+              {task.estimatedMinutes !== null ? (
+                <Badge label={`目安 ${task.estimatedMinutes}分`} tone="neutral" />
+              ) : null}
+              {checked ? (
+                <Badge label={dailyCheck ? '今日の実施済み' : '完了'} tone="success" />
+              ) : recurring ? (
+                <Badge label="繰り返し" tone="accent" />
+              ) : null}
+              {skipped ? <Badge label="あとで" tone="neutral" /> : null}
+              {goalTitle ? <Badge label={goalTitle} tone="info" /> : null}
+            </View>
+          </View>
+          {!selecting ? (
+            <Text style={{ ...theme.typography.sectionTitle, color: theme.colors.textSecondary }}>
+              ›
             </Text>
           ) : null}
         </Pressable>
@@ -384,7 +444,7 @@ export function TasksScreen({
     lastAction?.date === today ? tasks.find((task) => task.id === lastAction?.taskId) : undefined;
   const lastOutcome = lastTask ? results.get(lastTask.id) : undefined;
   const actionUndo = lastOutcome && lastTask && lastAction?.undo ? lastTask : undefined;
-  const actionFeedback =
+  const modalActionFeedback =
     lastTask && lastAction && !actionMessage && !dailyError ? (
       <Notice
         tone="success"
@@ -402,12 +462,23 @@ export function TasksScreen({
       />
     ) : null;
 
+  const toastOverlay =
+    !showCompleted && lastTask && lastAction && !actionMessage && !dailyError ? (
+      <ToastBanner
+        message={lastAction.message}
+        actionLabel={actionUndo ? '元に戻す' : undefined}
+        actionDisabled={isMutating || !!dayError}
+        onAction={actionUndo ? () => void toggle(actionUndo) : undefined}
+        onDismiss={dismissActionToast}
+      />
+    ) : null;
+
   return (
-    <AppScreen testID="tasks-screen">
+    <AppScreen testID="tasks-screen" overlay={toastOverlay}>
       <ScreenHeader
         title="タスク"
         action={
-          repository && !isLoading && !loadError ? (
+          repository && !initialLoading && !loadError ? (
             <ActionButton
               accessibilityLabel="新しいタスクを作成する"
               disabled={isMutating}
@@ -422,17 +493,72 @@ export function TasksScreen({
 
       {intro}
       {recommendationMode ? (
-        <View style={styles.secondaryActions}>
-          <ActionButton
-            label={`完了済み（${completedTasks.length}）`}
-            variant="ghost"
-            onPress={() => {
-              setTaskSelection(null);
-              setBatchMessage('');
-              setShowCompleted(true);
-            }}
-          />
-          {onOpenGoals ? <ActionButton label="目標" variant="ghost" onPress={onOpenGoals} /> : null}
+        <View style={{ gap: spacing.sm }}>
+          <View style={styles.secondaryActions}>
+            {onOpenGoals ? (
+              <ActionButton
+                label="目標"
+                variant="secondary"
+                style={styles.pillAction}
+                onPress={onOpenGoals}
+              />
+            ) : null}
+            <ActionButton
+              label={`完了済み（${completedTasks.length}）`}
+              variant="secondary"
+              style={styles.pillAction}
+              onPress={() => {
+                setTaskSelection(null);
+                setBatchMessage('');
+                setShowCompleted(true);
+              }}
+            />
+          </View>
+          {tasks.length > 0 ? (
+            <View accessibilityRole="tablist" style={styles.filterRow}>
+              {(
+                [
+                  { id: 'all', label: `すべて（${tasks.length}）` },
+                  ...(overdueCount > 0
+                    ? [{ id: 'overdue' as const, label: `期限切れ（${overdueCount}）` }]
+                    : []),
+                  ...(recurringCount > 0
+                    ? [{ id: 'recurring' as const, label: `繰り返し（${recurringCount}）` }]
+                    : []),
+                ] as const
+              ).map((chip) => {
+                const selected = nativeFilter === chip.id;
+                return (
+                  <Pressable
+                    key={chip.id}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    onPress={() => setNativeFilter(chip.id)}
+                    style={({ pressed }) => [
+                      styles.filterChip,
+                      {
+                        borderColor: selected ? theme.colors.primary : theme.colors.borderSubtle,
+                        backgroundColor: selected
+                          ? theme.colors.primary
+                          : pressed
+                            ? theme.colors.surfaceSubtle
+                            : theme.colors.surface,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        ...theme.typography.label,
+                        color: selected ? theme.colors.onPrimary : theme.colors.textSecondary,
+                      }}
+                    >
+                      {chip.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
         </View>
       ) : (
         <TaskFilters
@@ -442,22 +568,24 @@ export function TasksScreen({
         />
       )}
       {recommendationMode && (dayError || dailyError || actionMessage) ? (
-        <Notice
-          tone="error"
-          message={dayError || dailyError || actionMessage}
-          action={
-            <ActionButton
-              label="再読み込み"
-              variant="secondary"
-              onPress={() => {
-                setActionMessage('');
-                retryDay?.();
-                setDailyAttempt((value) => value + 1);
-                retry();
-              }}
-            />
-          }
-        />
+        <View style={{ marginTop: spacing.sm }}>
+          <Notice
+            tone="error"
+            message={dayError || dailyError || actionMessage}
+            action={
+              <ActionButton
+                label="再読み込み"
+                variant="secondary"
+                onPress={() => {
+                  setActionMessage('');
+                  retryDay?.();
+                  setDailyAttempt((value) => value + 1);
+                  retry();
+                }}
+              />
+            }
+          />
+        </View>
       ) : null}
 
       {!recommendationMode ? (
@@ -468,7 +596,7 @@ export function TasksScreen({
         />
       ) : null}
 
-      {isLoading && (!recommendationMode || !tasks.length) ? (
+      {initialLoading ? (
         <TaskStatePanel
           isLoading
           message="登録したタスクを読み込んでいます。"
@@ -499,13 +627,18 @@ export function TasksScreen({
           testID="tasks-filter-empty-state"
           title="該当するタスクはありません"
         />
+      ) : recommendationMode ? (
+        <Card style={styles.listCard}>
+          {visibleTasks.map((task, index) =>
+            taskRow(task, false, index === visibleTasks.length - 1),
+          )}
+        </Card>
       ) : (
-        <View style={recommendationMode ? styles.compactList : styles.list}>
+        <View style={styles.list}>
           {visibleTasks.map((task, index) => {
             const deadline = deadlineOf(task);
             const overdue =
               task.status !== 'completed' && !!(today && deadline && deadline < today);
-            if (recommendationMode) return taskRow(task);
             return (
               <TaskListItem
                 disabled={isMutating}
@@ -537,9 +670,10 @@ export function TasksScreen({
         </View>
       )}
 
-      {!showCompleted ? actionFeedback : null}
       {mutationError && editingTask === undefined ? (
-        <Notice tone="error" message={mutationError} />
+        <View style={{ marginTop: spacing.md }}>
+          <Notice tone="error" message={mutationError} />
+        </View>
       ) : null}
 
       {showCompleted ? (
@@ -557,7 +691,7 @@ export function TasksScreen({
                     loading={actionBusy}
                     disabled={
                       !selectedTasks.length ||
-                      isLoading ||
+                      initialLoading ||
                       !today ||
                       daily?.date !== today ||
                       !!dailyError ||
@@ -570,7 +704,7 @@ export function TasksScreen({
                   <ActionButton
                     label={`${selectedTasks.length}件を削除`}
                     variant="ghost"
-                    disabled={!selectedTasks.length || isMutating || isLoading}
+                    disabled={!selectedTasks.length || isMutating || initialLoading}
                     onPress={deleteSelected}
                   />
                 ) : null}
@@ -582,7 +716,7 @@ export function TasksScreen({
             <Notice tone="error" message={actionMessage || dailyError} />
           ) : null}
           {batchMessage ? <Notice tone="success" message={batchMessage} /> : null}
-          {actionFeedback}
+          {modalActionFeedback}
           {finishedTasks.length ? (
             <>
               <View style={styles.secondaryActions}>
@@ -591,7 +725,7 @@ export function TasksScreen({
                   <ActionButton
                     label={taskSelection ? '選択をやめる' : '複数選択'}
                     variant="ghost"
-                    disabled={isMutating || isLoading}
+                    disabled={isMutating || initialLoading}
                     onPress={() => {
                       setBatchMessage('');
                       setTaskSelection(taskSelection ? null : []);
@@ -599,13 +733,21 @@ export function TasksScreen({
                   />
                 ) : null}
               </View>
-              {finishedTasks.map((task) => taskRow(task, !!taskSelection))}
+              <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
+                {finishedTasks.map((task, index) =>
+                  taskRow(task, !!taskSelection, index === finishedTasks.length - 1),
+                )}
+              </Card>
             </>
           ) : null}
           {!taskSelection && performedToday.length ? (
             <>
               <SectionHeader compact title="繰り返しタスクの今日の実施" />
-              {performedToday.map((task) => taskRow(task))}
+              <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
+                {performedToday.map((task, index) =>
+                  taskRow(task, false, index === performedToday.length - 1),
+                )}
+              </Card>
             </>
           ) : null}
           {!completedTasks.length ? (
@@ -654,20 +796,50 @@ export function TasksScreen({
 
 const styles = StyleSheet.create({
   list: { gap: spacing.md, minWidth: 0 },
-  secondaryActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  compactList: { marginTop: spacing.sm, minWidth: 0 },
+  listCard: { marginTop: spacing.md, padding: 0, gap: 0, overflow: 'hidden' },
+  secondaryActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  pillAction: { minHeight: 40, paddingHorizontal: spacing.md, borderRadius: radius.pill },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  filterChip: {
+    minHeight: 36,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    justifyContent: 'center',
+  },
   taskRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
     gap: spacing.xs,
   },
   rowTitle: {
     flex: 1,
-    minHeight: 48,
-    justifyContent: 'center',
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
     paddingVertical: spacing.sm,
-    paddingRight: spacing.md,
+    paddingRight: spacing.sm,
   },
-  addButton: { minHeight: 48 },
+  rowContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 5,
+  },
+  metaPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  addButton: { minHeight: 42, paddingHorizontal: spacing.md, borderRadius: radius.pill },
 });

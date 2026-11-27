@@ -40,6 +40,8 @@ export function GoalFormModal({
   const [values, setValues] = useState<GoalFormValues>(() =>
     createGoalFormValues(goal ?? undefined),
   );
+  const [initialSnapshot] = useState(() => JSON.stringify(values));
+  const dirty = JSON.stringify(values) !== initialSnapshot;
   const [fieldErrors, setFieldErrors] = useState<GoalFormErrors>({});
   const submitLock = useRef(false);
   const isEditing = goal !== null;
@@ -74,6 +76,7 @@ export function GoalFormModal({
       onClose={onClose}
       closeLabel="目標フォームを閉じる"
       closeDisabled={isSubmitting}
+      dirty={dirty}
       testID="goal-form-modal"
       footer={
         <ActionButton

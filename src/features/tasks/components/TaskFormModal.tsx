@@ -67,6 +67,14 @@ export function TaskFormModal({
   );
   const [recurrence, setRecurrence] = useState<Recurrence>(task?.recurrence?.kind ?? 'once');
   const [weekdays, setWeekdays] = useState(task?.recurrence?.weekdays ?? []);
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify({
+      values,
+      recurrence: task?.recurrence?.kind ?? 'once',
+      weekdays: task?.recurrence?.weekdays ?? [],
+    }),
+  );
+  const dirty = JSON.stringify({ values, recurrence, weekdays }) !== initialSnapshot;
   const [recurrenceError, setRecurrenceError] = useState('');
   const usesWeekdays = recurrence === 'weekdays' || recurrence === 'weekly';
   const [showGoalOptions, setShowGoalOptions] = useState(false);
@@ -145,6 +153,7 @@ export function TaskFormModal({
       onClose={onClose}
       closeLabel="タスクフォームを閉じる"
       closeDisabled={isSubmitting}
+      dirty={dirty}
       testID="task-form-modal"
       footer={
         <ActionButton
@@ -168,22 +177,6 @@ export function TaskFormModal({
         />
       </FormField>
 
-      {onAskAI ? (
-        <ActionButton
-          label="このタスクをAIに相談"
-          variant="ghost"
-          disabled={isSubmitting}
-          onPress={onAskAI}
-        />
-      ) : null}
-      {onOpenSteps ? (
-        <ActionButton
-          label="小さな行動を見る・追加する"
-          variant="secondary"
-          disabled={isSubmitting}
-          onPress={onOpenSteps}
-        />
-      ) : null}
       <FormField
         error={fieldErrors.estimatedMinutes}
         label={
@@ -214,7 +207,7 @@ export function TaskFormModal({
       <OptionGroup
         disabled={isSubmitting}
         error={fieldErrors.priority}
-        label={recommendationMode ? '重要度（任意）' : '優先度'}
+        label={recommendationMode ? '優先度（任意）' : '優先度'}
         onChange={(value) => updateValue('priority', value)}
         options={TASK_PRIORITIES}
         selectedValue={values.priority}
@@ -338,7 +331,7 @@ export function TaskFormModal({
           <View accessibilityRole="radiogroup" style={styles.goalOptions}>
             <GoalOption
               disabled={isSubmitting}
-              label="Goalなし"
+              label={recommendationMode ? '目標なし' : 'Goalなし'}
               onPress={() => {
                 updateValue('goalId', '');
                 setShowGoalOptions(false);
@@ -361,13 +354,36 @@ export function TaskFormModal({
           {fieldErrors.goalId ? <Text style={styles.fieldError}>{fieldErrors.goalId}</Text> : null}
         </View>
       ) : null}
+      {onOpenSteps || onAskAI ? (
+        <View style={styles.relatedSection}>
+          <Text style={styles.label}>関連操作</Text>
+          {onOpenSteps ? (
+            <ActionButton
+              label="小さな行動を見る・追加する"
+              variant="secondary"
+              disabled={isSubmitting}
+              onPress={onOpenSteps}
+            />
+          ) : null}
+          {onAskAI ? (
+            <ActionButton
+              label="このタスクをAIに相談"
+              variant="secondary"
+              disabled={isSubmitting}
+              onPress={onAskAI}
+            />
+          ) : null}
+        </View>
+      ) : null}
       {onDelete ? (
-        <ActionButton
-          label="タスクを削除"
-          disabled={isSubmitting}
-          variant="ghost"
-          onPress={onDelete}
-        />
+        <View style={styles.dangerSection}>
+          <ActionButton
+            label="タスクを削除"
+            disabled={isSubmitting}
+            variant="destructive"
+            onPress={onDelete}
+          />
+        </View>
       ) : null}
       {errorMessage ? <Notice tone="error" message={errorMessage} /> : null}
     </ModalFrame>
@@ -430,5 +446,14 @@ const styles = StyleSheet.create({
   retryLabel: { color: colors.warning, fontSize: 13, fontWeight: '700' },
   fieldError: { color: colors.warning, fontSize: 12, lineHeight: 18 },
   submitButton: { minHeight: 50 },
+  relatedSection: {
+    gap: spacing.sm,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+  },
+  dangerSection: {
+    paddingTop: spacing.sm,
+  },
   pressed: { opacity: 0.7 },
 });

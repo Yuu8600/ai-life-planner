@@ -75,7 +75,7 @@ export default function PrimaryTabs() {
         tabBarLabelPosition: sidebar ? 'beside-icon' : 'below-icon',
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarActiveBackgroundColor: colors.primarySoft,
+        tabBarActiveBackgroundColor: sidebar ? colors.primarySoft : 'transparent',
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: web || bottom.showLabels,
         tabBarStyle: [
@@ -132,9 +132,18 @@ export default function PrimaryTabs() {
 const styles = StyleSheet.create({
   bar: {
     backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderSubtle,
-    elevation: 0,
-    shadowOpacity: 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -4 },
+      },
+      android: { elevation: 8 },
+      web: { boxShadow: '0 -2px 10px rgba(15, 23, 42, 0.04)' } as object,
+    }),
   },
   sidebar: { width: 184, minWidth: 184, paddingHorizontal: spacing.sm },
   webBottom: { height: 'auto', minHeight: 58 },
@@ -152,13 +161,12 @@ const styles = StyleSheet.create({
   bottomLabel: { fontSize: TAB_LABEL_SIZE, maxWidth: '100%', textAlign: 'center' },
   sideLabel: { ...typography.label, marginStart: spacing.sm },
   iconFrame: {
-    width: 32,
-    height: 26,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    width: 48,
+    height: 30,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  selectedIcon: { borderBottomColor: colors.primary, borderRadius: radius.sm },
+  selectedIcon: { backgroundColor: colors.primarySoft },
   icon: { width: 22, height: 22 },
 });

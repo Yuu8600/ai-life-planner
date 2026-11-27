@@ -69,13 +69,32 @@ export async function logout(): Promise<void> {
 }
 
 export async function getCurrentSession(): Promise<Session | null> {
-  const { data, error } = await getSupabaseClient().auth.getSession();
+  const client = getSupabaseClient();
+  const { data, error } = await client.auth.getSession();
 
   if (error) {
     throw error;
   }
 
-  return data.session;
+  const session = data.session;
+  if (!session) {
+    return null;
+  }
+
+  // Refresh an expired or about-to-expire cached session before entering protected screens.
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (typeof session.expires_at === 'number' && session.expires_at <= nowSeconds + 30) {
+    const refreshed = await client.auth.refreshSession();
+    if (!refreshed.error && refreshed.data.session) {
+      return refreshed.data.session;
+    }
+    if (refreshed.error?.status === 400 || refreshed.error?.status === 401) {
+      await client.auth.signOut({ scope: 'local' }).catch(() => undefined);
+      return null;
+    }
+  }
+
+  return session;
 }
 
 export function subscribeToAuthState(listener: AuthStateListener): () => void {

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { Card } from '@/shared/components/Card';
@@ -7,7 +16,7 @@ import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
-import { colors, spacing, typography } from '@/shared/theme';
+import { colors, radius, spacing, typography } from '@/shared/theme';
 import { CalendarShareEditor, type ReadShareableCalendar } from './CalendarShareEditor';
 import type { TaskGoalOption } from '@/features/tasks/repositories/TaskRepository';
 import { DraftEditor } from './DraftEditor';
@@ -65,10 +74,24 @@ export function ChatScreen({
   const [workingDraft, setWorkingDraft] = useState<Draft>();
   const [referencedDraft, setReferencedDraft] = useState<string>();
   const [error, setError] = useState('');
+  const [threadReload, setThreadReload] = useState(0);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const lock = useRef(false);
   const threadCreatedBySend = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, () => setKeyboardOpen(true));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardOpen(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const refreshUsage = useCallback(async () => {
     setUsageChecking(true);
@@ -133,7 +156,10 @@ export function ChatScreen({
     let active = true;
     void repository.open(current.id).then(
       (value) => {
-        if (active) setConversation(value);
+        if (active) {
+          setConversation(value);
+          setError('');
+        }
       },
       () => {
         if (active) setError('会話を読み込めませんでした。');
@@ -142,8 +168,9 @@ export function ChatScreen({
     return () => {
       active = false;
     };
-  }, [current, repository]);
+  }, [current, repository, threadReload]);
   const open = (thread?: Thread) => {
+    Keyboard.dismiss();
     inputJump.current = Boolean(thread);
     threadCreatedBySend.current = undefined;
     setCurrent(thread);
@@ -257,7 +284,12 @@ export function ChatScreen({
     } finally {
       inputJump.current = true;
       await Promise.all([
-        thread && refreshConversation(thread.id).catch(() => undefined),
+        thread &&
+          refreshConversation(thread.id).catch(() => {
+            setError(
+              (prev) => prev || '会話の最新表示を読み込めませんでした。再試行してください。',
+            );
+          }),
         refreshUsage(),
       ]);
       lock.current = false;
@@ -366,12 +398,24 @@ export function ChatScreen({
         />
       </FormField>
       <View style={styles.actions}>
-        <ActionButton
-          label={calendar ? '共有内容を変更' : '参照情報'}
-          variant="ghost"
-          disabled={pending}
-          onPress={() => setDateDraft(date)}
-        />
+        <View style={styles.actionGroup}>
+          <ActionButton
+            label={calendar ? '共有内容を変更' : '参照情報'}
+            variant="ghost"
+            disabled={pending}
+            onPress={() => {
+              Keyboard.dismiss();
+              setDateDraft(date);
+            }}
+          />
+          {keyboardOpen ? (
+            <ActionButton
+              label="キーボードを閉じる"
+              variant="ghost"
+              onPress={() => Keyboard.dismiss()}
+            />
+          ) : null}
+        </View>
         <ActionButton
           label={calendar ? '共有して送信' : '送信'}
           accessibilityLabel="AIに送信"
@@ -396,16 +440,27 @@ export function ChatScreen({
       <AppScreen contentContainerStyle={{ gap: spacing.md }} footer={composer} scrollRef={scroll}>
         <ScreenHeader
           title={current?.title ?? 'AI相談'}
+          backAction={
+            current
+              ? {
+                  label: '会話一覧',
+                  accessibilityLabel: '会話一覧',
+                  disabled: pending || loadingOlder,
+                  onPress: () => open(),
+                }
+              : undefined
+          }
           action={
-            current ? (
+            current ? undefined : (
               <ActionButton
-                label="会話一覧"
-                variant="secondary"
-                disabled={pending || loadingOlder}
-                onPress={() => open()}
+                label="新規会話"
+                loading={pending}
+                disabled={usage !== undefined && !usage.configured}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setNewTitle('');
+                }}
               />
-            ) : (
-              <ActionButton label="新規会話" loading={pending} onPress={() => setNewTitle('')} />
             )
           }
         />
@@ -421,12 +476,27 @@ export function ChatScreen({
             message={
               usageFailed
                 ? 'AIに接続できません。通信を確認して再試行してください。'
-                : 'AIは未設定です。サーバー設定が反映されたら再確認してください。'
+                : '現在AI相談は利用できません。通常の「今日」や「タスク」はそのまま使えます。'
             }
             action={recheckAI}
           />
         ) : null}
-        {error ? <Notice tone="error" message={error} /> : null}
+        {error ? (
+          <Notice
+            tone="error"
+            message={error}
+            action={
+              current ? (
+                <ActionButton
+                  label="再試行"
+                  variant="secondary"
+                  disabled={pending}
+                  onPress={() => setThreadReload((count) => count + 1)}
+                />
+              ) : undefined
+            }
+          />
+        ) : null}
         {current ? (
           <>
             {conversation?.olderCursor ? (
@@ -439,24 +509,36 @@ export function ChatScreen({
               />
             ) : null}
             {drafts.filter((draft) => !owner(draft)).map(proposalCard)}
-            {messages.map((item) => (
-              <View key={item.id} style={{ gap: spacing.sm }}>
-                <Card style={item.role === 'user' ? styles.userMessage : styles.assistantMessage}>
-                  <Text
-                    accessibilityRole="header"
-                    style={{ ...typography.label, color: colors.textSecondary }}
-                  >
-                    {item.role === 'user' ? 'あなた' : 'AI'}
-                  </Text>
-                  <Text style={{ ...typography.body, color: colors.textPrimary }}>
-                    {item.role === 'assistant' && drafts.some((draft) => owner(draft) === item.id)
-                      ? '操作を提案しました。下のカードで確認してください。'
-                      : item.body}
-                  </Text>
-                </Card>
-                {drafts.filter((draft) => owner(draft) === item.id).map(proposalCard)}
-              </View>
-            ))}
+            {messages.map((item) => {
+              const isUser = item.role === 'user';
+              return (
+                <View key={item.id} style={{ gap: spacing.sm }}>
+                  <Card style={isUser ? styles.userMessage : styles.assistantMessage}>
+                    <Text
+                      accessibilityRole="header"
+                      style={{
+                        ...typography.caption,
+                        fontWeight: '700',
+                        color: isUser ? 'rgba(255,255,255,0.82)' : colors.primary,
+                      }}
+                    >
+                      {isUser ? 'あなた' : 'AI'}
+                    </Text>
+                    <Text
+                      style={{
+                        ...typography.body,
+                        color: isUser ? colors.onPrimary : colors.textPrimary,
+                      }}
+                    >
+                      {item.role === 'assistant' && drafts.some((draft) => owner(draft) === item.id)
+                        ? '操作を提案しました。下のカードで確認してください。'
+                        : item.body}
+                    </Text>
+                  </Card>
+                  {drafts.filter((draft) => owner(draft) === item.id).map(proposalCard)}
+                </View>
+              );
+            })}
             {privateReply ? (
               <Card style={{ gap: spacing.sm }}>
                 <Text style={styles.small}>履歴に保存されない回答</Text>
@@ -514,16 +596,41 @@ export function ChatScreen({
               />
             ) : null}
           </>
+        ) : threads.length > 0 ? (
+          <Card style={styles.threadList}>
+            {threads.map((thread, index) => (
+              <Pressable
+                key={thread.id}
+                accessibilityRole="button"
+                accessibilityLabel={thread.title}
+                disabled={pending || loadingOlder}
+                onPress={() => open(thread)}
+                style={({ pressed }) => [
+                  styles.threadRow,
+                  index > 0 && styles.threadDivider,
+                  pressed && { backgroundColor: colors.primarySoft },
+                ]}
+              >
+                <View style={styles.threadLeading}>
+                  <View style={styles.threadDot}>
+                    <Text style={styles.threadDotText} accessible={false}>
+                      ✦
+                    </Text>
+                  </View>
+                  <Text style={styles.threadTitle} numberOfLines={1}>
+                    {thread.title}
+                  </Text>
+                </View>
+                <Text style={styles.threadChevron} accessible={false}>
+                  ›
+                </Text>
+              </Pressable>
+            ))}
+          </Card>
         ) : (
-          threads.map((thread) => (
-            <ActionButton
-              key={thread.id}
-              variant="secondary"
-              label={thread.title}
-              disabled={pending || loadingOlder}
-              onPress={() => open(thread)}
-            />
-          ))
+          <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
+            まだ会話がありません。下の入力欄から相談を始められます。
+          </Text>
         )}
         {dateDraft !== undefined ? (
           <CalendarShareEditor
@@ -576,15 +683,78 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
     gap: spacing.xs,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -4 },
+      },
+      android: { elevation: 4 },
+      web: { boxShadow: '0 -2px 10px rgba(15, 23, 42, 0.04)' } as object,
+    }),
   },
-  input: { maxHeight: 120 },
+  input: { maxHeight: 120, borderRadius: radius.md },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: spacing.xs,
   },
+  actionGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  threadList: { padding: 0, gap: 0, overflow: 'hidden' },
+  threadRow: {
+    minHeight: 56,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  threadLeading: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minWidth: 0,
+  },
+  threadDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  threadDotText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  threadDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderSubtle,
+  },
+  threadTitle: { ...typography.bodyStrong, color: colors.textPrimary, flex: 1 },
+  threadChevron: { ...typography.sectionTitle, color: colors.textSecondary },
   small: { ...typography.caption, color: colors.primary },
-  userMessage: { backgroundColor: colors.primarySoft, marginLeft: spacing.xl, gap: spacing.xs },
-  assistantMessage: { marginRight: spacing.xl, gap: spacing.xs },
+  userMessage: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    borderBottomRightRadius: 6,
+    marginLeft: spacing.xl,
+    gap: spacing.xs,
+  },
+  assistantMessage: {
+    borderBottomLeftRadius: 6,
+    marginRight: spacing.xl,
+    gap: spacing.xs,
+  },
 });

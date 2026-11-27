@@ -86,7 +86,6 @@ export function TimeSelectionRow({
               close();
             }}
           />
-          <ActionButton label="キャンセル" variant="ghost" onPress={close} />
         </SelectionPanel>
       ) : null}
     </>

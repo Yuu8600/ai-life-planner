@@ -1,5 +1,6 @@
-import type { ReactNode, Ref } from 'react';
+import { useEffect, useState, type ReactNode, type Ref } from 'react';
 import {
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import { colors, spacing } from '@/shared/theme';
 type AppScreenProps = {
   children: ReactNode;
   footer?: ReactNode;
+  overlay?: ReactNode;
   scrollRef?: Ref<ScrollView>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   scroll?: boolean;
@@ -26,6 +28,7 @@ type AppScreenProps = {
 export function AppScreen({
   children,
   footer,
+  overlay,
   scrollRef,
   contentContainerStyle,
   scroll = true,
@@ -33,30 +36,41 @@ export function AppScreen({
   onScroll,
   testID,
 }: AppScreenProps) {
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !footer) return;
+    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardOpen(true));
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardOpen(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [footer]);
+
+  const edges =
+    footer && !keyboardOpen
+      ? (['top', 'left', 'right', 'bottom'] as const)
+      : (['top', 'left', 'right'] as const);
+
   if (!scroll) {
     return (
-      <SafeAreaView
-        edges={footer ? ['top', 'left', 'right', 'bottom'] : ['top', 'left', 'right']}
-        style={styles.safeArea}
-        testID={testID}
-      >
+      <SafeAreaView edges={edges} style={styles.safeArea} testID={testID}>
         <View style={[styles.staticContent, contentContainerStyle]}>{children}</View>
+        {overlay}
         {footer}
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView
-      edges={footer ? ['top', 'left', 'right', 'bottom'] : ['top', 'left', 'right']}
-      style={styles.safeArea}
-      testID={testID}
-    >
+    <SafeAreaView edges={edges} style={styles.safeArea} testID={testID}>
       <ScrollView
         ref={scrollRef}
         scrollEnabled={scrollEnabled}
         onScroll={onScroll}
         scrollEventThrottle={onScroll ? 16 : undefined}
+        alwaysBounceVertical={Platform.OS === 'ios'}
         style={footer ? { flex: 1 } : undefined}
         contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
         keyboardShouldPersistTaps="handled"
@@ -65,6 +79,7 @@ export function AppScreen({
       >
         {children}
       </ScrollView>
+      {overlay}
       {footer}
     </SafeAreaView>
   );
@@ -83,7 +98,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
     paddingHorizontal: spacing.base,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl + spacing.xl,
   },
 });
