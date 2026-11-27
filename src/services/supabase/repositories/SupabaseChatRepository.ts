@@ -6,6 +6,7 @@ import type {
   MessagePage,
   PolicyProposal,
   Usage,
+  Thread,
 } from '@/features/ai-chat/v2/repository';
 import { getSupabaseClient } from '../client';
 import type { Json } from '../database.types';
@@ -84,11 +85,81 @@ export function createSupabaseChatRepository(userId: string): ChatRepository {
     async listThreads() {
       const result = await client
         .from('v2_threads')
-        .select('id,title')
+        .select('id,title,created_at,updated_at')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (result.error) throw result.error;
-      return result.data;
+        .order('updated_at', { ascending: false })
+        .order('id');
+      if (result.error) {
+        // Keep existing installations readable until their separately approved DB update.
+        if (
+          !['42703', 'PGRST204'].includes(result.error.code) ||
+          !result.error.message.includes('updated_at')
+        )
+          throw result.error;
+        const legacy = await client
+          .from('v2_threads')
+          .select('id,title,created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        if (legacy.error) throw legacy.error;
+        return legacy.data.map((row) => ({
+          id: row.id,
+          title: row.title,
+          createdAt: row.created_at,
+          canManage: false,
+        }));
+      }
+      return result.data.map((row) => ({
+        id: row.id,
+        title: row.title,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        canManage: true,
+      }));
+    },
+    async renameThread(thread, title) {
+      const value = title.trim();
+      if (!value || value.length > 100) throw new Error('会話名は1〜100文字で入力してください。');
+      if (!thread.updatedAt || thread.canManage === false)
+        throw new Error('会話一覧を再読み込みしてください。');
+      const { data, error } = await client
+        .from('v2_threads')
+        .update({ title: value })
+        .eq('user_id', userId)
+        .eq('id', thread.id)
+        .eq('title', thread.title)
+        .eq('updated_at', thread.updatedAt)
+        .select('id,title,created_at,updated_at')
+        .maybeSingle();
+      if (error) throw new Error('会話名を保存できませんでした。再試行してください。');
+      if (!data) throw new Error('会話が変更または削除されました。一覧を再読み込みしてください。');
+      return {
+        id: data.id,
+        title: data.title,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        canManage: true,
+      } satisfies Thread;
+    },
+    async removeThread(thread) {
+      if (!thread.updatedAt || thread.canManage === false)
+        throw new Error('会話一覧を再読み込みしてください。');
+      const { data, error } = await client
+        .from('v2_threads')
+        .delete()
+        .eq('user_id', userId)
+        .eq('id', thread.id)
+        .eq('title', thread.title)
+        .eq('updated_at', thread.updatedAt)
+        .select('id')
+        .maybeSingle();
+      if (error)
+        throw new Error(
+          error.code === '55000'
+            ? 'AIの応答を処理中です。完了後に再試行してください。'
+            : '会話を削除できませんでした。再試行してください。',
+        );
+      if (!data) throw new Error('会話が変更または削除されました。一覧を再読み込みしてください。');
     },
     async createThread(title) {
       const result = await client.from('v2_threads').insert({ title }).select('id,title').single();
