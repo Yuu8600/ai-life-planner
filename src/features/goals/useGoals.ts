@@ -18,11 +18,13 @@ export function useGoals(repository: GoalRepository | null, refreshToken = 0) {
   const [pendingMutation, setPendingMutation] = useState<GoalMutation | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const mutationLock = useRef(false);
+  const loadedRepoRef = useRef<GoalRepository | null>(null);
 
   useEffect(() => {
     let isActive = true;
 
     if (!repository) {
+      loadedRepoRef.current = null;
       void Promise.resolve().then(() => {
         if (isActive) {
           setGoals([]);
@@ -36,17 +38,25 @@ export function useGoals(repository: GoalRepository | null, refreshToken = 0) {
       };
     }
 
+    const isInitialLoad = loadedRepoRef.current !== repository;
+    if (isInitialLoad) {
+      void Promise.resolve().then(() => {
+        if (isActive) setIsLoading(true);
+      });
+    }
+
     void repository
       .list()
       .then((loadedGoals) => {
         if (isActive) {
+          loadedRepoRef.current = repository;
           setGoals(loadedGoals);
           setLoadError(null);
         }
       })
       .catch((error: unknown) => {
         if (isActive) {
-          setGoals([]);
+          if (isInitialLoad) setGoals([]);
           setLoadError(getGoalErrorMessage(error));
         }
       })
@@ -61,7 +71,7 @@ export function useGoals(repository: GoalRepository | null, refreshToken = 0) {
 
   const retry = useCallback(() => {
     if (!repository) return;
-    setIsLoading(true);
+    if (loadedRepoRef.current !== repository) setIsLoading(true);
     setLoadError(null);
     setLoadAttempt((current) => current + 1);
   }, [repository]);

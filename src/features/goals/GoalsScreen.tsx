@@ -45,6 +45,7 @@ export function GoalsScreen({
   } = useGoals(repository, refreshToken);
   const [editingGoal, setEditingGoal] = useState<Goal | null | undefined>(undefined);
   const isMutating = pendingMutation !== null;
+  const initialLoading = isLoading && !goals.length;
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
 
   const openCreateForm = () => {
@@ -95,7 +96,7 @@ export function GoalsScreen({
             : undefined
         }
         action={
-          repository && !isLoading ? (
+          repository && !initialLoading ? (
             <ActionButton
               accessibilityLabel="新しい目標を作成する"
               disabled={isMutating}
@@ -108,7 +109,7 @@ export function GoalsScreen({
         }
       />
 
-      {isLoading ? (
+      {initialLoading ? (
         <GoalStatePanel
           isLoading
           message="登録した目標を読み込んでいます。"

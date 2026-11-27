@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
-import { colors, controls, spacing, typography } from '@/shared/theme';
+import { colors, controls, radius, spacing, typography } from '@/shared/theme';
 
 export type ScreenHeaderBackAction = {
   accessibilityLabel?: string;
@@ -39,7 +39,8 @@ export function ScreenHeader({
           onPress={backAction.onPress}
           style={({ pressed }) => [
             styles.backButton,
-            (pressed || backAction.disabled) && { opacity: 0.55 },
+            pressed && !backAction.disabled && { backgroundColor: colors.primarySoft },
+            backAction.disabled && { opacity: 0.45 },
           ]}
         >
           <Text style={styles.backChevron} accessible={false}>
@@ -66,14 +67,14 @@ export function ScreenHeader({
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     gap: spacing.xs,
   },
   container: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   compactContainer: { marginBottom: spacing.xs },
   backButton: {
@@ -82,8 +83,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     minHeight: controls.minimumTarget,
-    paddingRight: spacing.md,
-    marginLeft: -2,
+    paddingHorizontal: spacing.sm,
+    marginLeft: -spacing.sm,
+    borderRadius: radius.pill,
   },
   backChevron: {
     color: colors.primary,
@@ -97,25 +99,27 @@ const styles = StyleSheet.create({
   },
   copy: {
     flex: 1,
+    minWidth: 0,
   },
   eyebrow: {
-    marginBottom: spacing.xs,
-    color: colors.textMuted,
-    ...typography.secondary,
+    marginBottom: 2,
+    color: colors.textSecondary,
+    ...typography.caption,
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
   title: {
     ...typography.screenTitle,
-    color: colors.text,
-    letterSpacing: -0.4,
+    color: colors.textPrimary,
+    letterSpacing: -0.6,
   },
   subtitle: {
-    ...typography.body,
-    marginTop: spacing.sm,
-    color: colors.textMuted,
+    ...typography.secondary,
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
   },
-  compactSubtitle: { marginTop: spacing.xs },
+  compactSubtitle: { marginTop: 2 },
   action: {
-    paddingTop: spacing.xs,
+    justifyContent: 'center',
   },
 });

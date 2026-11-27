@@ -1,8 +1,11 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { AuthForm } from '@/features/auth/components/AuthForm';
 import { ChatScreen } from '@/features/ai-chat/v2/ChatScreen';
 import type { ChatRepository } from '@/features/ai-chat/v2/repository';
+import { DayAgenda } from '@/features/calendar/DayAgenda';
+import type { FixedEventRepository } from '@/features/calendar/FixedEventRepository';
+import type { CalendarRepository } from '@/features/calendar/repositories/CalendarRepository';
 import { TodayRecommendationsScreen } from '@/features/recommendations/TodayRecommendationsScreen';
 import {
   DEFAULT_CONDITIONS,
@@ -89,9 +92,19 @@ describe('UI/UX improvements regression coverage', () => {
     expect(openStep).toHaveBeenCalledWith('task-1', 30);
   });
 
-  it('shows metadata and filters overdue tasks in Native TasksScreen', async () => {
+  it('shows metadata pills, filters overdue tasks, and keeps UI stable during silent refresh', async () => {
+    let resolveReload: (tasks: Task[]) => void = () => undefined;
+    const list = jest
+      .fn()
+      .mockResolvedValueOnce([sampleTask, overdueTask])
+      .mockImplementationOnce(
+        () =>
+          new Promise<Task[]>((resolve) => {
+            resolveReload = resolve;
+          }),
+      );
     const repository: TaskRepository = {
-      list: jest.fn().mockResolvedValue([sampleTask, overdueTask]),
+      list,
       listGoalOptions: jest.fn().mockResolvedValue([{ id: 'goal-1', title: 'TOEIC 800' }]),
       create: jest.fn(),
       findById: jest.fn(),
@@ -111,6 +124,7 @@ describe('UI/UX improvements regression coverage', () => {
     const screen = await render(
       <TasksScreen
         repository={repository}
+        refreshToken={0}
         recommendationMode
         recommendations={recommendations}
         planningTimezone={timezone}
@@ -118,12 +132,73 @@ describe('UI/UX improvements regression coverage', () => {
       />,
     );
 
-    expect(await screen.findByText(/目安 30分.*TOEIC 800/)).toBeTruthy();
+    expect(await screen.findByText('目安 30分')).toBeTruthy();
+    expect(screen.getAllByText('TOEIC 800').length).toBeGreaterThan(0);
     expect(screen.getByText('期限切れ 2026-11-20')).toBeTruthy();
+
+    // Silent refocus refresh must NOT hide the add button or unmount tasks.
+    await screen.rerender(
+      <TasksScreen
+        repository={repository}
+        refreshToken={1}
+        recommendationMode
+        recommendations={recommendations}
+        planningTimezone={timezone}
+        now={new Date('2026-11-27T04:00:00Z')}
+      />,
+    );
+    expect(screen.getByRole('button', { name: '新しいタスクを作成する' })).toBeTruthy();
+    expect(screen.getByText('英語リスニング')).toBeTruthy();
+    await act(async () => {
+      resolveReload([sampleTask, overdueTask]);
+    });
 
     await fireEvent.press(screen.getByRole('tab', { name: '期限切れ（1）' }));
     expect(screen.getByText('レポート提出')).toBeTruthy();
     expect(screen.queryByText('英語リスニング')).toBeNull();
+  });
+
+  it('keeps DayAgenda rendered without flicker when revision increments for the same day', async () => {
+    const calendar: CalendarRepository = {
+      getPermission: jest.fn().mockResolvedValue({ status: 'denied', canAskAgain: true }),
+      requestPermission: jest.fn(),
+      listEvents: jest.fn(),
+    };
+    let resolveSecondList: (events: []) => void = () => undefined;
+    const fixed: FixedEventRepository = {
+      list: jest
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            id: 'evt-1',
+            title: '定例ミーティング',
+            startAt: '2026-11-27T01:00:00Z',
+            endAt: '2026-11-27T02:00:00Z',
+          },
+        ])
+        .mockImplementationOnce(
+          () =>
+            new Promise<[]>((resolve) => {
+              resolveSecondList = resolve;
+            }),
+        ),
+      add: jest.fn(),
+      remove: jest.fn(),
+    };
+
+    const screen = await render(
+      <DayAgenda date={date} timezone={timezone} revision={0} calendar={calendar} fixed={fixed} />,
+    );
+    expect(await screen.findByText('定例ミーティング')).toBeTruthy();
+
+    await screen.rerender(
+      <DayAgenda date={date} timezone={timezone} revision={1} calendar={calendar} fixed={fixed} />,
+    );
+    expect(screen.getByText('定例ミーティング')).toBeTruthy();
+    expect(screen.queryByText('予定を確認しています。')).toBeNull();
+    await act(async () => {
+      resolveSecondList([]);
+    });
   });
 
   it('allows retrying failed thread loading in ChatScreen', async () => {

@@ -23,11 +23,14 @@ export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [goalLoadAttempt, setGoalLoadAttempt] = useState(0);
   const mutationLock = useRef(false);
+  const loadedRepoRef = useRef<TaskRepository | null>(null);
+  const loadedGoalRepoRef = useRef<TaskRepository | null>(null);
 
   useEffect(() => {
     let isActive = true;
 
     if (!repository) {
+      loadedRepoRef.current = null;
       void Promise.resolve().then(() => {
         if (isActive) {
           setTasks([]);
@@ -41,21 +44,25 @@ export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
       };
     }
 
-    void Promise.resolve().then(() => {
-      if (isActive) setIsLoading(true);
-    });
+    const isInitialLoad = loadedRepoRef.current !== repository;
+    if (isInitialLoad) {
+      void Promise.resolve().then(() => {
+        if (isActive) setIsLoading(true);
+      });
+    }
 
     void repository
       .list()
       .then((loadedTasks) => {
         if (isActive) {
+          loadedRepoRef.current = repository;
           setTasks(loadedTasks);
           setLoadError(null);
         }
       })
       .catch((error: unknown) => {
         if (isActive) {
-          setTasks([]);
+          if (isInitialLoad) setTasks([]);
           setLoadError(getTaskErrorMessage(error));
         }
       })
@@ -72,6 +79,7 @@ export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
     let isActive = true;
 
     if (!repository) {
+      loadedGoalRepoRef.current = null;
       void Promise.resolve().then(() => {
         if (isActive) {
           setGoalOptions([]);
@@ -85,21 +93,25 @@ export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
       };
     }
 
-    void Promise.resolve().then(() => {
-      if (isActive) setIsLoadingGoalOptions(true);
-    });
+    const isInitialGoalLoad = loadedGoalRepoRef.current !== repository;
+    if (isInitialGoalLoad) {
+      void Promise.resolve().then(() => {
+        if (isActive) setIsLoadingGoalOptions(true);
+      });
+    }
 
     void repository
       .listGoalOptions()
       .then((loadedGoals) => {
         if (isActive) {
+          loadedGoalRepoRef.current = repository;
           setGoalOptions(loadedGoals);
           setGoalOptionsError(null);
         }
       })
       .catch((error: unknown) => {
         if (isActive) {
-          setGoalOptions([]);
+          if (isInitialGoalLoad) setGoalOptions([]);
           setGoalOptionsError(getGoalOptionsErrorMessage(error));
         }
       })
@@ -114,8 +126,13 @@ export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
 
   const retry = useCallback(() => {
     if (!repository) return;
-    setIsLoading(true);
+    if (loadedRepoRef.current !== repository) setIsLoading(true);
     setLoadError(null);
+    setLoadAttempt((current) => current + 1);
+  }, [repository]);
+
+  const refreshSilent = useCallback(() => {
+    if (!repository) return;
     setLoadAttempt((current) => current + 1);
   }, [repository]);
 
@@ -194,8 +211,10 @@ export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
     loadError,
     mutationError,
     pendingMutation,
+    refreshSilent,
     retry,
     retryGoalOptions,
+    setTasks,
     tasks,
     updateTask,
   };

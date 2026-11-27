@@ -28,12 +28,13 @@ export function ModalHeader({
         borderBottomWidth: 1,
         borderBottomColor: colors.borderSubtle,
         alignItems: 'center',
+        backgroundColor: colors.surface,
       }}
     >
       <View style={{ flex: 1, minWidth: 120, gap: spacing.xs }}>
         <Text
           accessibilityRole="header"
-          style={{ ...typography.dialogTitle, color: colors.textPrimary }}
+          style={{ ...typography.dialogTitle, color: colors.textPrimary, letterSpacing: -0.3 }}
         >
           {title}
         </Text>
@@ -49,6 +50,7 @@ export function ModalHeader({
         label={closeText}
         onPress={onClose}
         variant="ghost"
+        style={{ paddingHorizontal: spacing.sm }}
       />
     </View>
   );

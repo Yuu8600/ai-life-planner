@@ -72,7 +72,23 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
     mode === 'today' ? readConditions(key) : DEFAULT_CONDITIONS,
   );
   const settingsButton = (
-    <ActionButton label="設定" variant="ghost" onPress={() => router.push('/settings')} />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="設定"
+      onPress={() => router.push('/settings')}
+      style={({ pressed }) => ({
+        minHeight: 38,
+        paddingHorizontal: spacing.md,
+        borderRadius: 999,
+        backgroundColor: pressed ? colors.primarySoft : colors.surface,
+        borderWidth: 1,
+        borderColor: colors.borderSubtle,
+        justifyContent: 'center',
+        alignItems: 'center',
+      })}
+    >
+      <Text style={{ ...typography.label, color: colors.textPrimary }}>設定</Text>
+    </Pressable>
   );
 
   if (!today || !timezone) {
@@ -92,9 +108,7 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
   }
   const date = mode === 'calendar' ? (selected ?? today) : today;
   const scheduleForDate =
-    schedule?.date === date && schedule.timezone === timezone && schedule.revision === revision
-      ? schedule
-      : undefined;
+    schedule?.date === date && schedule.timezone === timezone ? schedule : undefined;
   const agenda = (
     <DayAgenda
       date={date}

@@ -102,6 +102,11 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
     >
       <AppScreen contentContainerStyle={styles.content} testID="auth-screen">
         <View style={styles.intro}>
+          <View style={styles.brandMark}>
+            <Text style={styles.brandMarkText} accessible={false}>
+              AI
+            </Text>
+          </View>
           <Text accessibilityRole="header" style={styles.title}>
             AI Life Planner
           </Text>
@@ -291,46 +296,82 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   intro: {
+    alignItems: 'center',
     gap: spacing.sm,
+    paddingVertical: spacing.sm,
   },
-  title: {
-    color: colors.text,
-    ...typography.screenTitle,
+  brandMark: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOpacity: 0.28,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: { elevation: 4 },
+      web: { boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)' } as object,
+    }),
+  },
+  brandMarkText: {
+    color: colors.onPrimary,
+    fontSize: 22,
+    fontWeight: '800',
     letterSpacing: -0.5,
   },
+  title: {
+    color: colors.textPrimary,
+    ...typography.screenTitle,
+    letterSpacing: -0.6,
+    textAlign: 'center',
+  },
   subtitle: {
-    color: colors.textMuted,
-    ...typography.body,
+    color: colors.textSecondary,
+    ...typography.secondary,
+    textAlign: 'center',
   },
   modeSwitch: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: 4,
     marginTop: 0,
-    padding: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    padding: 4,
+    borderRadius: radius.control,
+    backgroundColor: colors.surfaceSubtle,
   },
   modeButton: {
-    minHeight: 48,
+    minHeight: 42,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    paddingHorizontal: spacing.sm,
   },
   selectedModeButton: {
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 1 },
+      },
+      android: { elevation: 1 },
+      web: { boxShadow: '0 1px 3px rgba(15, 23, 42, 0.1)' } as object,
+    }),
   },
   modeLabel: {
-    color: colors.textMuted,
-    ...typography.button,
+    color: colors.textSecondary,
+    ...typography.label,
   },
   selectedModeLabel: {
-    color: colors.accent,
+    color: colors.primary,
+    fontWeight: '700',
   },
   form: {
     gap: spacing.lg,

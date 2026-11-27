@@ -17,13 +17,15 @@ export function Badge({ label, tone = 'neutral' }: { label: string; tone?: Badge
         alignSelf: 'flex-start',
         maxWidth: '100%',
         flexShrink: 1,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs,
-        borderRadius: radius.sm,
+        paddingHorizontal: spacing.sm + 2,
+        paddingVertical: 3,
+        borderRadius: radius.pill,
         backgroundColor: background,
       }}
     >
-      <Text style={{ ...typography.label, color: foreground, flexShrink: 1 }}>{label}</Text>
+      <Text style={{ ...typography.caption, fontWeight: '700', color: foreground, flexShrink: 1 }}>
+        {label}
+      </Text>
     </View>
   );
 }

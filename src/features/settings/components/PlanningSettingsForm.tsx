@@ -256,17 +256,37 @@ export function PlanningSettingsForm({
         ? { tabIndex: -1, role: 'group' as const, 'aria-label': '設定の保存結果' }
         : {})}
     >
-      {saveError ? (
-        <Text style={[styles.helper, { color: colors.error }]}>保存できませんでした</Text>
-      ) : Object.values(fieldErrors).some(Boolean) ? (
-        <Notice tone="error" message="入力内容を確認してください。" />
-      ) : saveSucceeded ? (
-        <Notice tone="success" message="設定を保存しました。" />
-      ) : (
-        <Text accessibilityLiveRegion="polite" style={styles.helper}>
-          {dirty ? '未保存の変更があります' : '変更はありません'}
-        </Text>
-      )}
+      <View style={styles.statusSlot}>
+        {saveError ? (
+          <Text
+            accessibilityRole="alert"
+            style={[styles.helper, { color: colors.error, fontWeight: '600' }]}
+          >
+            保存できませんでした
+          </Text>
+        ) : Object.values(fieldErrors).some(Boolean) ? (
+          <Text
+            accessibilityRole="alert"
+            style={[styles.helper, { color: colors.error, fontWeight: '600' }]}
+          >
+            入力内容を確認してください。
+          </Text>
+        ) : saveSucceeded ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={[styles.helper, { color: colors.success, fontWeight: '600' }]}
+          >
+            設定を保存しました。
+          </Text>
+        ) : (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={[styles.helper, dirty && { color: colors.primary, fontWeight: '600' }]}
+          >
+            {dirty ? '未保存の変更があります' : '変更はありません'}
+          </Text>
+        )}
+      </View>
       <ActionButton
         accessibilityLabel={isSaving ? 'プロフィール設定を保存中' : 'プロフィール設定を保存する'}
         disabled={isSaving}
@@ -291,14 +311,16 @@ export function PlanningSettingsForm({
 const styles = StyleSheet.create({
   form: { gap: spacing.lg },
   helper: { color: colors.textSecondary, ...typography.secondary },
+  statusSlot: { minHeight: 24, justifyContent: 'center' },
   fieldError: { color: colors.error, ...typography.secondary },
   saveArea: {
     gap: spacing.sm,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderSubtle,
     backgroundColor: colors.surface,
   },

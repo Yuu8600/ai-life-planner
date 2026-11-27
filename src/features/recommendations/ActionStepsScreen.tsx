@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import type { Task, TaskRepository } from '@/features/tasks/repositories/TaskRepository';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
+import { Badge } from '@/shared/components/Badge';
 import { CompletionCheckbox } from '@/shared/components/CompletionCheckbox';
 import { Card } from '@/shared/components/Card';
 import { FormField, FormInput } from '@/shared/components/FormField';
@@ -11,6 +12,7 @@ import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
+import { ToastBanner } from '@/shared/components/ToastBanner';
 import { appAlert } from '@/shared/feedback/appAlert';
 import { useTheme } from '@/shared/theme';
 
@@ -173,8 +175,13 @@ export function ActionStepsScreen({
     );
   }
 
+  const dismissFeedback = useCallback(() => setFeedback(''), []);
+
   return (
-    <AppScreen contentContainerStyle={{ gap: spacing.md }}>
+    <AppScreen
+      contentContainerStyle={{ gap: spacing.md }}
+      overlay={feedback ? <ToastBanner message={feedback} onDismiss={dismissFeedback} /> : null}
+    >
       <ScreenHeader
         title="小さな行動"
         subtitle={data?.task.title}
@@ -201,8 +208,6 @@ export function ActionStepsScreen({
             <ActionButton label="実施記録を再読み込み" variant="secondary" onPress={refreshDay} />
           }
         />
-      ) : feedback ? (
-        <Notice tone="success" message={feedback} />
       ) : null}
       {!data && !error ? <Text style={{ color: colors.textSecondary }}>読み込み中…</Text> : null}
       {data ? (
@@ -263,16 +268,25 @@ export function ActionStepsScreen({
                     {step.title}
                   </Text>
                 </View>
-                <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
-                  {[
-                    step.minutes === null ? '所要時間未設定' : `${step.minutes}分`,
-                    step.repeatable ? '繰り返し使う' : '一度だけ',
-                    ...(checked
-                      ? [step.repeatable ? '今日の実施済み' : result ? '完了' : '過去に完了']
-                      : []),
-                    ...(result?.outcome === 'skipped' ? ['今日だけあとで'] : []),
-                  ].join(' ・ ')}
-                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  <Badge
+                    label={step.minutes === null ? '所要時間未設定' : `${step.minutes}分`}
+                    tone="neutral"
+                  />
+                  <Badge
+                    label={step.repeatable ? '繰り返し使う' : '一度だけ'}
+                    tone={step.repeatable ? 'accent' : 'neutral'}
+                  />
+                  {checked ? (
+                    <Badge
+                      label={step.repeatable ? '今日の実施済み' : result ? '完了' : '過去に完了'}
+                      tone="success"
+                    />
+                  ) : null}
+                  {result?.outcome === 'skipped' ? (
+                    <Badge label="今日だけあとで" tone="neutral" />
+                  ) : null}
+                </View>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
                   <ActionButton
                     label="編集"

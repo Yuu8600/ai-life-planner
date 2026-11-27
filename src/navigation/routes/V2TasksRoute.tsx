@@ -23,7 +23,6 @@ function SignedInTasks({ userId }: { userId: string }) {
   const { timezone, revision, now, error, refresh } = useV25Date(settings);
   return (
     <TasksScreen
-      key={entry ?? filter ?? 'tasks'}
       repository={repository}
       refreshToken={revision}
       planningTimezone={timezone}
@@ -33,6 +32,7 @@ function SignedInTasks({ userId }: { userId: string }) {
       dayError={error}
       retryDay={refresh}
       initialFilter={filter === 'overdue' ? 'overdue' : undefined}
+      filterEntry={entry}
       onAskAI={(task) =>
         router.push({
           pathname: '/ai',

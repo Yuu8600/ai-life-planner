@@ -26,7 +26,7 @@ export function ModalFrame({
   dirty = false,
   testID,
 }: ModalFrameProps) {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, radius, spacing, typography } = useTheme();
   const close = () => {
     if (closeDisabled) return;
     if (!dirty) {
@@ -59,6 +59,18 @@ export function ModalFrame({
           accessibilityViewIsModal
           onAccessibilityEscape={close}
         >
+          {Platform.OS === 'ios' && !dirty ? (
+            <View style={{ alignItems: 'center', paddingTop: spacing.sm }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 4,
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.borderSubtle,
+                }}
+              />
+            </View>
+          ) : null}
           <ModalHeader
             title={title}
             closeLabel={closeLabel}
@@ -70,6 +82,7 @@ export function ModalFrame({
             keyboardDismissMode="on-drag"
             contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
             style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
           >
             {description ? (
               <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
@@ -81,9 +94,11 @@ export function ModalFrame({
           {footer ? (
             <View
               style={{
-                padding: spacing.lg,
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.md,
                 borderTopWidth: 1,
                 borderTopColor: colors.borderSubtle,
+                backgroundColor: colors.surface,
               }}
             >
               {footer}

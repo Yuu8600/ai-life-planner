@@ -16,6 +16,7 @@ import { colors, spacing } from '@/shared/theme';
 type AppScreenProps = {
   children: ReactNode;
   footer?: ReactNode;
+  overlay?: ReactNode;
   scrollRef?: Ref<ScrollView>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   scroll?: boolean;
@@ -27,6 +28,7 @@ type AppScreenProps = {
 export function AppScreen({
   children,
   footer,
+  overlay,
   scrollRef,
   contentContainerStyle,
   scroll = true,
@@ -55,6 +57,7 @@ export function AppScreen({
     return (
       <SafeAreaView edges={edges} style={styles.safeArea} testID={testID}>
         <View style={[styles.staticContent, contentContainerStyle]}>{children}</View>
+        {overlay}
         {footer}
       </SafeAreaView>
     );
@@ -76,6 +79,7 @@ export function AppScreen({
       >
         {children}
       </ScrollView>
+      {overlay}
       {footer}
     </SafeAreaView>
   );
@@ -94,7 +98,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
     paddingHorizontal: spacing.base,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl + spacing.xl,
   },
 });

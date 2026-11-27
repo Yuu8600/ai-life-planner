@@ -41,7 +41,24 @@ export function ActionButton({
       ? variant === 'destructive'
         ? c.onError
         : c.onPrimary
-      : c.primary;
+      : variant === 'secondary'
+        ? c.textPrimary
+        : c.primary;
+
+  const primaryShadow =
+    !blocked && variant === 'primary'
+      ? Platform.select({
+          ios: {
+            shadowColor: c.primary,
+            shadowOpacity: 0.22,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 3 },
+          },
+          android: { elevation: 2 },
+          web: { boxShadow: '0 3px 10px rgba(79, 70, 229, 0.22)' } as ViewStyle,
+        })
+      : undefined;
+
   return (
     <Pressable
       {...(Platform.OS === 'web'
@@ -64,25 +81,23 @@ export function ActionButton({
           minWidth: controls.minimumTarget,
           maxWidth: '100%',
           flexShrink: 1,
-          paddingHorizontal: spacing.lg,
+          paddingHorizontal: variant === 'ghost' ? spacing.md : spacing.lg,
           paddingVertical: spacing.sm,
           borderRadius: radius.button,
-          borderWidth: controls.borderWidth,
+          borderWidth: variant === 'secondary' ? controls.borderWidth : 0,
           flexDirection: 'row',
           gap: spacing.sm,
           alignItems: 'center',
           justifyContent: 'center',
           borderColor: blocked
-            ? c.borderControl
-            : variant === 'primary'
-              ? c.primary
-              : variant === 'destructive'
-                ? c.error
-                : variant === 'secondary'
-                  ? c.borderControl
-                  : 'transparent',
+            ? c.borderSubtle
+            : variant === 'secondary'
+              ? c.borderSubtle
+              : 'transparent',
           backgroundColor: blocked
-            ? c.disabledSurface
+            ? variant === 'ghost'
+              ? 'transparent'
+              : c.disabledSurface
             : variant === 'primary'
               ? pressed
                 ? c.primaryPressed
@@ -91,12 +106,16 @@ export function ActionButton({
                 ? pressed
                   ? c.errorPressed
                   : c.error
-                : pressed
-                  ? c.primarySoft
-                  : variant === 'secondary'
-                    ? c.surface
+                : variant === 'secondary'
+                  ? pressed
+                    ? c.surfaceSubtle
+                    : c.surface
+                  : pressed
+                    ? c.primarySoft
                     : 'transparent',
+          transform: !blocked && pressed ? [{ scale: 0.985 }] : undefined,
         },
+        primaryShadow,
         style,
         focused && !blocked
           ? Platform.select({

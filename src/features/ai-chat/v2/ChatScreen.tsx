@@ -16,7 +16,7 @@ import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
-import { colors, controls, spacing, typography } from '@/shared/theme';
+import { colors, radius, spacing, typography } from '@/shared/theme';
 import { CalendarShareEditor, type ReadShareableCalendar } from './CalendarShareEditor';
 import type { TaskGoalOption } from '@/features/tasks/repositories/TaskRepository';
 import { DraftEditor } from './DraftEditor';
@@ -509,24 +509,36 @@ export function ChatScreen({
               />
             ) : null}
             {drafts.filter((draft) => !owner(draft)).map(proposalCard)}
-            {messages.map((item) => (
-              <View key={item.id} style={{ gap: spacing.sm }}>
-                <Card style={item.role === 'user' ? styles.userMessage : styles.assistantMessage}>
-                  <Text
-                    accessibilityRole="header"
-                    style={{ ...typography.label, color: colors.textSecondary }}
-                  >
-                    {item.role === 'user' ? 'あなた' : 'AI'}
-                  </Text>
-                  <Text style={{ ...typography.body, color: colors.textPrimary }}>
-                    {item.role === 'assistant' && drafts.some((draft) => owner(draft) === item.id)
-                      ? '操作を提案しました。下のカードで確認してください。'
-                      : item.body}
-                  </Text>
-                </Card>
-                {drafts.filter((draft) => owner(draft) === item.id).map(proposalCard)}
-              </View>
-            ))}
+            {messages.map((item) => {
+              const isUser = item.role === 'user';
+              return (
+                <View key={item.id} style={{ gap: spacing.sm }}>
+                  <Card style={isUser ? styles.userMessage : styles.assistantMessage}>
+                    <Text
+                      accessibilityRole="header"
+                      style={{
+                        ...typography.caption,
+                        fontWeight: '700',
+                        color: isUser ? 'rgba(255,255,255,0.82)' : colors.primary,
+                      }}
+                    >
+                      {isUser ? 'あなた' : 'AI'}
+                    </Text>
+                    <Text
+                      style={{
+                        ...typography.body,
+                        color: isUser ? colors.onPrimary : colors.textPrimary,
+                      }}
+                    >
+                      {item.role === 'assistant' && drafts.some((draft) => owner(draft) === item.id)
+                        ? '操作を提案しました。下のカードで確認してください。'
+                        : item.body}
+                    </Text>
+                  </Card>
+                  {drafts.filter((draft) => owner(draft) === item.id).map(proposalCard)}
+                </View>
+              );
+            })}
             {privateReply ? (
               <Card style={{ gap: spacing.sm }}>
                 <Text style={styles.small}>履歴に保存されない回答</Text>
@@ -599,9 +611,16 @@ export function ChatScreen({
                   pressed && { backgroundColor: colors.primarySoft },
                 ]}
               >
-                <Text style={styles.threadTitle} numberOfLines={1}>
-                  {thread.title}
-                </Text>
+                <View style={styles.threadLeading}>
+                  <View style={styles.threadDot}>
+                    <Text style={styles.threadDotText} accessible={false}>
+                      ✦
+                    </Text>
+                  </View>
+                  <Text style={styles.threadTitle} numberOfLines={1}>
+                    {thread.title}
+                  </Text>
+                </View>
                 <Text style={styles.threadChevron} accessible={false}>
                   ›
                 </Text>
@@ -664,8 +683,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
     gap: spacing.xs,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -4 },
+      },
+      android: { elevation: 4 },
+      web: { boxShadow: '0 -2px 10px rgba(15, 23, 42, 0.04)' } as object,
+    }),
   },
-  input: { maxHeight: 120 },
+  input: { maxHeight: 120, borderRadius: radius.md },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -681,13 +710,33 @@ const styles = StyleSheet.create({
   },
   threadList: { padding: 0, gap: 0, overflow: 'hidden' },
   threadRow: {
-    minHeight: controls.buttonHeight,
+    minHeight: 56,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: spacing.md,
+  },
+  threadLeading: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minWidth: 0,
+  },
+  threadDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  threadDotText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   threadDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -696,6 +745,16 @@ const styles = StyleSheet.create({
   threadTitle: { ...typography.bodyStrong, color: colors.textPrimary, flex: 1 },
   threadChevron: { ...typography.sectionTitle, color: colors.textSecondary },
   small: { ...typography.caption, color: colors.primary },
-  userMessage: { backgroundColor: colors.primarySoft, marginLeft: spacing.xl, gap: spacing.xs },
-  assistantMessage: { marginRight: spacing.xl, gap: spacing.xs },
+  userMessage: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    borderBottomRightRadius: 6,
+    marginLeft: spacing.xl,
+    gap: spacing.xs,
+  },
+  assistantMessage: {
+    borderBottomLeftRadius: 6,
+    marginRight: spacing.xl,
+    gap: spacing.xs,
+  },
 });

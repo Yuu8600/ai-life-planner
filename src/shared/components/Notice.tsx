@@ -16,23 +16,24 @@ export function Notice({
   testID?: string;
 }) {
   const { colors: c, radius, spacing, typography } = useTheme();
-  const [foreground, background] = {
-    info: [c.primary, c.primarySoft],
-    success: [c.success, c.successSoft],
-    warning: [c.warning, c.warningSoft],
-    error: [c.error, c.errorSoft],
+  const [foreground, background, border] = {
+    info: [c.primary, c.primarySoft, 'rgba(79, 70, 229, 0.18)'],
+    success: [c.success, c.successSoft, 'rgba(4, 120, 87, 0.18)'],
+    warning: [c.warning, c.warningSoft, 'rgba(146, 64, 14, 0.18)'],
+    error: [c.error, c.errorSoft, 'rgba(185, 28, 28, 0.18)'],
   }[tone];
   return (
     <View
       testID={testID}
       accessibilityLiveRegion="polite"
       style={{
-        padding: spacing.md,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
         gap: spacing.sm,
-        borderLeftWidth: 3,
-        borderLeftColor: foreground,
+        borderWidth: 1,
+        borderColor: border,
         backgroundColor: background,
-        borderRadius: radius.sm,
+        borderRadius: radius.md,
         minWidth: 0,
       }}
     >
@@ -43,7 +44,7 @@ export function Notice({
       ) : null}
       <Text
         accessibilityRole={tone === 'error' ? 'alert' : undefined}
-        style={{ ...typography.secondary, color: foreground }}
+        style={{ ...typography.secondary, color: foreground, fontWeight: '500' }}
       >
         {message}
       </Text>

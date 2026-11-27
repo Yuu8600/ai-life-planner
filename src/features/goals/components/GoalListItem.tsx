@@ -1,6 +1,6 @@
 import { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
-import { Text, View } from 'react-native';
 import { Badge } from '@/shared/components/Badge';
 import { Card } from '@/shared/components/Card';
 import { ItemActions } from '@/shared/components/ItemActions';
@@ -24,26 +24,48 @@ export function GoalListItem({
   onDelete,
   onEdit,
 }: GoalListItemProps) {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, controls, spacing, typography } = useTheme();
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const longDescription = Boolean(
     goal.description && (goal.description.length > 80 || goal.description.split('\n').length > 2),
   );
   return (
-    <Card testID={`goal-card-${goal.id}`}>
+    <Card testID={`goal-card-${goal.id}`} style={{ gap: spacing.sm }}>
       {compactActions ? (
-        <ActionButton
-          label={goal.title}
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel={`${goal.title}を編集する`}
           disabled={disabled}
-          variant="ghost"
           onPress={onEdit}
-          style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
-        />
+          style={({ pressed }) => ({
+            minHeight: controls.minimumTarget,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: spacing.sm,
+            opacity: disabled || pressed ? 0.65 : 1,
+          })}
+        >
+          <Text
+            style={{
+              ...typography.sectionTitle,
+              color: colors.textPrimary,
+              flex: 1,
+            }}
+          >
+            {goal.title}
+          </Text>
+          <Text
+            style={{ ...typography.sectionTitle, color: colors.textSecondary }}
+            accessible={false}
+          >
+            ›
+          </Text>
+        </Pressable>
       ) : (
         <Text
           style={{
-            ...typography.bodyStrong,
+            ...typography.sectionTitle,
             color: colors.textPrimary,
             flexShrink: 1,
             maxWidth: '100%',
@@ -52,19 +74,17 @@ export function GoalListItem({
           {goal.title}
         </Text>
       )}
-      <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
-        期限 {goal.deadlineLabel}
-      </Text>
       <View
-        style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center' }}
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: spacing.xs + 2,
+          alignItems: 'center',
+        }}
       >
-        <Badge
-          label={goal.statusLabel}
-          tone={goal.status === 'completed' ? 'success' : 'neutral'}
-        />
-        <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
-          {goal.priorityLabel}
-        </Text>
+        <Badge label={goal.statusLabel} tone={goal.status === 'completed' ? 'success' : 'accent'} />
+        <Badge label={`期限 ${goal.deadlineLabel}`} tone="neutral" />
+        <Badge label={goal.priorityLabel} tone="neutral" />
       </View>
       {goal.description ? (
         <View style={{ gap: spacing.xs }}>
@@ -82,7 +102,7 @@ export function GoalListItem({
               disabled={disabled}
               onPress={() => setDescriptionExpanded((value) => !value)}
               variant="ghost"
-              style={{ alignSelf: 'flex-start' }}
+              style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
             />
           ) : null}
         </View>

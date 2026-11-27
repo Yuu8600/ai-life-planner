@@ -26,15 +26,16 @@ export function CompletionCheckbox({
         minHeight: controls.minimumTarget,
         alignItems: 'center',
         justifyContent: 'center',
-        opacity: disabled || pressed ? 0.55 : 1,
+        opacity: disabled ? 0.45 : pressed ? 0.7 : 1,
+        transform: !disabled && pressed ? [{ scale: 0.92 }] : undefined,
       })}
     >
       <View
         style={{
-          width: 25,
-          height: 25,
-          borderRadius: radius.sm,
-          borderWidth: 2,
+          width: 24,
+          height: 24,
+          borderRadius: radius.pill,
+          borderWidth: checked ? 0 : 2,
           alignItems: 'center',
           justifyContent: 'center',
           borderColor: checked ? colors.primary : colors.borderControl,
@@ -45,7 +46,7 @@ export function CompletionCheckbox({
           <Text
             accessible={false}
             allowFontScaling={false}
-            style={{ color: colors.surface, fontWeight: '700' }}
+            style={{ color: colors.onPrimary, fontSize: 13, fontWeight: '800' }}
           >
             ✓
           </Text>
