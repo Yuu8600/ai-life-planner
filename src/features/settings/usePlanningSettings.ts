@@ -1,3 +1,4 @@
+import { useSuccessFeedback } from '@/shared/feedback/SuccessFeedback';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getSettingsErrorMessage } from './errors';
@@ -8,6 +9,7 @@ import type {
 } from './repositories/SettingsRepository';
 
 export function usePlanningSettings(repository: SettingsRepository | null) {
+  const notifySuccess = useSuccessFeedback();
   const [settings, setSettings] = useState<ProfilePlanningSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -91,6 +93,7 @@ export function usePlanningSettings(repository: SettingsRepository | null) {
         const updatedSettings = await repository.updateProfilePlanningSettings(input);
         setSettings(updatedSettings);
         setSaveSucceeded(true);
+        notifySuccess();
         return true;
       } catch (error) {
         setSaveError(getSettingsErrorMessage(error));
@@ -100,7 +103,7 @@ export function usePlanningSettings(repository: SettingsRepository | null) {
         setIsSaving(false);
       }
     },
-    [repository],
+    [repository, notifySuccess],
   );
 
   return {

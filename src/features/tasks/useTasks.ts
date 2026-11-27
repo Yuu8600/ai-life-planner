@@ -1,3 +1,4 @@
+import { useSuccessFeedback } from '@/shared/feedback/SuccessFeedback';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getGoalOptionsErrorMessage, getTaskErrorMessage } from './errors';
@@ -12,6 +13,7 @@ import type {
 export type TaskMutation = 'create' | `delete:${string}` | `update:${string}`;
 
 export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
+  const notifySuccess = useSuccessFeedback();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [goalOptions, setGoalOptions] = useState<TaskGoalOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,6 +158,7 @@ export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
 
       try {
         await operation(repository);
+        notifySuccess();
         return true;
       } catch (error) {
         setMutationError(getTaskErrorMessage(error));
@@ -165,7 +168,7 @@ export function useTasks(repository: TaskRepository | null, refreshToken = 0) {
         setPendingMutation(null);
       }
     },
-    [repository],
+    [repository, notifySuccess],
   );
 
   const createTask = useCallback(

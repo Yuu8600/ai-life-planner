@@ -1,3 +1,5 @@
+import { SuccessFeedbackProvider } from '@/shared/feedback/SuccessFeedback';
+import { successFeedback } from '@/services/haptics/successFeedback';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
@@ -37,9 +39,11 @@ export function RootNavigator() {
 export default function RootLayout() {
   return (
     <ThemeProvider followSystem>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
+      <SuccessFeedbackProvider onSuccess={successFeedback}>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </SuccessFeedbackProvider>
     </ThemeProvider>
   );
 }
