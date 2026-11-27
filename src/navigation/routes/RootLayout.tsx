@@ -22,6 +22,7 @@ export function RootNavigator() {
         </Stack.Protected>
         <Stack.Protected guard={!isRestoring && session !== null}>
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="goal-library" />
           <Stack.Screen name="action-steps" />
           <Stack.Screen name="advanced-planner" />
           <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />

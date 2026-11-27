@@ -15,6 +15,7 @@ import { PlannerPreviewScreen } from '@/features/planner/PlannerPreviewScreen';
 import { SettingsScreen } from '@/features/settings/SettingsScreen';
 import { TodayScreen } from '@/features/today/TodayScreen';
 
+import { DEMO_SETTINGS } from '@/services/demo/sampleData';
 import { useDemo } from '@/features/demo/DemoProvider';
 
 /** Screen data reloads on browser navigation, just as native routes do on focus. */
@@ -31,7 +32,14 @@ function useDemoRoute() {
 
 export function DemoGoalsRoute() {
   const { repositories, refreshToken } = useDemoRoute();
-  return <GoalsScreen key={refreshToken} repository={repositories.goalRepository} />;
+  return (
+    <GoalsScreen
+      refreshToken={refreshToken}
+      repository={repositories.goalRepository}
+      taskRepository={repositories.taskRepository}
+      planningTimezone={DEMO_SETTINGS.timezone}
+    />
+  );
 }
 function DemoNextStep({
   message,

@@ -5,6 +5,7 @@ import { Badge } from '@/shared/components/Badge';
 import { Card } from '@/shared/components/Card';
 import { ItemActions } from '@/shared/components/ItemActions';
 import { useTheme } from '@/shared/theme';
+import type { Task } from '@/features/tasks';
 import type { GoalListItemModel } from '../types';
 
 type GoalListItemProps = {
@@ -15,6 +16,9 @@ type GoalListItemProps = {
   isLast?: boolean;
   onDelete: () => void;
   onEdit: () => void;
+  relatedTasks?: readonly Task[];
+  onAddTask?: () => void;
+  onEditTask?: (task: Task) => void;
 };
 export function GoalListItem({
   disabled = false,
@@ -23,8 +27,12 @@ export function GoalListItem({
   isDeleting = false,
   onDelete,
   onEdit,
+  relatedTasks,
+  onAddTask,
+  onEditTask,
 }: GoalListItemProps) {
   const { colors, controls, spacing, typography } = useTheme();
+  const [tasksExpanded, setTasksExpanded] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const longDescription = Boolean(
     goal.description && (goal.description.length > 80 || goal.description.split('\n').length > 2),
@@ -106,6 +114,47 @@ export function GoalListItem({
             />
           ) : null}
         </View>
+      ) : null}
+      {relatedTasks ? (
+        <>
+          <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>
+            関連タスク {relatedTasks.filter((task) => task.status === 'completed').length} /{' '}
+            {relatedTasks.length} 件完了
+          </Text>
+          <ActionButton
+            label={`関連タスクを見る（${relatedTasks.length}件）`}
+            accessibilityLabel={`${goal.title}の関連タスクを${tasksExpanded ? '閉じる' : '見る'}`}
+            variant="ghost"
+            expanded={tasksExpanded}
+            disabled={disabled}
+            onPress={() => setTasksExpanded((value) => !value)}
+          />
+          {tasksExpanded ? (
+            relatedTasks.length ? (
+              relatedTasks.map((task) => (
+                <ActionButton
+                  key={task.id}
+                  label={`${task.status === 'completed' ? '✓ ' : ''}${task.title}`}
+                  accessibilityLabel={`${task.title}を編集する`}
+                  variant="ghost"
+                  disabled={disabled}
+                  onPress={() => onEditTask?.(task)}
+                />
+              ))
+            ) : (
+              <Text style={{ color: colors.textSecondary }}>関連タスクはまだありません。</Text>
+            )
+          ) : null}
+        </>
+      ) : null}
+      {onAddTask ? (
+        <ActionButton
+          label="この目標のタスクを追加"
+          accessibilityLabel={`${goal.title}のタスクを追加`}
+          variant="secondary"
+          disabled={disabled}
+          onPress={onAddTask}
+        />
       ) : null}
       <ItemActions
         title={goal.title}

@@ -45,7 +45,7 @@ function SignedInTasks({ userId }: { userId: string }) {
           },
         })
       }
-      onOpenGoals={() => router.navigate('/goals')}
+      onOpenGoals={() => router.push('/goal-library')}
       onOpenSteps={(taskId) => router.push({ pathname: '/action-steps', params: { taskId } })}
     />
   );

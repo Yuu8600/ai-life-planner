@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { getLocalDate, getUtcDayBounds, addLocalDays } from '@/features/today';
 import type { Recurrence } from '@/features/planner/v2/types';
@@ -30,7 +30,8 @@ type TaskFormModalProps = {
   isSubmitting: boolean;
   onClose: () => void;
   onRetryGoalOptions: () => void;
-  onSubmit: (input: CreateTaskInput) => Promise<boolean>;
+  onSubmit: (input: CreateTaskInput, keepAdding?: boolean) => Promise<boolean>;
+  initialGoalId?: string;
   task: Task | null;
   planningTimezone?: string;
   recommendationMode?: boolean;
@@ -54,9 +55,10 @@ export function TaskFormModal({
   onOpenSteps,
   onAskAI,
   onDelete,
+  initialGoalId,
 }: TaskFormModalProps) {
-  const [values, setValues] = useState<TaskFormValues>(() =>
-    createTaskFormValues(
+  const [values, setValues] = useState<TaskFormValues>(() => ({
+    ...createTaskFormValues(
       task && planningTimezone && task.deadline
         ? {
             ...task,
@@ -65,10 +67,14 @@ export function TaskFormModal({
         : (task ?? undefined),
       recommendationMode,
     ),
-  );
+    ...(!task && initialGoalId ? { goalId: initialGoalId } : {}),
+  }));
   const [recurrence, setRecurrence] = useState<Recurrence>(task?.recurrence?.kind ?? 'once');
   const [weekdays, setWeekdays] = useState(task?.recurrence?.weekdays ?? []);
-  const [initialSnapshot] = useState(() =>
+  const [keepAdding, setKeepAdding] = useState(false);
+  const [addedCount, setAddedCount] = useState(0);
+  const titleInput = useRef<TextInput>(null);
+  const [initialSnapshot, setInitialSnapshot] = useState(() =>
     JSON.stringify({
       values,
       recurrence: task?.recurrence?.kind ?? 'once',
@@ -116,6 +122,10 @@ export function TaskFormModal({
     submitLock.current = true;
 
     try {
+      let input =
+        task && values.deadline === initialDeadline.current
+          ? { ...validation.input, deadline: task.deadline }
+          : validation.input;
       if (planningTimezone || recommendationMode) {
         const date = values.deadline.trim();
         const deadline =
@@ -126,20 +136,30 @@ export function TaskFormModal({
                   Date.parse(getUtcDayBounds(addLocalDays(date, 1), planningTimezone).startAt) - 1,
                 ).toISOString()
               : validation.input.deadline;
-        await onSubmit({
+        input = {
           ...validation.input,
           deadline,
           localDeadline: date || null,
           recurrence: { kind: recurrence, weekdays: usesWeekdays ? [...weekdays].sort() : [] },
-        });
-        return;
+        };
       }
-      // Editing other fields must preserve the original deadline instant.
-      await onSubmit(
-        task && values.deadline === initialDeadline.current
-          ? { ...validation.input, deadline: task.deadline }
-          : validation.input,
-      );
+      const continued = !task && !!initialGoalId && keepAdding;
+      const saved = continued ? await onSubmit(input, true) : await onSubmit(input);
+      if (saved && continued) {
+        const next = {
+          ...createTaskFormValues(undefined, recommendationMode),
+          goalId: values.goalId,
+        };
+        setValues(next);
+        setRecurrence('once');
+        setWeekdays([]);
+        setFieldErrors({});
+        setRecurrenceError('');
+        initialDeadline.current = next.deadline;
+        setInitialSnapshot(JSON.stringify({ values: next, recurrence: 'once', weekdays: [] }));
+        setAddedCount((count) => count + 1);
+        requestAnimationFrame(() => titleInput.current?.focus());
+      }
     } finally {
       submitLock.current = false;
     }
@@ -167,9 +187,27 @@ export function TaskFormModal({
         />
       }
     >
+      {addedCount > 0 ? (
+        <Notice tone="success" message={`${addedCount}件を追加しました。続けて入力できます。`} />
+      ) : null}
+      {!task && initialGoalId ? (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel="続けてタスクを追加"
+          accessibilityState={{ checked: keepAdding, disabled: isSubmitting }}
+          disabled={isSubmitting}
+          onPress={() => setKeepAdding((value) => !value)}
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text style={{ color: colors.textPrimary }}>
+            {keepAdding ? '☑' : '☐'} 保存後も続けてタスクを追加
+          </Text>
+        </Pressable>
+      ) : null}
       <FormField error={fieldErrors.title} label="タイトル（必須）">
         <FormInput
           accessibilityLabel="タスクタイトル"
+          ref={titleInput}
           editable={!isSubmitting}
           maxLength={200}
           onChangeText={(value) => updateValue('title', value)}

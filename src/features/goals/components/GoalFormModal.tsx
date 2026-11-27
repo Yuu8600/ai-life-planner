@@ -27,6 +27,10 @@ type GoalFormModalProps = {
   isSubmitting: boolean;
   onClose: () => void;
   onOpenAI?: () => void;
+  onAddTask?: () => void;
+  visible?: boolean;
+  onDismiss?: () => void;
+  planningTimezone?: string;
   onSubmit: (input: GoalFormInput) => Promise<boolean>;
 };
 
@@ -37,6 +41,10 @@ export function GoalFormModal({
   onClose,
   onOpenAI,
   onSubmit,
+  onAddTask,
+  visible,
+  onDismiss,
+  planningTimezone,
 }: GoalFormModalProps) {
   const [values, setValues] = useState<GoalFormValues>(() =>
     createGoalFormValues(goal ?? undefined),
@@ -73,6 +81,8 @@ export function GoalFormModal({
 
   return (
     <ModalFrame
+      visible={visible}
+      onDismiss={onDismiss}
       title={isEditing ? '目標を編集' : '新しい目標'}
       onClose={onClose}
       closeLabel="目標フォームを閉じる"
@@ -117,6 +127,7 @@ export function GoalFormModal({
 
       <DeadlineField
         accessibilityLabel="目標の期限"
+        timezone={planningTimezone}
         disabled={isSubmitting}
         error={fieldErrors.deadline}
         onChange={(value) => updateValue('deadline', value)}
@@ -141,9 +152,17 @@ export function GoalFormModal({
         selectedValue={values.status}
       />
 
+      {onAddTask ? (
+        <ActionButton
+          label="この目標のタスクを追加"
+          variant="secondary"
+          disabled={isSubmitting}
+          onPress={() => confirmDiscardChanges(dirty, onAddTask)}
+        />
+      ) : null}
       {onOpenAI ? (
         <ActionButton
-          label="AIで小さな行動を考える"
+          label="AIでこの目標のタスクを考える"
           variant="secondary"
           disabled={isSubmitting}
           onPress={() => confirmDiscardChanges(dirty, onOpenAI)}
