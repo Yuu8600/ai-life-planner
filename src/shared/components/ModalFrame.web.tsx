@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { Modal, Text, useWindowDimensions } from 'react-native';
+import { confirmDiscardChanges } from '@/shared/feedback/confirmDiscardChanges';
 import { useTheme } from '@/shared/theme';
 import type { ModalFrameProps } from './ModalFrame';
 import { ModalHeader } from './ModalHeader';
@@ -11,20 +12,29 @@ export function ModalFrame({
   children,
   footer,
   onClose,
+  visible = true,
+  onDismiss,
   closeLabel,
   closeDisabled = false,
+  dirty = false,
   testID,
 }: ModalFrameProps) {
   const { colors, spacing, radius, surfaces, typography } = useTheme();
   const { width } = useWindowDimensions();
   const ref = useRef<HTMLDivElement>(null);
   const close = () => {
-    if (!closeDisabled) onClose();
+    if (!closeDisabled) confirmDiscardChanges(dirty, onClose);
   };
   useModalFocus(ref, close);
   const mobile = width < 768;
   return (
-    <Modal visible transparent accessibilityLabel={title} onRequestClose={close}>
+    <Modal
+      visible={visible}
+      onDismiss={onDismiss}
+      transparent
+      accessibilityLabel={title}
+      onRequestClose={close}
+    >
       <div
         style={{
           position: 'fixed',

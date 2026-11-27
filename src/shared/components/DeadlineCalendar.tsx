@@ -14,6 +14,7 @@ export type DeadlineCalendarProps = {
   value: string;
   onChange: (value: string) => void;
   onClear?: () => void;
+  clearLabel?: string;
   onDismiss?: () => void;
 };
 
@@ -22,6 +23,7 @@ export function DeadlineCalendar({
   value,
   onChange,
   onClear,
+  clearLabel = '期限なし',
   onDismiss,
 }: DeadlineCalendarProps) {
   const { colors } = useTheme();
@@ -36,8 +38,9 @@ export function DeadlineCalendar({
       onDismiss={onDismiss}
       {...(Platform.OS === 'android'
         ? {
-            neutralButton: { label: '期限なし' },
-            onNeutralButtonPress: onClear,
+            ...(onClear
+              ? { neutralButton: { label: clearLabel }, onNeutralButtonPress: onClear }
+              : {}),
           }
         : { display: 'inline' as const, accentColor: colors.primary, locale: 'ja-JP' })}
     />

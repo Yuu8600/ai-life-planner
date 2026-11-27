@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Keyboard, Platform } from 'react-native';
 
-import { formatDateInput } from '@/shared/dateInput';
+import { formatCalendarDateJa, formatDateInput } from '@/shared/dateInput';
 import { ActionButton } from './ActionButton';
 import { DeadlineCalendar } from './DeadlineCalendar';
 import { FormField } from './FormField';
@@ -11,12 +11,18 @@ import { SelectionRow } from './timeSelection/SelectionRow';
 export function DeadlineField({
   accessibilityLabel,
   label = '期限',
+  allowClear = true,
+  emptyLabel = '期限なし',
+  clearLabel = '期限なし',
   disabled,
   error,
   onChange,
   value,
 }: {
   label?: string;
+  allowClear?: boolean;
+  emptyLabel?: string;
+  clearLabel?: string;
   accessibilityLabel: string;
   disabled: boolean;
   error?: string;
@@ -27,17 +33,16 @@ export function DeadlineField({
   const [draft, setDraft] = useState('');
   const close = () => setAnchor(null);
   const commit = (date: string) => {
-    if (disabled) return;
+    if (disabled || (!allowClear && !date)) return;
     onChange(date);
     close();
   };
-  const [year, month, day] = value.split('-').map(Number);
 
   return (
     <FormField error={error} label={label}>
       <SelectionRow
         label="日付を選ぶ"
-        value={value ? `${year}年${month}月${day}日` : '期限なし'}
+        value={value ? formatCalendarDateJa(value) : emptyLabel}
         disabled={disabled}
         onOpen={(position) => {
           if (Platform.OS !== 'web') Keyboard.dismiss();
@@ -51,14 +56,17 @@ export function DeadlineField({
             label={accessibilityLabel}
             value={draft}
             onChange={commit}
-            onClear={() => commit('')}
+            onClear={allowClear ? () => commit('') : undefined}
+            clearLabel={clearLabel}
             onDismiss={close}
           />
         ) : (
           <SelectionPanel title={accessibilityLabel} anchor={anchor} onCancel={close}>
-            <DeadlineCalendar label="期限の日付" value={draft} onChange={setDraft} />
+            <DeadlineCalendar label={accessibilityLabel} value={draft} onChange={setDraft} />
             <ActionButton label="日付を決定" disabled={!draft} onPress={() => commit(draft)} />
-            <ActionButton label="期限なし" onPress={() => commit('')} variant="secondary" />
+            {allowClear ? (
+              <ActionButton label={clearLabel} onPress={() => commit('')} variant="secondary" />
+            ) : null}
           </SelectionPanel>
         )
       ) : null}

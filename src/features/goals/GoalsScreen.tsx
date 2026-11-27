@@ -87,28 +87,31 @@ export function GoalsScreen({
   };
 
   return (
-    <AppScreen testID="goals-screen">
-      <ScreenHeader
-        title="目標"
-        backAction={
-          onBack
-            ? { label: 'タスク', accessibilityLabel: 'タスクに戻る', onPress: onBack }
-            : undefined
-        }
-        action={
-          repository && !initialLoading ? (
-            <ActionButton
-              accessibilityLabel="新しい目標を作成する"
-              disabled={isMutating}
-              label={compactActions ? '目標を追加' : '＋ 追加'}
-              onPress={openCreateForm}
-              style={styles.addButton}
-              variant="primary"
-            />
-          ) : null
-        }
-      />
-
+    <AppScreen
+      testID="goals-screen"
+      header={
+        <ScreenHeader
+          title="目標"
+          backAction={
+            onBack
+              ? { label: 'タスク', accessibilityLabel: 'タスクに戻る', onPress: onBack }
+              : undefined
+          }
+          action={
+            repository && !initialLoading ? (
+              <ActionButton
+                accessibilityLabel="新しい目標を作成する"
+                disabled={isMutating}
+                label={compactActions ? '目標を追加' : '＋ 追加'}
+                onPress={openCreateForm}
+                style={styles.addButton}
+                variant="primary"
+              />
+            ) : null
+          }
+        />
+      }
+    >
       {initialLoading ? (
         <GoalStatePanel
           isLoading

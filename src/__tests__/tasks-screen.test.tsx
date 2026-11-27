@@ -286,7 +286,7 @@ describe('Clear deletion controls', () => {
   });
 });
 
-it('strikes through a recurring task after completion and lets the user undo from the same row', async () => {
+it('hides a recurring task after today completion and lets the user undo from completed history', async () => {
   const date = '2026-11-18';
   const dailyTask: Task = { ...task, recurrence: { kind: 'weekly', weekdays: [3] } };
   let completed = false;
@@ -333,12 +333,15 @@ it('strikes through a recurring task after completion and lets the user undo fro
   );
   expect(recommendations.record).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
   expect(await screen.findByRole('button', { name: '元に戻す' })).toBeTruthy();
+  expect(screen.queryByText('TOEIC Listening')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: '完了済み（1）' }));
   expect(screen.getByText('TOEIC Listening')).toHaveStyle({ textDecorationLine: 'line-through' });
   expect(await screen.findByText(/今日の実施済み/)).toBeTruthy();
   const undo = screen.getByRole('checkbox', { name: 'TOEIC Listeningの今日の実施を取り消す' });
   expect(undo.props.accessibilityState.checked).toBe(true);
   await fireEvent.press(undo);
   expect(recommendations.undo).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
+  await fireEvent.press(screen.getByRole('button', { name: '完了済みを閉じる' }));
   expect(await screen.findByRole('button', { name: '完了済み（0）' })).toBeTruthy();
   expect(screen.getByText('TOEIC Listening')).not.toHaveStyle({
     textDecorationLine: 'line-through',
@@ -402,8 +405,9 @@ it('limits bulk deletion to completed Tasks and confirms the count before writin
         now={new Date(date + 'T04:00Z')}
       />,
     );
-    expect(screen.getByText('読み終えた本')).toHaveStyle({ textDecorationLine: 'line-through' });
+    expect(screen.queryByText('読み終えた本')).toBeNull();
     await fireEvent.press(await screen.findByRole('button', { name: '完了済み（3）' }));
+    expect(screen.getByText('読み終えた本')).toHaveStyle({ textDecorationLine: 'line-through' });
     expect(screen.getByText('繰り返しタスクの今日の実施')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: '複数選択' }));
     expect(screen.queryByRole('checkbox', { name: '散歩を選択' })).toBeNull();
@@ -419,4 +423,58 @@ it('limits bulk deletion to completed Tasks and confirms the count before writin
   } finally {
     confirm.mockRestore();
   }
+});
+
+it('defaults to incomplete Tasks, separates navigation from filters and preserves overdue route entries', async () => {
+  const date = '2026-11-27';
+  const completed = { ...task, id: 'done', title: '完了した作業', status: 'completed' as const };
+  const recurring = {
+    ...task,
+    id: 'repeat',
+    title: '毎日の作業',
+    recurrence: { kind: 'daily' as const, weekdays: [] },
+    deadline: null,
+  };
+  const repository = createRepository({ list: jest.fn(async () => [task, completed, recurring]) });
+  const recommendations = {
+    listSteps: jest.fn(),
+    addStep: jest.fn(),
+    updateStep: jest.fn(),
+    removeStep: jest.fn(),
+    listResults: jest.fn(async () => []),
+    record: jest.fn(),
+    undo: jest.fn(),
+  };
+  const props = {
+    repository,
+    recommendations,
+    recommendationMode: true,
+    planningTimezone: 'Asia/Tokyo',
+    now: new Date(date + 'T04:00Z'),
+    onOpenGoals: jest.fn(),
+  };
+  const screen = await render(<TasksScreen {...props} />);
+  expect(screen.getByRole('tab', { name: '未完了（2）' }).props.accessibilityState.selected).toBe(
+    true,
+  );
+  expect(screen.queryByText(completed.title)).toBeNull();
+  expect(screen.getByRole('button', { name: '目標' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '完了済み（1）' })).toBeTruthy();
+  expect(screen.getByText('期限切れ 2026年10月25日')).toBeTruthy();
+  expect(screen.getAllByText('優先度 高')).toHaveLength(2);
+  await fireEvent.press(screen.getByRole('tab', { name: 'すべて（3）' }));
+  expect(screen.getByText(completed.title)).toBeTruthy();
+  await fireEvent.press(screen.getByRole('tab', { name: '繰り返し（1）' }));
+  expect(screen.queryByText(task.title)).toBeNull();
+  expect(screen.getByText(recurring.title)).toBeTruthy();
+  await screen.rerender(<TasksScreen {...props} initialFilter="overdue" filterEntry="entry1" />);
+  expect(screen.getByRole('tab', { name: '期限切れ（1）' }).props.accessibilityState.selected).toBe(
+    true,
+  );
+  expect(screen.queryByText(recurring.title)).toBeNull();
+  await fireEvent.press(screen.getByRole('tab', { name: 'すべて（3）' }));
+  await screen.rerender(<TasksScreen {...props} initialFilter="overdue" filterEntry="entry2" />);
+  expect(screen.getByRole('tab', { name: '期限切れ（1）' }).props.accessibilityState.selected).toBe(
+    true,
+  );
 });

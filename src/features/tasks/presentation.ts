@@ -1,3 +1,4 @@
+import { formatCalendarDateJa } from '@/shared/dateInput';
 import type { Task, TaskGoalOption } from './repositories/TaskRepository';
 import type { TaskFilterId, TaskSummary } from './types';
 
@@ -29,7 +30,9 @@ export function toTaskSummary(task: Task, goalOptions: readonly TaskGoalOption[]
     : 'Goalなし';
 
   return {
-    deadlineLabel: task.localDeadline ?? formatDeadline(task.deadline),
+    deadlineLabel: task.localDeadline
+      ? formatCalendarDateJa(task.localDeadline)
+      : formatDeadline(task.deadline),
     estimatedMinutes: task.estimatedMinutes,
     goalId: task.goalId,
     goalTitle,

@@ -7,6 +7,7 @@ import { ModalFrame } from '@/shared/components/ModalFrame';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
+import { confirmDiscardChanges } from '@/shared/feedback/confirmDiscardChanges';
 import { spacing } from '@/shared/theme';
 
 import type { Goal } from '../repositories/GoalRepository';
@@ -145,7 +146,7 @@ export function GoalFormModal({
           label="AIで小さな行動を考える"
           variant="secondary"
           disabled={isSubmitting}
-          onPress={onOpenAI}
+          onPress={() => confirmDiscardChanges(dirty, onOpenAI)}
         />
       ) : null}
       {errorMessage ? <Notice tone="error" message={errorMessage} /> : null}

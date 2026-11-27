@@ -11,8 +11,17 @@ import {
 } from 'react-native';
 
 import type { AgendaAvailability } from '@/features/calendar';
-import type { Task, TaskRepository } from '@/features/tasks/repositories/TaskRepository';
-import { getTaskErrorMessage } from '@/features/tasks/errors';
+import {
+  TaskFormModal,
+  getGoalOptionsErrorMessage,
+  getTaskErrorMessage,
+  TaskNotFoundError,
+  type CreateTaskInput,
+  type Task,
+  type TaskGoalOption,
+  type TaskRepository,
+} from '@/features/tasks';
+import { formatCalendarDateJa } from '@/shared/dateInput';
 import { addLocalDays, formatLocalDateJa, getUtcDayBounds } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -62,6 +71,7 @@ type Props = {
   };
   openCalendar?: () => void;
   openChat?: () => void;
+  askTaskAI?: (task: Task) => void;
   openSettings: () => void;
   openTasks: (filter?: 'overdue') => void;
   openStep: (taskId: string, minutes: number) => void;
@@ -89,12 +99,21 @@ export function TodayRecommendationsScreen({
   calendarWindow,
   openCalendar,
   openChat,
+  askTaskAI,
   openSettings,
   openTasks,
   openStep,
 }: Props) {
   const { colors, controls, radius, spacing, typography } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
+  const [editingTask, setEditingTask] = useState<Task>();
+  const [editorGoals, setEditorGoals] = useState<TaskGoalOption[]>([]);
+  const [editorGoalError, setEditorGoalError] = useState<string | null>(null);
+  const [editorError, setEditorError] = useState('');
+  const [editorLoading, setEditorLoading] = useState(false);
+  const editorRequest = useRef(0);
+  const candidateAction = useRef<(() => void) | undefined>(undefined);
+  const [candidateClosing, setCandidateClosing] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [loadError, setLoadError] = useState('');
@@ -436,7 +455,106 @@ export function TodayRecommendationsScreen({
   const regular = visible.filter((item) => !item.urgent);
   const scheduleLabel =
     calendarWindow?.availability === 'partial' ? '確認できた予定では' : '予定表では';
-  const actionDisabled = busy || !!loadError;
+  useEffect(
+    () => () => {
+      editorRequest.current += 1;
+    },
+    [],
+  );
+
+  function finishCandidateClose() {
+    const action = candidateAction.current;
+    candidateAction.current = undefined;
+    setSelectedCandidate(undefined);
+    setCandidateClosing(false);
+    action?.();
+  }
+  function closeCandidate(action?: () => void) {
+    editorRequest.current += 1;
+    setEditorLoading(false);
+    candidateAction.current = action;
+    // UIKit must finish dismissing the sheet before another Modal/route opens.
+    if (Platform.OS === 'ios') setCandidateClosing(true);
+    else finishCandidateClose();
+  }
+  async function openTaskEditor(taskId: string) {
+    if (editorLoading) return;
+    const request = ++editorRequest.current;
+    setEditorLoading(true);
+    setEditorError('');
+    try {
+      const [task, goals] = await Promise.all([
+        taskRepository.findById(taskId),
+        taskRepository.listGoalOptions().then(
+          (values) => ({ values, error: null }),
+          (error: unknown) => ({
+            values: [] as TaskGoalOption[],
+            error: getGoalOptionsErrorMessage(error),
+          }),
+        ),
+      ]);
+      if (request !== editorRequest.current) return;
+      if (!task || task.id !== taskId) throw new TaskNotFoundError();
+      setEditorGoals(goals.values);
+      setEditorGoalError(goals.error);
+      closeCandidate(() => setEditingTask(task));
+    } catch (error) {
+      if (request === editorRequest.current) {
+        setEditorError(getTaskErrorMessage(error));
+        setEditorLoading(false);
+      }
+    }
+  }
+  function closeTaskEditor() {
+    editorRequest.current += 1;
+    setEditorLoading(false);
+    setEditorError('');
+    setEditingTask(undefined);
+  }
+  async function retryEditorGoals() {
+    const request = ++editorRequest.current;
+    setEditorLoading(true);
+    try {
+      const values = await taskRepository.listGoalOptions();
+      if (request === editorRequest.current) {
+        setEditorGoals(values);
+        setEditorGoalError(null);
+      }
+    } catch (error) {
+      if (request === editorRequest.current) setEditorGoalError(getGoalOptionsErrorMessage(error));
+    } finally {
+      if (request === editorRequest.current) setEditorLoading(false);
+    }
+  }
+  async function saveEditedTask(input: CreateTaskInput) {
+    if (!editingTask || writeLock.current) return false;
+    writeLock.current = true;
+    setBusy(true);
+    setEditorError('');
+    try {
+      const saved = await taskRepository.update(editingTask.id, input);
+      // Invalidate older in-flight loads before publishing the saved Task.
+      loadVersion.current += 1;
+      setSnapshot(
+        (previous) =>
+          previous && {
+            ...previous,
+            tasks: previous.tasks.map((task) => (task.id === saved.id ? saved : task)),
+          },
+      );
+      setEditingTask(undefined);
+      setRetry((value) => value + 1);
+      return true;
+    } catch (error) {
+      setEditorError(getTaskErrorMessage(error));
+      return false;
+    } finally {
+      writeLock.current = false;
+      setBusy(false);
+    }
+  }
+
+  const actionDisabled = busy || !!loadError || !!editingTask || editorLoading || candidateClosing;
   const row = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.xs };
   const titleStyle = { ...typography.bodyStrong, color: colors.textPrimary };
 
@@ -495,7 +613,10 @@ export function TodayRecommendationsScreen({
           accessibilityRole="button"
           accessibilityLabel={`${item.title}の詳細を開く`}
           disabled={actionDisabled}
-          onPress={() => setSelectedCandidate(item)}
+          onPress={() => {
+            setEditorError('');
+            setSelectedCandidate(item);
+          }}
           style={({ pressed }) => ({
             flex: 1,
             gap: 5,
@@ -606,32 +727,33 @@ export function TodayRecommendationsScreen({
         scrollRef={scrollRef}
         overlay={toastOverlay}
         contentContainerStyle={{ paddingTop: spacing.sm, gap: spacing.md }}
+        header={
+          <ScreenHeader
+            eyebrow={dateText}
+            title="今日"
+            compact
+            action={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="設定"
+                onPress={openSettings}
+                style={({ pressed }) => ({
+                  minHeight: 38,
+                  paddingHorizontal: spacing.md,
+                  borderRadius: radius.pill,
+                  backgroundColor: pressed ? colors.primarySoft : colors.surface,
+                  borderWidth: 1,
+                  borderColor: colors.borderSubtle,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                })}
+              >
+                <Text style={{ ...typography.label, color: colors.textPrimary }}>設定</Text>
+              </Pressable>
+            }
+          />
+        }
       >
-        <ScreenHeader
-          eyebrow={dateText}
-          title="今日"
-          compact
-          action={
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="設定"
-              onPress={openSettings}
-              style={({ pressed }) => ({
-                minHeight: 38,
-                paddingHorizontal: spacing.md,
-                borderRadius: radius.pill,
-                backgroundColor: pressed ? colors.primarySoft : colors.surface,
-                borderWidth: 1,
-                borderColor: colors.borderSubtle,
-                justifyContent: 'center',
-                alignItems: 'center',
-              })}
-            >
-              <Text style={{ ...typography.label, color: colors.textPrimary }}>設定</Text>
-            </Pressable>
-          }
-        />
-
         <View style={styles.summaryRow}>
           <Pressable
             accessibilityRole="button"
@@ -1036,8 +1158,12 @@ export function TodayRecommendationsScreen({
         {selectedCandidate ? (
           <ModalFrame
             title={selectedCandidate.title}
+            testID="candidate-details"
+            visible={!candidateClosing}
+            onDismiss={finishCandidateClose}
             closeLabel="詳細を閉じる"
-            onClose={() => setSelectedCandidate(undefined)}
+            closeDisabled={candidateClosing}
+            onClose={() => closeCandidate()}
           >
             <Card variant="tinted" style={{ gap: spacing.xs }}>
               <Text style={text}>
@@ -1047,7 +1173,7 @@ export function TodayRecommendationsScreen({
                   : `目安 ${selectedCandidate.minutes}分`}
               </Text>
               {selectedCandidate.deadline ? (
-                <Text style={text}>期限：{selectedCandidate.deadline}</Text>
+                <Text style={text}>期限：{formatCalendarDateJa(selectedCandidate.deadline)}</Text>
               ) : null}
               {selectedCandidate.kind === 'step' ? (
                 <Text style={text}>親タスク：{selectedCandidate.taskTitle}</Text>
@@ -1055,7 +1181,32 @@ export function TodayRecommendationsScreen({
                 <Text style={text}>目標：{current.goals.get(selectedCandidate.goalId)}</Text>
               ) : null}
             </Card>
+            {editorError ? <Notice tone="error" message={editorError} /> : null}
             <View style={{ gap: spacing.sm }}>
+              <ActionButton
+                label={selectedCandidate.kind === 'step' ? '親タスクを編集' : 'タスクを編集'}
+                variant="secondary"
+                disabled={actionDisabled}
+                loading={editorLoading}
+                onPress={() => void openTaskEditor(selectedCandidate.taskId)}
+              />
+              {askTaskAI ? (
+                <ActionButton
+                  label="このタスクをAIに相談"
+                  variant="secondary"
+                  disabled={
+                    actionDisabled ||
+                    !current?.tasks.some((task) => task.id === selectedCandidate.taskId)
+                  }
+                  onPress={() => {
+                    const task = current?.tasks.find(
+                      (task) => task.id === selectedCandidate.taskId,
+                    );
+                    if (!task) return;
+                    closeCandidate(() => askTaskAI(task));
+                  }}
+                />
+              ) : null}
               <ActionButton
                 label={
                   repeats(selectedCandidate.kind, selectedCandidate.id)
@@ -1065,8 +1216,7 @@ export function TodayRecommendationsScreen({
                 disabled={actionDisabled}
                 onPress={() => {
                   const target = selectedCandidate;
-                  setSelectedCandidate(undefined);
-                  void record(target, 'completed');
+                  closeCandidate(() => void record(target, 'completed'));
                 }}
               />
               <ActionButton
@@ -1075,8 +1225,7 @@ export function TodayRecommendationsScreen({
                 disabled={actionDisabled}
                 onPress={() => {
                   const taskId = selectedCandidate.taskId;
-                  setSelectedCandidate(undefined);
-                  openStep(taskId, conditions.minutes ?? 30);
+                  closeCandidate(() => openStep(taskId, conditions.minutes ?? 30));
                 }}
               />
               <ActionButton
@@ -1085,12 +1234,28 @@ export function TodayRecommendationsScreen({
                 disabled={actionDisabled}
                 onPress={() => {
                   const target = selectedCandidate;
-                  setSelectedCandidate(undefined);
-                  void record(target, 'skipped');
+                  closeCandidate(() => void record(target, 'skipped'));
                 }}
               />
             </View>
           </ModalFrame>
+        ) : null}
+
+        {editingTask ? (
+          <TaskFormModal
+            key={editingTask.id}
+            task={editingTask}
+            planningTimezone={timezone}
+            recommendationMode
+            goalOptions={editorGoals}
+            goalOptionsError={editorGoalError}
+            isLoadingGoalOptions={editorLoading}
+            onRetryGoalOptions={() => void retryEditorGoals()}
+            isSubmitting={busy}
+            errorMessage={editorError || null}
+            onClose={closeTaskEditor}
+            onSubmit={saveEditedTask}
+          />
         ) : null}
 
         {policySheet ? (

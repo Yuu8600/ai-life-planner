@@ -1,3 +1,4 @@
+import { formatCalendarDateJa } from '@/shared/dateInput';
 import { getLocalDate } from '@/features/today';
 import type {
   RecommendationRepository,
@@ -86,14 +87,14 @@ export function TasksScreen({
   } = useTasks(repository, refreshToken);
   const [mountedAt] = useState(() => new Date());
   const [activeFilter, setActiveFilter] = useState<TaskFilterId>(initialFilter ?? 'all');
-  const [nativeFilter, setNativeFilter] = useState<'all' | 'overdue' | 'recurring'>(
-    initialFilter === 'overdue' ? 'overdue' : 'all',
+  const [nativeFilter, setNativeFilter] = useState<'incomplete' | 'all' | 'overdue' | 'recurring'>(
+    initialFilter === 'overdue' ? 'overdue' : 'incomplete',
   );
   const filterSyncKey = `${initialFilter ?? ''}:${filterEntry ?? ''}`;
   const [lastFilterSync, setLastFilterSync] = useState(filterSyncKey);
   if (filterSyncKey !== lastFilterSync) {
     setLastFilterSync(filterSyncKey);
-    if (initialFilter === 'overdue') setNativeFilter('overdue');
+    setNativeFilter(initialFilter === 'overdue' ? 'overdue' : 'incomplete');
   }
   const [showCompleted, setShowCompleted] = useState(false);
   const [taskSelection, setTaskSelection] = useState<string[] | null>(null);
@@ -157,12 +158,15 @@ export function TasksScreen({
     ? tasks.filter((task) => !isComplete(task) && isOverdue(task)).length
     : 0;
   const recurringCount = recommendationMode
-    ? tasks.filter((task) => (task.recurrence?.kind ?? 'once') !== 'once').length
+    ? tasks.filter((task) => !isComplete(task) && (task.recurrence?.kind ?? 'once') !== 'once')
+        .length
     : 0;
   const visibleTasks = recommendationMode
     ? tasks.filter((task) => {
+        if (nativeFilter === 'incomplete') return !isComplete(task);
         if (nativeFilter === 'overdue') return !isComplete(task) && isOverdue(task);
-        if (nativeFilter === 'recurring') return (task.recurrence?.kind ?? 'once') !== 'once';
+        if (nativeFilter === 'recurring')
+          return !isComplete(task) && (task.recurrence?.kind ?? 'once') !== 'once';
         return true;
       })
     : tasks.filter((task) => matchesTaskFilter(task, activeFilter, now));
@@ -415,9 +419,15 @@ export function TasksScreen({
               {task.title}
             </Text>
             <View style={styles.metaPills}>
-              {overdue ? <Badge label={`期限切れ ${deadline}`} tone="error" /> : null}
-              {!overdue && deadline ? <Badge label={`期限 ${deadline}`} tone="neutral" /> : null}
-              {!checked && task.priority === 'high' ? <Badge label="高" tone="warning" /> : null}
+              {overdue && deadline ? (
+                <Badge label={`期限切れ ${formatCalendarDateJa(deadline)}`} tone="error" />
+              ) : null}
+              {!overdue && deadline ? (
+                <Badge label={`期限 ${formatCalendarDateJa(deadline)}`} tone="neutral" />
+              ) : null}
+              {!checked && task.priority === 'high' ? (
+                <Badge label="優先度 高" tone="warning" />
+              ) : null}
               {task.estimatedMinutes !== null ? (
                 <Badge label={`目安 ${task.estimatedMinutes}分`} tone="neutral" />
               ) : null}
@@ -474,39 +484,43 @@ export function TasksScreen({
     ) : null;
 
   return (
-    <AppScreen testID="tasks-screen" overlay={toastOverlay}>
-      <ScreenHeader
-        title="タスク"
-        action={
-          repository && !initialLoading && !loadError ? (
-            <ActionButton
-              accessibilityLabel="新しいタスクを作成する"
-              disabled={isMutating}
-              label={planningTimezone || recommendationMode ? 'タスクを追加' : '＋ 追加'}
-              onPress={openCreateForm}
-              style={styles.addButton}
-              variant="primary"
-            />
-          ) : null
-        }
-      />
-
+    <AppScreen
+      testID="tasks-screen"
+      overlay={toastOverlay}
+      header={
+        <ScreenHeader
+          title="タスク"
+          action={
+            repository && !initialLoading && !loadError ? (
+              <ActionButton
+                accessibilityLabel="新しいタスクを作成する"
+                disabled={isMutating}
+                label={planningTimezone || recommendationMode ? 'タスクを追加' : '＋ 追加'}
+                onPress={openCreateForm}
+                style={styles.addButton}
+                variant="primary"
+              />
+            ) : null
+          }
+        />
+      }
+    >
       {intro}
       {recommendationMode ? (
         <View style={{ gap: spacing.sm }}>
           <View style={styles.secondaryActions}>
             {onOpenGoals ? (
               <ActionButton
-                label="目標"
-                variant="secondary"
-                style={styles.pillAction}
+                label="目標 ›"
+                accessibilityLabel="目標"
+                variant="ghost"
                 onPress={onOpenGoals}
               />
             ) : null}
             <ActionButton
-              label={`完了済み（${completedTasks.length}）`}
-              variant="secondary"
-              style={styles.pillAction}
+              label={`完了済み（${completedTasks.length}） ›`}
+              accessibilityLabel={`完了済み（${completedTasks.length}）`}
+              variant="ghost"
               onPress={() => {
                 setTaskSelection(null);
                 setBatchMessage('');
@@ -518,11 +532,15 @@ export function TasksScreen({
             <View accessibilityRole="tablist" style={styles.filterRow}>
               {(
                 [
+                  {
+                    id: 'incomplete',
+                    label: `未完了（${tasks.filter((task) => !isComplete(task)).length}）`,
+                  },
                   { id: 'all', label: `すべて（${tasks.length}）` },
-                  ...(overdueCount > 0
+                  ...(overdueCount > 0 || nativeFilter === 'overdue'
                     ? [{ id: 'overdue' as const, label: `期限切れ（${overdueCount}）` }]
                     : []),
-                  ...(recurringCount > 0
+                  ...(recurringCount > 0 || nativeFilter === 'recurring'
                     ? [{ id: 'recurring' as const, label: `繰り返し（${recurringCount}）` }]
                     : []),
                 ] as const
@@ -803,7 +821,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignItems: 'center',
   },
-  pillAction: { minHeight: 40, paddingHorizontal: spacing.md, borderRadius: radius.pill },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   filterChip: {
     minHeight: 36,

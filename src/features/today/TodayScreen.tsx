@@ -138,30 +138,33 @@ export function TodayScreen({
   }
 
   return (
-    <AppScreen testID="today-screen">
-      <ScreenHeader
-        action={
-          <Pressable
-            accessibilityLabel="設定を開く"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={onPressSettings}
-            style={({ pressed }) => [styles.settingsButton, pressed ? styles.pressed : null]}
-          >
-            <Text style={styles.settingsIcon}>⚙</Text>
-          </Pressable>
-        }
-        eyebrow={today ? formatTodayDateLabel(today.localDate) : undefined}
-        subtitle={
-          today &&
-          configuredWindow &&
-          getLocalDate(configuredWindow.endAt, displayTimezone) > today.localDate
-            ? `${today.localDate}の計画（翌日${formatLocalTimeJa(configuredWindow.endAt, displayTimezone)}まで）`
-            : undefined
-        }
-        title="今日の予定"
-      />
-
+    <AppScreen
+      testID="today-screen"
+      header={
+        <ScreenHeader
+          action={
+            <Pressable
+              accessibilityLabel="設定を開く"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={onPressSettings}
+              style={({ pressed }) => [styles.settingsButton, pressed ? styles.pressed : null]}
+            >
+              <Text style={styles.settingsIcon}>⚙</Text>
+            </Pressable>
+          }
+          eyebrow={today ? formatTodayDateLabel(today.localDate) : undefined}
+          subtitle={
+            today &&
+            configuredWindow &&
+            getLocalDate(configuredWindow.endAt, displayTimezone) > today.localDate
+              ? `${today.localDate}の計画（翌日${formatLocalTimeJa(configuredWindow.endAt, displayTimezone)}まで）`
+              : undefined
+          }
+          title="今日の予定"
+        />
+      }
+    >
       {isLoading && !today ? (
         <TodayStatePanel
           isLoading

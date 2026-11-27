@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 
 import { DayAgenda, type CalendarRepository, type FixedEventRepository } from '@/features/calendar';
 import { TodayRecommendationsScreen } from '@/features/recommendations/TodayRecommendationsScreen';
@@ -358,4 +358,127 @@ it('shows more recommendations in batches and collapses to the original count', 
   expect(card.getAllByRole('checkbox')).toHaveLength(4);
   expect(card.queryByRole('button', { name: '折りたたむ' })).toBeNull();
   expect(card.getByRole('button', { name: 'もっと見る' })).toBeTruthy();
+});
+
+it.each(['task', 'step'] as const)(
+  'edits the latest parent Task from a %s candidate and refreshes the recommendation',
+  async (kind) => {
+    let task = { ...existing, recurrence: { kind: 'once' as const, weekdays: [] } };
+    const update = jest.fn(async (_id, input) => {
+      task = { ...task, ...input };
+      return task;
+    });
+    const findById = jest.fn(async () => ({ ...task, title: '最新のタスク名' }));
+    const screen = await render(
+      <TodayRecommendationsScreen
+        date={date}
+        timezone={timezone}
+        revision={0}
+        initialConditions={DEFAULT_CONDITIONS}
+        saveConditions={jest.fn()}
+        openSettings={jest.fn()}
+        openTasks={jest.fn()}
+        openStep={jest.fn()}
+        taskRepository={{
+          list: jest.fn(async () => [task]),
+          listGoalOptions: jest.fn(async () => []),
+          create: jest.fn(),
+          findById,
+          remove: jest.fn(),
+          update,
+        }}
+        repository={{
+          listSteps: jest.fn(async () =>
+            kind === 'step'
+              ? [
+                  {
+                    id: 'child',
+                    createdAt: '2026-11-27',
+                    taskId: task.id,
+                    title: '子の行動',
+                    minutes: 5,
+                    effort: null,
+                    repeatable: false,
+                    completed: false,
+                  },
+                ]
+              : [],
+          ),
+          listResults: jest.fn(async () => []),
+          addStep: jest.fn(),
+          removeStep: jest.fn(),
+          updateStep: jest.fn(),
+          record: jest.fn(),
+          undo: jest.fn(),
+        }}
+      />,
+    );
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: `${kind === 'step' ? '子の行動' : task.title}の詳細を開く`,
+      }),
+    );
+    const dismiss = screen.getByTestId('candidate-details-presentation').props.onDismiss;
+    await fireEvent.press(
+      screen.getByRole('button', { name: kind === 'step' ? '親タスクを編集' : 'タスクを編集' }),
+    );
+    await act(() => dismiss());
+    expect(findById).toHaveBeenCalledWith(task.id);
+    expect(screen.getByLabelText('タスクタイトル').props.value).toBe('最新のタスク名');
+    await fireEvent.changeText(screen.getByLabelText('タスクタイトル'), '更新したタスク');
+    await fireEvent.changeText(screen.getByLabelText('タスクの所要時間'), '25');
+    await fireEvent.press(screen.getByRole('button', { name: 'タスクを保存する' }));
+    expect(update).toHaveBeenCalledWith(
+      'task',
+      expect.objectContaining({ title: '更新したタスク', estimatedMinutes: 25 }),
+    );
+    expect(screen.queryByTestId('task-form-modal')).toBeNull();
+    if (kind === 'task') expect(await screen.findByText('更新したタスク')).toBeTruthy();
+    else {
+      await fireEvent.press(screen.getByRole('button', { name: '子の行動の詳細を開く' }));
+      expect(screen.getByText('親タスク：更新したタスク')).toBeTruthy();
+    }
+  },
+);
+
+it('passes the parent Task to AI consultation from candidate details without writing', async () => {
+  const askTaskAI = jest.fn();
+  const update = jest.fn();
+  const screen = await render(
+    <TodayRecommendationsScreen
+      date={date}
+      timezone={timezone}
+      revision={0}
+      initialConditions={DEFAULT_CONDITIONS}
+      saveConditions={jest.fn()}
+      openSettings={jest.fn()}
+      openTasks={jest.fn()}
+      openStep={jest.fn()}
+      askTaskAI={askTaskAI}
+      taskRepository={{
+        list: jest.fn(async () => [existing]),
+        listGoalOptions: jest.fn(async () => []),
+        create: jest.fn(),
+        findById: jest.fn(),
+        remove: jest.fn(),
+        update,
+      }}
+      repository={{
+        listSteps: jest.fn(async () => []),
+        listResults: jest.fn(async () => []),
+        addStep: jest.fn(),
+        removeStep: jest.fn(),
+        updateStep: jest.fn(),
+        record: jest.fn(),
+        undo: jest.fn(),
+      }}
+    />,
+  );
+  await fireEvent.press(screen.getByRole('button', { name: `${existing.title}の詳細を開く` }));
+  const dismiss = screen.getByTestId('candidate-details-presentation').props.onDismiss;
+  await fireEvent.press(screen.getByRole('button', { name: 'このタスクをAIに相談' }));
+  expect(askTaskAI).not.toHaveBeenCalled();
+  await act(() => dismiss());
+  expect(askTaskAI).toHaveBeenCalledWith(existing);
+  expect(update).not.toHaveBeenCalled();
 });

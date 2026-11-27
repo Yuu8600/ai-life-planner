@@ -122,6 +122,8 @@ export function CalendarShareEditor({
         />
       ) : null}
       <DeadlineField
+        allowClear={false}
+        emptyLabel="日付を選ぶ"
         accessibilityLabel="対象日"
         label="対象日"
         disabled={busy}

@@ -16,3 +16,9 @@ export function dateInputToLocalDate(value: string): Date {
   date.setFullYear(year, month - 1, day);
   return date;
 }
+
+/** Format a calendar date without interpreting it as a UTC instant. */
+export function formatCalendarDateJa(value: string): string {
+  const [year, month, day] = value.split('-').map(Number);
+  return `${year}年${month}月${day}日`;
+}

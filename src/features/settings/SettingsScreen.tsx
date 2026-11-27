@@ -66,11 +66,13 @@ export function SettingsScreen({
           contentContainerStyle={styles.content}
           footer={footer}
           scrollRef={bodyScroll}
+          header={
+            <ScreenHeader
+              title="設定"
+              action={<CloseControl dirty={dirty} isSaving={isSaving} onPressBack={onPressBack} />}
+            />
+          }
         >
-          <ScreenHeader
-            title="設定"
-            action={<CloseControl dirty={dirty} isSaving={isSaving} onPressBack={onPressBack} />}
-          />
           {body}
           {planningAccessory}
           {sections.map((section) => (

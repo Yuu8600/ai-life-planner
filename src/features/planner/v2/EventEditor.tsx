@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Text } from 'react-native';
+import { formatCalendarDateJa } from '@/shared/dateInput';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
@@ -41,6 +42,11 @@ export function EventEditor({
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const lock = useRef(false);
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify({ kind, title, from, to, offset, length, before, after }),
+  );
+  const dirty =
+    JSON.stringify({ kind, title, from, to, offset, length, before, after }) !== initialSnapshot;
   async function submit() {
     if (lock.current) return;
     lock.current = true;
@@ -77,6 +83,7 @@ export function EventEditor({
       title="アプリ内予定を追加"
       onClose={close}
       closeDisabled={pending}
+      dirty={dirty}
       footer={<ActionButton label="予定を保存" loading={pending} onPress={() => void submit()} />}
     >
       {!fixedOnly ? (
@@ -92,7 +99,14 @@ export function EventEditor({
         />
       ) : null}
       <FormField label="予定名">
-        <FormInput maxLength={200} value={title} onChangeText={setTitle} />
+        <FormInput
+          accessibilityLabel="予定名"
+          placeholder="例：打ち合わせ"
+          editable={!pending}
+          maxLength={200}
+          value={title}
+          onChangeText={setTitle}
+        />
       </FormField>
       {fixedOnly ? (
         <>
@@ -108,31 +122,51 @@ export function EventEditor({
             }}
           />
           <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
-            {date} の予定として登録し、おすすめの時間判定に使います。
+            {formatCalendarDateJa(date)} の予定として登録し、おすすめの時間判定に使います。
           </Text>
         </>
       ) : (
         <>
           <FormField label="開始（HH:MM）">
-            <FormInput placeholder="12:00" value={from} onChangeText={setFrom} />
+            <FormInput
+              editable={!pending}
+              placeholder="12:00"
+              value={from}
+              onChangeText={setFrom}
+            />
           </FormField>
           <FormField label="終了（HH:MM）">
-            <FormInput placeholder="13:00" value={to} onChangeText={setTo} />
+            <FormInput editable={!pending} placeholder="13:00" value={to} onChangeText={setTo} />
           </FormField>
         </>
       )}
       {fixedOnly ? null : kind === 'fixed' ? (
         <>
           <FormField label="前の移動時間（分）">
-            <FormInput keyboardType="number-pad" value={before} onChangeText={setBefore} />
+            <FormInput
+              editable={!pending}
+              keyboardType="number-pad"
+              value={before}
+              onChangeText={setBefore}
+            />
           </FormField>
           <FormField label="後の移動時間（分）">
-            <FormInput keyboardType="number-pad" value={after} onChangeText={setAfter} />
+            <FormInput
+              editable={!pending}
+              keyboardType="number-pad"
+              value={after}
+              onChangeText={setAfter}
+            />
           </FormField>
         </>
       ) : (
         <FormField label="所要時間（分）">
-          <FormInput keyboardType="number-pad" value={length} onChangeText={setLength} />
+          <FormInput
+            editable={!pending}
+            keyboardType="number-pad"
+            value={length}
+            onChangeText={setLength}
+          />
         </FormField>
       )}
       {error ? <Notice tone="error" message={error} /> : null}

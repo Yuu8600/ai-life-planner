@@ -181,12 +181,14 @@ export function ActionStepsScreen({
     <AppScreen
       contentContainerStyle={{ gap: spacing.md }}
       overlay={feedback ? <ToastBanner message={feedback} onDismiss={dismissFeedback} /> : null}
+      header={
+        <ScreenHeader
+          title="小さな行動"
+          subtitle={data?.task.title}
+          backAction={{ label: '戻る', onPress: close }}
+        />
+      }
     >
-      <ScreenHeader
-        title="小さな行動"
-        subtitle={data?.task.title}
-        backAction={{ label: '戻る', onPress: close }}
-      />
       {error ? (
         <Notice
           tone="error"
@@ -351,6 +353,8 @@ function StepEditor({
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const lock = useRef(false);
+  const [initialSnapshot] = useState(() => JSON.stringify({ title, minutes, repeatable }));
+  const dirty = JSON.stringify({ title, minutes, repeatable }) !== initialSnapshot;
 
   async function submit() {
     if (lock.current) return;
@@ -386,6 +390,7 @@ function StepEditor({
       title={step ? '小さな行動を編集' : '小さな行動を追加'}
       onClose={close}
       closeDisabled={pending}
+      dirty={dirty}
       footer={<ActionButton label="保存" loading={pending} onPress={() => void submit()} />}
     >
       <FormField label="何をする？">

@@ -93,8 +93,9 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
 
   if (!today || !timezone) {
     return (
-      <AppScreen>
-        <ScreenHeader title={mode === 'today' ? '今日' : '予定'} action={settingsButton} />
+      <AppScreen
+        header={<ScreenHeader title={mode === 'today' ? '今日' : '予定'} action={settingsButton} />}
+      >
         <StatePanel
           testID="daily-profile-state"
           title={error ? '表示日を確認できませんでした' : '読み込み中'}
@@ -147,6 +148,19 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         }
         openCalendar={() => router.navigate('/calendar')}
         openChat={() => openChat(date)}
+        askTaskAI={(task) =>
+          router.push({
+            pathname: '/ai',
+            params: {
+              date,
+              intent: 'edit',
+              focusKind: 'task',
+              focusId: task.id,
+              focusTitle: task.title,
+              entry: String(Date.now()),
+            },
+          })
+        }
         initialConditions={initialConditions}
         saveConditions={(value) => {
           try {
@@ -169,8 +183,10 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
     );
   }
   return (
-    <AppScreen contentContainerStyle={{ gap: spacing.md }}>
-      <ScreenHeader title="予定" action={settingsButton} />
+    <AppScreen
+      contentContainerStyle={{ gap: spacing.md }}
+      header={<ScreenHeader title="予定" action={settingsButton} />}
+    >
       <CalendarDateNavigator
         selectedDate={date}
         timeZone={timezone}

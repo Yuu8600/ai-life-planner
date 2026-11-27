@@ -269,16 +269,18 @@ export function DailyPlanningScreen({
       onScroll={({ nativeEvent }) => {
         scrollY.current = nativeEvent.contentOffset.y;
       }}
+      header={
+        <ScreenHeader
+          title={mode === 'today' ? '今日の計画' : 'カレンダー'}
+          backAction={closeAdvanced ? { label: '戻る', onPress: closeAdvanced } : undefined}
+          action={
+            closeAdvanced ? undefined : (
+              <ActionButton variant="ghost" label="設定" onPress={openSettings} />
+            )
+          }
+        />
+      }
     >
-      <ScreenHeader
-        title={mode === 'today' ? '今日の計画' : 'カレンダー'}
-        backAction={closeAdvanced ? { label: '戻る', onPress: closeAdvanced } : undefined}
-        action={
-          closeAdvanced ? undefined : (
-            <ActionButton variant="ghost" label="設定" onPress={openSettings} />
-          )
-        }
-      />
       {today ? (
         <View style={styles.row}>
           <ActionButton
