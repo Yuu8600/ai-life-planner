@@ -7,7 +7,12 @@ import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
 import { TimeSelectionRow } from '@/shared/components/timeSelection/TimeSelectionRow';
-import { addLocalDays, getPlanningInstant } from '@/features/today';
+import {
+  addLocalDays,
+  getPlanningInstant,
+  getLocalDate,
+  formatLocalTimeJa,
+} from '@/features/today';
 import { useTheme } from '@/shared/theme';
 import type { LocalEvent } from './repository';
 
@@ -23,18 +28,26 @@ export function EventEditor({
   close,
   save,
   fixedOnly = false,
+  initialEvent,
 }: {
   date: string;
   timezone: string;
   close: () => void;
   save: (event: LocalEvent) => Promise<void>;
   fixedOnly?: boolean;
+  initialEvent?: LocalEvent;
 }) {
-  const [kind, setKind] = useState<'fixed' | 'flexible'>('fixed');
-  const [title, setTitle] = useState('');
-  const [from, setFrom] = useState(fixedOnly ? '09:00' : '');
-  const [to, setTo] = useState(fixedOnly ? '10:00' : '');
-  const [offset, setOffset] = useState('0');
+  const [kind, setKind] = useState<'fixed' | 'flexible'>(initialEvent?.kind ?? 'fixed');
+  const [title, setTitle] = useState(initialEvent?.title ?? '');
+  const [from, setFrom] = useState(
+    initialEvent ? formatLocalTimeJa(initialEvent.startAt, timezone) : fixedOnly ? '09:00' : '',
+  );
+  const [to, setTo] = useState(
+    initialEvent ? formatLocalTimeJa(initialEvent.endAt, timezone) : fixedOnly ? '10:00' : '',
+  );
+  const [offset, setOffset] = useState(
+    initialEvent && getLocalDate(initialEvent.endAt, timezone) > date ? '1' : '0',
+  );
   const { colors, typography } = useTheme();
   const [length, setLength] = useState('30');
   const [before, setBefore] = useState('0');
@@ -53,12 +66,20 @@ export function EventEditor({
     setPending(true);
     setError('');
     try {
-      const startAt = readPlanTime(from, date, timezone);
-      const endAt = readPlanTime(fixedOnly && offset === '1' ? `翌日 ${to}` : to, date, timezone);
+      const startAt =
+        initialEvent && from === formatLocalTimeJa(initialEvent.startAt, timezone)
+          ? initialEvent.startAt
+          : readPlanTime(from, date, timezone);
+      const endAt =
+        initialEvent &&
+        to === formatLocalTimeJa(initialEvent.endAt, timezone) &&
+        offset === (getLocalDate(initialEvent.endAt, timezone) > date ? '1' : '0')
+          ? initialEvent.endAt
+          : readPlanTime(fixedOnly && offset === '1' ? `翌日 ${to}` : to, date, timezone);
       const minutes = (Date.parse(endAt) - Date.parse(startAt)) / 60_000;
       if (!title.trim() || minutes <= 0 || minutes > 1500)
         throw new Error('予定名と開始・終了時刻を確認してください。');
-      const base = { id: '', title: title.trim(), startAt, endAt };
+      const base = { id: initialEvent?.id ?? '', title: title.trim(), startAt, endAt };
       if (kind === 'flexible') {
         const duration = Number(length);
         if (!Number.isInteger(duration) || duration < 1 || duration > minutes)
@@ -80,7 +101,7 @@ export function EventEditor({
   }
   return (
     <ModalFrame
-      title="アプリ内予定を追加"
+      title={initialEvent ? 'アプリ内予定を編集' : 'アプリ内予定を追加'}
       onClose={close}
       closeDisabled={pending}
       dirty={dirty}

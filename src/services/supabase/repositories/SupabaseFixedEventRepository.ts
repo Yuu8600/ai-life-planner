@@ -7,7 +7,7 @@ export function createSupabaseFixedEventRepository(userId: string): FixedEventRe
     async list({ startAt, endAt }) {
       const { data, error } = await client
         .from('v2_events')
-        .select('id,title,start_at,end_at')
+        .select('id,title,start_at,end_at,plan_date')
         .eq('user_id', userId)
         .eq('kind', 'fixed')
         .lt('start_at', endAt)
@@ -15,8 +15,9 @@ export function createSupabaseFixedEventRepository(userId: string): FixedEventRe
         .order('start_at')
         .order('id');
       if (error) throw error;
-      return data.map(({ id, title, start_at, end_at }) => ({
+      return data.map(({ id, title, start_at, end_at, plan_date }) => ({
         id,
+        planDate: plan_date,
         title,
         startAt: start_at,
         endAt: end_at,
@@ -32,6 +33,21 @@ export function createSupabaseFixedEventRepository(userId: string): FixedEventRe
         end_at: event.endAt,
       });
       if (error) throw error;
+    },
+    async update(original, input) {
+      const { data, error } = await client
+        .from('v2_events')
+        .update({ title: input.title, start_at: input.startAt, end_at: input.endAt })
+        .eq('user_id', userId)
+        .eq('kind', 'fixed')
+        .eq('id', original.id)
+        .eq('start_at', original.startAt)
+        .eq('end_at', original.endAt)
+        .eq('title', original.title)
+        .select('id')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('予定が変更または削除されました。閉じて再読み込みしてください。');
     },
     async remove(id) {
       const { error } = await client

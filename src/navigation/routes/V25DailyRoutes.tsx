@@ -3,7 +3,12 @@ import { useRouter } from 'expo-router';
 import { Platform, Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth';
-import { DayAgenda, nextCalendarWindow, type AgendaWindowInput } from '@/features/calendar';
+import {
+  DayAgenda,
+  nextCalendarWindow,
+  type AgendaWindowInput,
+  type FixedEvent,
+} from '@/features/calendar';
 import { CalendarDateNavigator } from '@/features/calendar/components/CalendarDateNavigator';
 import { EventEditor } from '@/features/planner/v2/EventEditor';
 import { TodayRecommendationsScreen } from '@/features/recommendations/TodayRecommendationsScreen';
@@ -12,7 +17,7 @@ import {
   isEffort,
   type Conditions,
 } from '@/features/recommendations/repository';
-import { addLocalDays, getUtcDayBounds, type LocalDate } from '@/features/today';
+import { addLocalDays, getLocalDate, getUtcDayBounds, type LocalDate } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { Card } from '@/shared/components/Card';
@@ -60,12 +65,21 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
     }),
     [userId],
   );
-  const { date: today, timezone, revision, error, refresh, now } = useV25Date(settings);
+  const {
+    date: today,
+    timezone,
+    revision,
+    error,
+    refresh,
+    now,
+    planningSettings,
+  } = useV25Date(settings);
   const [schedule, setSchedule] = useState<AgendaWindowInput>();
   const openChat = (day: string) =>
     router.push({ pathname: '/ai', params: { date: day, entry: String(Date.now()) } });
   const [selected, setSelected] = useState<LocalDate>();
   const [dateDraft, setDateDraft] = useState<string>();
+  const [editingEvent, setEditingEvent] = useState<FixedEvent>();
   const [editDate, setEditDate] = useState<string>();
   const key = `v25-recommendation-conditions:${userId}`;
   const [initialConditions] = useState(() =>
@@ -120,6 +134,15 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
       now={mode === 'today' ? +now : undefined}
       onSchedule={mode === 'today' ? setSchedule : undefined}
       summary={mode === 'today'}
+      planningSettings={mode === 'calendar' ? planningSettings : undefined}
+      onEditEvent={
+        mode === 'calendar'
+          ? (event) => {
+              setEditingEvent(event);
+              setEditDate(getLocalDate(event.startAt, timezone));
+            }
+          : undefined
+      }
       onOpenCalendar={mode === 'today' ? () => router.navigate('/calendar') : undefined}
     />
   );
@@ -201,7 +224,10 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         <ActionButton
           label="アプリ内に予定を追加"
           variant="primary"
-          onPress={() => setEditDate(date)}
+          onPress={() => {
+            setEditingEvent(undefined);
+            setEditDate(date);
+          }}
         />
         <Card style={{ padding: 0, overflow: 'hidden' }}>
           <Pressable
@@ -257,15 +283,25 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
       {editDate ? (
         <EventEditor
           fixedOnly
+          initialEvent={
+            editingEvent ? { ...editingEvent, kind: 'fixed', before: 0, after: 0 } : undefined
+          }
           date={editDate}
           timezone={timezone}
           close={() => setEditDate(undefined)}
           save={async (event) => {
             try {
-              await fixed.add(editDate, event);
+              if (editingEvent) {
+                if (!fixed.update) throw new Error('予定の編集に対応していません。');
+                await fixed.update(editingEvent, event);
+              } else await fixed.add(editDate, event);
               refresh();
-            } catch {
-              throw new Error('予定を保存できませんでした。再試行してください。');
+            } catch (error) {
+              throw new Error(
+                error instanceof Error
+                  ? error.message
+                  : '予定を保存できませんでした。再試行してください。',
+              );
             }
           }}
         />
