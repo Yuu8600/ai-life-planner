@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
+import { ModalFrame } from '@/shared/components/ModalFrame';
+import { appAlert } from '@/shared/feedback/appAlert';
 import { Card } from '@/shared/components/Card';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { Notice } from '@/shared/components/Notice';
@@ -65,6 +67,10 @@ export function ChatScreen({
       return next;
     });
   }, []);
+  const [managing, setManaging] = useState<Thread>();
+  const [manageTitle, setManageTitle] = useState('');
+  const [manageError, setManageError] = useState('');
+  const [threadMessage, setThreadMessage] = useState('');
   const [current, setCurrent] = useState<Thread>();
   const [conversation, setConversation] = useState<Awaited<ReturnType<ChatRepository['open']>>>();
   const [usage, setUsage] = useState<Usage>();
@@ -199,11 +205,69 @@ export function ChatScreen({
       setDate('');
       setCalendar(undefined);
       setPrivateReply(undefined);
+      setThreadMessage('');
       setReferencedDraft(undefined);
       setError('');
       if (!thread) void refreshThreads();
     });
   };
+  async function manageThread(operation: () => Promise<Thread | void>, message: string) {
+    if (lock.current || !managing) return;
+    lock.current = true;
+    setPending(true);
+    setManageError('');
+    try {
+      const saved = await operation();
+      setThreads((old) =>
+        saved
+          ? [saved, ...old.filter((item) => item.id !== managing.id)]
+          : old.filter((item) => item.id !== managing.id),
+      );
+      setManaging(undefined);
+      setThreadMessage(message);
+    } catch (error) {
+      setManageError(error instanceof Error ? error.message : '会話を更新できませんでした。');
+    } finally {
+      lock.current = false;
+      setPending(false);
+    }
+  }
+  function renameThread() {
+    if (
+      !managing ||
+      !repository.renameThread ||
+      !manageTitle.trim() ||
+      manageTitle.trim() === managing.title
+    )
+      return;
+    const thread = managing;
+    void manageThread(
+      () => repository.renameThread!(thread, manageTitle),
+      '会話名を変更しました。',
+    );
+  }
+  function confirmRemoveThread() {
+    if (!managing || !repository.removeThread || lock.current) return;
+    const thread = managing;
+    appAlert.alert(
+      '会話を削除しますか？',
+      `「${thread.title}」の会話・提案・変更を取り消す履歴を削除します。保存済みのタスクと推薦方針は残ります。元に戻せません。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: () =>
+            void manageThread(() => repository.removeThread!(thread), '会話を削除しました。'),
+        },
+      ],
+    );
+  }
+  function threadDate(thread: Thread) {
+    const value = thread.updatedAt ?? thread.createdAt;
+    if (!value || !Number.isFinite(Date.parse(value))) return '';
+    return `${thread.updatedAt ? '更新' : '作成'} ${new Date(value).toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+  }
   async function loadOlder() {
     const cursor = conversation?.olderCursor;
     if (!current || !cursor || lock.current) return;
@@ -295,6 +359,7 @@ export function ChatScreen({
             );
           }),
         refreshUsage(),
+        refreshThreads(),
       ]);
       lock.current = false;
       setPending(false);
@@ -478,6 +543,10 @@ export function ChatScreen({
           />
         }
       >
+        {threadMessage ? <Notice tone="success" message={threadMessage} /> : null}
+        {!current && threads.some((thread) => thread.canManage === false) ? (
+          <Notice message="会話の名前変更・削除は現在利用できません。履歴は引き続き確認できます。" />
+        ) : null}
         {prepareCalendar && usage && !usage.calendarSharing ? (
           <Notice
             tone="warning"
@@ -640,32 +709,54 @@ export function ChatScreen({
         ) : !composingNew && threads.length > 0 ? (
           <Card style={styles.threadList}>
             {threads.map((thread, index) => (
-              <Pressable
-                key={thread.id}
-                accessibilityRole="button"
-                accessibilityLabel={thread.title}
-                disabled={pending || loadingOlder}
-                onPress={() => open(thread)}
-                style={({ pressed }) => [
-                  styles.threadRow,
-                  index > 0 && styles.threadDivider,
-                  pressed && { backgroundColor: colors.primarySoft },
-                ]}
-              >
-                <View style={styles.threadLeading}>
+              <View key={thread.id} style={[styles.threadRow, index > 0 && styles.threadDivider]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={thread.title}
+                  accessibilityHint={threadDate(thread)}
+                  disabled={pending || loadingOlder}
+                  onPress={() => open(thread)}
+                  style={({ pressed }) => [
+                    styles.threadLeading,
+                    { minHeight: 44, opacity: pressed ? 0.65 : 1 },
+                  ]}
+                >
                   <View style={styles.threadDot}>
                     <Text style={styles.threadDotText} accessible={false}>
                       ✦
                     </Text>
                   </View>
-                  <Text style={styles.threadTitle} numberOfLines={1}>
-                    {thread.title}
+                  <View style={{ flex: 1, gap: spacing.xs }}>
+                    <Text style={styles.threadTitle} numberOfLines={1}>
+                      {thread.title}
+                    </Text>
+                    {threadDate(thread) ? (
+                      <Text style={{ ...typography.caption, color: colors.textSecondary }}>
+                        {threadDate(thread)}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.threadChevron} accessible={false}>
+                    ›
                   </Text>
-                </View>
-                <Text style={styles.threadChevron} accessible={false}>
-                  ›
-                </Text>
-              </Pressable>
+                </Pressable>
+                {thread.canManage !== false &&
+                (repository.renameThread || repository.removeThread) ? (
+                  <ActionButton
+                    label="その他"
+                    accessibilityLabel={`${thread.title}の会話を管理`}
+                    variant="ghost"
+                    disabled={pending || loadingOlder}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setManaging(thread);
+                      setManageTitle(thread.title);
+                      setManageError('');
+                      setThreadMessage('');
+                    }}
+                  />
+                ) : null}
+              </View>
             ))}
           </Card>
         ) : (
@@ -675,6 +766,61 @@ export function ChatScreen({
               : '保存済みの会話はここから確認できます。'}
           </Text>
         )}
+        {managing ? (
+          <ModalFrame
+            title="会話の管理"
+            onClose={() => setManaging(undefined)}
+            closeDisabled={pending}
+            dirty={manageTitle !== managing.title}
+            footer={
+              repository.renameThread ? (
+                <ActionButton
+                  label="名前を保存"
+                  loading={pending}
+                  disabled={!manageTitle.trim() || manageTitle.trim() === managing.title}
+                  onPress={renameThread}
+                />
+              ) : undefined
+            }
+          >
+            <FormField label="会話名">
+              <FormInput
+                accessibilityLabel="会話名"
+                value={manageTitle}
+                maxLength={100}
+                editable={!pending}
+                onChangeText={setManageTitle}
+              />
+            </FormField>
+            {repository.removeThread ? (
+              <ActionButton
+                label="会話を削除"
+                variant="destructive"
+                disabled={pending}
+                onPress={confirmRemoveThread}
+              />
+            ) : null}
+            {manageError ? (
+              <Notice
+                tone="error"
+                message={manageError}
+                action={
+                  <ActionButton
+                    label="一覧を再読み込み"
+                    variant="secondary"
+                    disabled={pending}
+                    onPress={() => {
+                      confirmDiscardChanges(manageTitle !== managing.title, () => {
+                        setManaging(undefined);
+                        void refreshThreads();
+                      });
+                    }}
+                  />
+                }
+              />
+            ) : null}
+          </ModalFrame>
+        ) : null}
         {dateDraft !== undefined && (!autoShare || usage?.calendarSharing) ? (
           <CalendarShareEditor
             initialDate={dateDraft}

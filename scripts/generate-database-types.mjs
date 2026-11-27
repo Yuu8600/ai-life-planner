@@ -46,5 +46,5 @@ try {
 
 const outputPath = resolve(projectRoot, 'src', 'services', 'supabase', 'database.types.ts');
 mkdirSync(dirname(outputPath), { recursive: true });
-writeFileSync(outputPath, types, 'utf8');
+writeFileSync(outputPath, `${types.trimEnd()}\n`, 'utf8');
 console.log(`Generated ${outputPath}`);

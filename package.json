@@ -72,7 +72,8 @@
     "typecheck": "tsc --noEmit",
     "export:pages": "node scripts/export-web-demo.mjs",
     "preview:pages": "node scripts/serve-web-demo.mjs",
-    "verify:pages": "node scripts/verify-web-demo.mjs"
+    "verify:pages": "node scripts/verify-web-demo.mjs",
+    "supabase:verify:local:chat-threads": "node scripts/verify-chat-thread-management-local.mjs"
   },
   "overrides": {
     "react-dom": "19.2.3",

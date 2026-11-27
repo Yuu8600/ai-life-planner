@@ -72,7 +72,13 @@ export type Draft = {
   items: DraftItem[];
 };
 export type PrivateConsultation = { reply: string; requestId: string; policies: PolicyProposal[] };
-export type Thread = { id: string; title: string };
+export type Thread = {
+  id: string;
+  title: string;
+  createdAt?: string;
+  updatedAt?: string;
+  canManage?: boolean;
+};
 export type MessageCursor = { id: string; createdAt: string };
 export type MessagePage = { messages: ChatMessage[]; olderCursor: MessageCursor | null };
 export type ChatMessage = {
@@ -90,6 +96,8 @@ export type Usage = {
 export interface ChatRepository {
   listThreads(): Promise<Thread[]>;
   createThread(title: string): Promise<Thread>;
+  renameThread?(thread: Thread, title: string): Promise<Thread>;
+  removeThread?(thread: Thread): Promise<void>;
   open(threadId: string): Promise<MessagePage & { drafts: Draft[] }>;
   listOlder(threadId: string, cursor: MessageCursor): Promise<MessagePage>;
   send(
