@@ -202,7 +202,7 @@ type AllowedAiChange =
 5. **AI変更案と統一カード**: 既存draft/approvalフローをTask作成・編集・Policyに統合。多重書込み・競合・Undo/解除を検証。
 6. **UI・QA**: 4タブの主目的を守って最小限の画面変更、主要テスト、Simulator起動（実操作できない項目は未検証）、手動QA手順作成。
 
-成果物: `docs/v2_6/EXISTING_FEATURE_AUDIT.md`、`DESIGN_DECISIONS.md`、`IMPLEMENTATION_NOTES.md`、`MANUAL_QA.md`。必要なSQL migration、重要自動テスト、ローカルコミット。GitHubへのpush・PR作成・マージ・リリース・タグ公開はユーザーのみ。**完了時にユーザーがpush/PRすべきタイミングを明示**。
+成果物: `docs/v2_6/EXISTING_FEATURE_AUDIT.md`、`DESIGN_DECISIONS.md`、`IMPLEMENTATION_NOTES.md`、`MANUAL_QA.md`。必要なSQL migration、重要自動テスト、ローカルコミット。GitHubへのpush・main向けPR作成・CI／差分／レビュー確認・条件を満たしたマージ・ローカルmain同期と取り込み済みローカルブランチ整理はCodexが担当し、通常フローの個別許可は不要。[現行のGit運用](../development.md#git--github運用)に従い、条件を満たせない場合はマージせず報告する。リリース・タグ公開は通常のPR承認に含めず、別途明示承認を得る。
 
 ## 11. 非対象
 

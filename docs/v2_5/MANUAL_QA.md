@@ -67,4 +67,4 @@
 
 ## 試用後の公開作業
 
-公開する場合は本番と旧クライアントの切り替え手順を決める。利用者が `git push -u origin feat/v2-5-recommendation-first` を実行し、同ブランチからPRを作成する。DB反映とEdge Functionの更新はPRとは別に扱う。
+公開する場合は本番と旧クライアントの切り替え手順を決める。Codexが対象作業ブランチをpushし、main向けPRを作成してCI・差分・レビューを確認し、[現行のGit運用](../development.md#git--github運用)の条件を満たしたらマージする。通常のpush・PR・マージに個別許可は不要。DB反映とEdge Functionの更新はPRとは別に扱う。

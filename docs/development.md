@@ -155,8 +155,7 @@ git diff --check
 `npm run format`は自動整形であり、確認には`format:check`を使う。`npm test`は全テストのwatch mode。
 PR / mainのCIはtypecheck・lint・format・Jestだけを実行し、DB・OpenAIへ接続しない。
 Pages workflowは手動実行で、品質チェックに加えてexportとartifactの検査を行う。
-GitHub CIはCodexが作業branchのpush・PR作成後に確認し、成功と差分レビュー後にmergeする。
-mainへの直接push・force push・CI省略は禁止。DB適用・Web公開・端末更新は別途明示的な指示が必要。
+GitHubでのpush・PR・マージは、以下の[Git運用](#git--github運用)に従ってCodexが担当する。
 
 ### 再実行とログ
 
@@ -182,6 +181,38 @@ iPhone Releaseのbuild・上書きinstallは[Personal Team Release](ios-personal
 
 Expo/native dependencyを追加する場合は`npx expo install`でSDK互換性を確認する。
 package.jsonのpeer overridesはSDK 57互換範囲を保つための固定値で、更新時にlockfileと共に確認する。
+
+## Git / GitHub運用
+
+2026年11月27日以降、通常の開発ではCodexがGit・GitHub操作を一貫して担当する。
+push・PR作成・マージのたびに利用者へ個別の許可を求めない。過去の仕様書・QA手順にある
+「利用者がpush・PR・マージする」という分担は、この方針で置き換える。リリース・本番反映の承認とは分ける。
+
+1. `git status`、worktree、未コミット・未追跡・未pushの変更を確認する。利用者の既存変更は保持し、今回のcommitへ混在させない。
+2. リモートをfetchし、ローカルmainをfast-forwardで最新化する。上書きや履歴の分岐がある場合はresetせず、別checkoutで隔離するか競合を報告する。
+3. 既存の命名規則に従い `feat/`・`fix/`・`docs/` の作業branchを作成する。
+4. 依頼された範囲だけを実装し、品質チェック、差分のセルフレビュー、秘密情報・意図しないデータ変更の確認を行う。
+5. Conventional Commits形式で意味のある単位にcommitし、作業branchをpushしてmain向けPRを作成する。
+6. 現在のPR headに対するCI結果、PR差分、レビュー、ブランチ保護・rulesetを確認する。CIが失敗したら原因を調べ、今回の変更に必要な修正と再検証を行う。
+7. 次のマージ条件をすべて満たす場合だけマージする。直前にもhead・差分・レビュー状況を照合し、対応APIがあれば確認済みhead SHAを指定する。
+8. マージ後にローカルmainをfast-forward更新し、取り込み結果を確認する。取り込み済みで他のworktreeが使用していないローカル作業branchだけを整理する。
+9. PR URL・マージ結果・検証結果・現在のbranch・保持した既存変更・未解決事項を報告する。
+
+マージ条件:
+
+- 依頼された実装範囲が完了している。
+- 必要なテスト・型チェック・Lintが成功している。
+- 設定された必須CIが現在のPR headで成功している。
+- 必須レビュー・ブランチ保護ルール・rulesetを満たしている。
+- 無関係な差分、重大な未解決問題、意図しないデータ変更、秘密情報の混入がない。
+
+条件を満たせない、または確認できない場合はマージせず、理由を報告する。
+mainへの直接push、force push、既存変更の破棄、無関係なファイルの変更、秘密情報のcommit、
+必須CI・レビュー・ブランチ保護の回避（admin権限での迂回を含む）、依頼のない破壊的DB操作は禁止する。
+
+リリース公開・本番DB変更・破壊的操作など通常のPRマージを超える作業は別途承認を得る。
+既存のremote branch削除・DB migration適用・Web公開・端末更新の明示承認ルールも維持する。
+マージ済みbranchの整理であっても、未pushコミットや他のworktreeの作業を削除しない。
 
 翌日終了・計画日・DB互換性・更新手順は[翌日深夜までの活動時間](overnight-planning.md)を参照。
 

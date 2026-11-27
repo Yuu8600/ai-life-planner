@@ -54,6 +54,7 @@ DB migration・Web公開・実機への上書きインストールはこの変�
 
 ## GitHub運用
 
-改善作業はCodexがmain同期からbranch作成、実装・検証、commit、branch push、PR作成、CI確認、
-差分レビュー・修正、CI成功後のmerge、ローカルmain同期、取り込み済みローカルbranch整理まで担当する。
-mainへの直接push・force push・CI省略は禁止。remote branch削除・DB適用・Web公開・実機更新には別途明示指示が必要。
+通常の改善作業はCodexがmain同期、作業branch作成、実装・検証、commit、push、PR作成、
+CI・差分・レビュー確認と修正、条件を満たしたPRのマージ、ローカルmain同期、取り込み済みローカルbranch整理まで担当する。
+push・PR作成・マージの個別許可は不要。マージ条件と安全上の制約は[開発手順のGit運用](development.md#git--github運用)を参照する。
+remote branch削除・DB適用・Web公開・実機更新の別途明示承認ルールは維持する。
