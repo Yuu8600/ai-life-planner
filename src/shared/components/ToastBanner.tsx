@@ -30,7 +30,7 @@ export function ToastBanner({
     return () => clearTimeout(timer);
   }, [message, onDismiss, durationMs]);
 
-  const backgroundColor = tone === 'error' ? colors.error : colors.textPrimary;
+  const backgroundColor = tone === 'error' ? colors.error : colors.toastSurface;
 
   return (
     <View pointerEvents="box-none" style={styles.anchor}>
@@ -49,7 +49,14 @@ export function ToastBanner({
           },
         ]}
       >
-        <Text style={[typography.secondary, styles.message]} numberOfLines={2}>
+        <Text
+          style={[
+            typography.secondary,
+            styles.message,
+            { color: tone === 'error' ? colors.onError : colors.onToast },
+          ]}
+          numberOfLines={2}
+        >
           {message}
         </Text>
         {actionLabel && onAction ? (
@@ -69,7 +76,15 @@ export function ToastBanner({
               },
             ]}
           >
-            <Text style={[typography.label, styles.actionText]}>{actionLabel}</Text>
+            <Text
+              style={[
+                typography.label,
+                styles.actionText,
+                { color: tone === 'error' ? colors.onError : colors.onToast },
+              ]}
+            >
+              {actionLabel}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -106,7 +121,6 @@ const styles = StyleSheet.create({
   },
   message: {
     flex: 1,
-    color: '#FFFFFF',
     fontWeight: '500',
   },
   actionButton: {
@@ -115,7 +129,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionText: {
-    color: '#FFFFFF',
     fontWeight: '700',
   },
 });

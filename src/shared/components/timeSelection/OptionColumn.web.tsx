@@ -1,6 +1,7 @@
-import { colors } from '@/shared/theme';
+import { useThemeColors } from '@/shared/theme';
 import type { OptionColumnProps } from './OptionColumn';
 export function OptionColumn({ label, options, value, onChange }: OptionColumnProps) {
+  const colors = useThemeColors();
   return (
     <label
       style={{

@@ -2,7 +2,7 @@ import { Card } from './Card';
 import { ActivityIndicator, StyleSheet, Text } from 'react-native';
 
 import { ActionButton } from './ActionButton';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { radius, spacing, typography, useThemeColors } from '@/shared/theme';
 
 export type StatePanelProps = {
   actionLabel?: string;
@@ -25,6 +25,8 @@ export function StatePanel({
   testID,
   title,
 }: StatePanelProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <Card style={styles.container} testID={testID}>
       {isLoading ? (
@@ -46,17 +48,18 @@ export function StatePanel({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-  title: { ...typography.sectionTitle, color: colors.text, textAlign: 'center' },
-  message: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    container: {
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.lg,
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+    },
+    title: { ...typography.sectionTitle, color: colors.text, textAlign: 'center' },
+    message: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
+  });

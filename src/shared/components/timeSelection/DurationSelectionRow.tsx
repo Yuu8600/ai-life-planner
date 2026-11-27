@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
-import { colors } from '@/shared/theme';
+import { useThemeColors } from '@/shared/theme';
 import { FormInput } from '../FormField';
 import { ActionButton } from '../ActionButton';
 import { SelectionPanel, type PanelAnchor } from './SelectionPanel';
@@ -18,6 +18,7 @@ export function DurationSelectionRow({
   disabled?: boolean;
   buffer?: boolean;
 }) {
+  const colors = useThemeColors();
   const presets = buffer ? [0, 10, 15, 30, 60] : [10, 15, 20, 30, 60];
   const [anchor, setAnchor] = useState<PanelAnchor | null>(null),
     [draft, setDraft] = useState(value),
@@ -53,7 +54,7 @@ export function DurationSelectionRow({
       />
       {anchor ? (
         <SelectionPanel title={label} anchor={anchor} onCancel={close}>
-          <Text>選択中: {draft}分</Text>
+          <Text style={{ color: colors.textPrimary }}>選択中: {draft}分</Text>
           <View style={{ gap: 8, flexDirection: 'row', flexWrap: 'wrap' }}>
             {presets.map((n) => (
               <ActionButton
