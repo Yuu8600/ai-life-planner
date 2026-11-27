@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import type { CalendarEvent } from '@/features/calendar';
@@ -7,28 +7,31 @@ import { DeadlineField } from '@/shared/components/DeadlineField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
-import { formatDateInput } from '@/shared/dateInput';
+import { formatCalendarDateJa, formatDateInput } from '@/shared/dateInput';
 import { useTheme } from '@/shared/theme';
 
 import type { CalendarShare } from './repository';
 
 export type ReadShareableCalendar = (
   date: string,
-) => Promise<{ events: CalendarEvent[]; timezone: string }>;
+) => Promise<{ events: CalendarEvent[]; timezone: string; warning?: string }>;
 
 export function CalendarShareEditor({
   initialDate,
   readEvents,
   close,
   apply,
+  autoPrepare = false,
 }: {
   initialDate: string;
+  autoPrepare?: boolean;
   readEvents?: ReadShareableCalendar;
   close: () => void;
   apply: (date: string, share?: CalendarShare) => void;
 }) {
   const [date, setDate] = useState(() => initialDate || formatDateInput(new Date()));
-  const [mode, setMode] = useState('none');
+  const [mode, setMode] = useState(autoPrepare ? 'selected_event_details' : 'none');
+  const request = useRef({ version: 0 });
   const [loaded, setLoaded] = useState<Awaited<ReturnType<ReadShareableCalendar>>>();
   const events = loaded?.events;
   const dateTime =
@@ -43,7 +46,7 @@ export function CalendarShareEditor({
     });
   const [selected, setSelected] = useState<number[]>([]);
   const [location, setLocation] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(autoPrepare);
   const [error, setError] = useState('');
   const { colors, spacing, typography } = useTheme();
   const day = date.trim();
@@ -52,27 +55,55 @@ export function CalendarShareEditor({
     Number.isFinite(Date.parse(day)) &&
     new Date(day).toISOString().slice(0, 10) === day;
   const chosen = selected.map((index) => events?.[index]).filter((event) => event !== undefined);
-  async function load() {
-    if (!valid || !readEvents || busy) return;
+  const load = useCallback(async () => {
+    if (!valid || !readEvents) return;
+    const version = ++request.current.version;
     setBusy(true);
     setError('');
     try {
       const result = await readEvents(day);
+      if (request.current.version !== version) return;
       setLoaded({
         ...result,
         events: result.events.filter((event) => event.status !== 'canceled'),
       });
       setSelected([]);
     } catch {
-      setError(
-        '端末の予定を取得できません。予定タブで権限を確認するか、共有なしで続けてください。',
-      );
+      if (request.current.version === version)
+        setError('予定を取得できません。予定タブで権限を確認するか、共有なしで続けてください。');
     } finally {
-      setBusy(false);
+      if (request.current.version === version) setBusy(false);
     }
-  }
+  }, [day, readEvents, valid]);
+  useEffect(() => {
+    let active = true;
+    const state = request.current;
+    const version = ++state.version;
+    if (autoPrepare && readEvents && valid) {
+      void readEvents(day).then(
+        (result) => {
+          if (!active || request.current.version !== version) return;
+          setLoaded({
+            ...result,
+            events: result.events.filter((event) => event.status !== 'canceled'),
+          });
+          setSelected([]);
+          setBusy(false);
+        },
+        () => {
+          if (!active || request.current.version !== version) return;
+          setError('予定を取得できません。予定タブで権限を確認するか、共有なしで続けてください。');
+          setBusy(false);
+        },
+      );
+    }
+    return () => {
+      active = false;
+      state.version++;
+    };
+  }, [autoPrepare, readEvents, valid, day]);
   function confirm() {
-    if (mode === 'availability_summary' && events) {
+    if (mode === 'availability_summary' && events && !loaded?.warning) {
       apply(day, { mode, date: day, hasEvents: events.length > 0 });
     } else if (mode === 'selected_event_details' && chosen.length) {
       apply(day, {
@@ -87,20 +118,21 @@ export function CalendarShareEditor({
         })),
       });
     } else if (mode === 'none') {
-      apply(day);
+      apply(initialDate);
     }
   }
   return (
     <ModalFrame
-      title="参照情報"
+      title={autoPrepare ? '予定の共有確認' : '参照情報'}
       onClose={close}
-      closeDisabled={busy}
       footer={
         <ActionButton
-          label={mode === 'none' ? '共有なしで戻る' : '次の送信に使う'}
+          label={mode === 'none' ? '共有しない' : '次の送信に使う'}
+          variant={mode === 'none' ? 'secondary' : 'primary'}
           onPress={confirm}
           disabled={
             busy ||
+            (mode === 'availability_summary' && !!loaded?.warning) ||
             (mode !== 'none' &&
               (!valid || !events || (mode === 'selected_event_details' && !chosen.length))) ||
             (!!day && !valid)
@@ -121,27 +153,33 @@ export function CalendarShareEditor({
           ]}
         />
       ) : null}
-      <DeadlineField
-        allowClear={false}
-        emptyLabel="日付を選ぶ"
-        accessibilityLabel="対象日"
-        label="対象日"
-        disabled={busy}
-        error={day && !valid ? '実在する日付を入力してください。' : undefined}
-        value={date}
-        onChange={(value) => {
-          setDate(value);
-          setLoaded(undefined);
-          setSelected([]);
-          setError('');
-        }}
-      />
+      {mode !== 'none' ? (
+        <DeadlineField
+          allowClear={false}
+          emptyLabel="日付を選ぶ"
+          accessibilityLabel="対象日"
+          label="対象日"
+          disabled={busy}
+          error={day && !valid ? '実在する日付を入力してください。' : undefined}
+          value={date}
+          onChange={(value) => {
+            setDate(value);
+            setBusy(autoPrepare);
+            setLoaded(undefined);
+            setSelected([]);
+            setError('');
+          }}
+        />
+      ) : (
+        <Notice message="予定は共有しません。共有する場合は上の方法を選んでください。" />
+      )}
       {mode !== 'none' ? (
         <>
-          <Notice message="選んだ端末の予定と相談文を次の送信でOpenAI APIへ送ります。相談文と回答はアプリの履歴に残りません。推薦方針を承認すると種類・対象・期間が保存されます。" />
+          <Notice message="選んだ予定と相談文を次の送信でOpenAI APIへ送ります。相談文と回答はアプリの履歴に残りません。推薦方針を承認すると種類・対象・期間が保存されます。" />
+          {loaded?.warning ? <Notice tone="warning" message={loaded.warning} /> : null}
           {!events ? (
             <ActionButton
-              label="端末の予定を確認"
+              label={autoPrepare ? '予定を再読み込み' : '端末の予定を確認'}
               loading={busy}
               variant="secondary"
               disabled={!valid || !readEvents}
@@ -151,7 +189,7 @@ export function CalendarShareEditor({
           {error ? <Notice tone="warning" message={error} /> : null}
           {events && mode === 'availability_summary' ? (
             <Text style={{ color: colors.textPrimary }}>
-              {day} ・ {events.length ? '予定あり' : '予定なし'}
+              {formatCalendarDateJa(day)} ・ {events.length ? '予定あり' : '予定なし'}
             </Text>
           ) : null}
           {events && mode === 'selected_event_details' ? (

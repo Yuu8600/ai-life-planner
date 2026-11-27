@@ -13,10 +13,10 @@ import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { Card } from '@/shared/components/Card';
 import { FormField, FormInput } from '@/shared/components/FormField';
-import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, radius, spacing, typography } from '@/shared/theme';
+import { confirmDiscardChanges } from '@/shared/feedback/confirmDiscardChanges';
 import { CalendarShareEditor, type ReadShareableCalendar } from './CalendarShareEditor';
 import type { TaskGoalOption } from '@/features/tasks/repositories/TaskRepository';
 import { DraftEditor } from './DraftEditor';
@@ -40,8 +40,10 @@ export function ChatScreen({
   readCalendar,
   loadGoals,
   openApplied,
+  prepareCalendar = false,
 }: {
   repository: ChatRepository;
+  prepareCalendar?: boolean;
   focus?: ChatFocus;
   initialDate?: string;
   taskEditIntent?: boolean;
@@ -51,7 +53,18 @@ export function ChatScreen({
   reviewPlan: (plan: PlanProposal) => void;
 }) {
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [newTitle, setNewTitle] = useState<string>();
+  const [composingNew, setComposingNew] = useState(!!focus);
+  const [autoShare, setAutoShare] = useState(prepareCalendar);
+  const [dirtyDrafts, setDirtyDrafts] = useState<Set<string>>(() => new Set());
+  const trackDraftDirty = useCallback((id: string, dirty: boolean) => {
+    setDirtyDrafts((old) => {
+      if (old.has(id) === dirty) return old;
+      const next = new Set(old);
+      if (dirty) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
   const [current, setCurrent] = useState<Thread>();
   const [conversation, setConversation] = useState<Awaited<ReturnType<ChatRepository['open']>>>();
   const [usage, setUsage] = useState<Usage>();
@@ -68,7 +81,9 @@ export function ChatScreen({
   const [date, setDate] = useState(initialDate ?? '');
   const [calendar, setCalendar] = useState<CalendarShare>();
   const [privateReply, setPrivateReply] = useState<PrivateConsultation>();
-  const [dateDraft, setDateDraft] = useState<string>();
+  const [dateDraft, setDateDraft] = useState<string | undefined>(() =>
+    prepareCalendar ? (initialDate ?? '') : undefined,
+  );
   const scroll = useRef<ScrollView>(null);
   const inputJump = useRef(false);
   const [workingDraft, setWorkingDraft] = useState<Draft>();
@@ -169,19 +184,25 @@ export function ChatScreen({
       active = false;
     };
   }, [current, repository, threadReload]);
-  const open = (thread?: Thread) => {
-    Keyboard.dismiss();
-    inputJump.current = Boolean(thread);
-    threadCreatedBySend.current = undefined;
-    setCurrent(thread);
-    setConversation(undefined);
-    setPrompt('');
-    setActiveFocus(undefined);
-    setDate('');
-    setCalendar(undefined);
-    setPrivateReply(undefined);
-    setReferencedDraft(undefined);
-    setError('');
+  const open = (thread?: Thread, newConversation = false) => {
+    if (lock.current) return;
+    confirmDiscardChanges(!!prompt.trim() || !!calendar || dirtyDrafts.size > 0, () => {
+      Keyboard.dismiss();
+      inputJump.current = Boolean(thread);
+      threadCreatedBySend.current = undefined;
+      setCurrent(thread);
+      setComposingNew(newConversation);
+      setDirtyDrafts(new Set());
+      setConversation(undefined);
+      setPrompt('');
+      setActiveFocus(undefined);
+      setDate('');
+      setCalendar(undefined);
+      setPrivateReply(undefined);
+      setReferencedDraft(undefined);
+      setError('');
+      if (!thread) void refreshThreads();
+    });
   };
   async function loadOlder() {
     const cursor = conversation?.olderCursor;
@@ -204,23 +225,6 @@ export function ChatScreen({
     } finally {
       lock.current = false;
       setLoadingOlder(false);
-    }
-  }
-  async function create() {
-    if (lock.current || !newTitle?.trim()) return;
-    lock.current = true;
-    setPending(true);
-    setError('');
-    try {
-      const thread = await repository.createThread(newTitle.trim());
-      await refreshThreads();
-      open(thread);
-      setNewTitle(undefined);
-    } catch {
-      setError('会話を作成できませんでした。');
-    } finally {
-      lock.current = false;
-      setPending(false);
     }
   }
   async function send() {
@@ -350,6 +354,7 @@ export function ChatScreen({
           <DraftEditor
             key={draft.revision}
             inline
+            onDirtyChange={trackDraftDirty}
             draft={draft}
             repository={repository}
             loadGoals={loadGoals}
@@ -405,6 +410,7 @@ export function ChatScreen({
             disabled={pending}
             onPress={() => {
               Keyboard.dismiss();
+              setAutoShare(false);
               setDateDraft(date);
             }}
           />
@@ -439,13 +445,13 @@ export function ChatScreen({
     >
       <AppScreen
         contentContainerStyle={{ gap: spacing.md }}
-        footer={composer}
+        footer={usage?.configured && usage.remainingMicros > 0 ? composer : undefined}
         scrollRef={scroll}
         header={
           <ScreenHeader
-            title={current?.title ?? 'AI相談'}
+            title={current?.title ?? (composingNew ? '新しい相談' : 'AI相談')}
             backAction={
-              current
+              current || composingNew
                 ? {
                     label: '会話一覧',
                     accessibilityLabel: '会話一覧',
@@ -455,14 +461,16 @@ export function ChatScreen({
                 : undefined
             }
             action={
-              current ? undefined : (
+              current ||
+              composingNew ||
+              !usage?.configured ||
+              usage.remainingMicros <= 0 ? undefined : (
                 <ActionButton
                   label="新規会話"
                   loading={pending}
-                  disabled={usage !== undefined && !usage.configured}
+                  disabled={pending}
                   onPress={() => {
-                    Keyboard.dismiss();
-                    setNewTitle('');
+                    open(undefined, true);
                   }}
                 />
               )
@@ -470,6 +478,25 @@ export function ChatScreen({
           />
         }
       >
+        {prepareCalendar && usage && !usage.calendarSharing ? (
+          <Notice
+            tone="warning"
+            message="現在のAI環境では予定共有を準備できません。会話履歴は引き続き確認できます。"
+          />
+        ) : null}
+        {composingNew && usage?.configured ? (
+          <View style={styles.actionGroup}>
+            {['今日のタスクを整理したい', '目標に向けた次の一歩を考えたい'].map((text) => (
+              <ActionButton
+                key={text}
+                label={text}
+                variant="secondary"
+                disabled={pending}
+                onPress={() => setPrompt(text)}
+              />
+            ))}
+          </View>
+        ) : null}
         {usage?.configured ? (
           <Text style={{ color: colors.textSecondary }}>
             {usage.remainingMicros
@@ -499,7 +526,17 @@ export function ChatScreen({
                   disabled={pending}
                   onPress={() => setThreadReload((count) => count + 1)}
                 />
-              ) : undefined
+              ) : (
+                <ActionButton
+                  label="一覧を再読み込み"
+                  variant="secondary"
+                  disabled={pending}
+                  onPress={() => {
+                    setError('');
+                    void refreshThreads();
+                  }}
+                />
+              )
             }
           />
         ) : null}
@@ -536,9 +573,7 @@ export function ChatScreen({
                         color: isUser ? colors.onPrimary : colors.textPrimary,
                       }}
                     >
-                      {item.role === 'assistant' && drafts.some((draft) => owner(draft) === item.id)
-                        ? '操作を提案しました。下のカードで確認してください。'
-                        : item.body}
+                      {item.body}
                     </Text>
                   </Card>
                   {drafts.filter((draft) => owner(draft) === item.id).map(proposalCard)}
@@ -602,7 +637,7 @@ export function ChatScreen({
               />
             ) : null}
           </>
-        ) : threads.length > 0 ? (
+        ) : !composingNew && threads.length > 0 ? (
           <Card style={styles.threadList}>
             {threads.map((thread, index) => (
               <Pressable
@@ -635,12 +670,15 @@ export function ChatScreen({
           </Card>
         ) : (
           <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
-            まだ会話がありません。下の入力欄から相談を始められます。
+            {usage?.configured && usage.remainingMicros > 0
+              ? '相談内容を入力すると会話を開始します。最初の送信まで会話は作成されません。'
+              : '保存済みの会話はここから確認できます。'}
           </Text>
         )}
-        {dateDraft !== undefined ? (
+        {dateDraft !== undefined && (!autoShare || usage?.calendarSharing) ? (
           <CalendarShareEditor
             initialDate={dateDraft}
+            autoPrepare={autoShare}
             readEvents={usage?.calendarSharing ? readCalendar : undefined}
             close={() => setDateDraft(undefined)}
             apply={(value, share) => {
@@ -649,31 +687,6 @@ export function ChatScreen({
               setDateDraft(undefined);
             }}
           />
-        ) : null}
-        {newTitle !== undefined ? (
-          <ModalFrame
-            title="新規会話"
-            onClose={() => setNewTitle(undefined)}
-            closeDisabled={pending}
-            footer={
-              <ActionButton
-                label="会話を作成"
-                disabled={!newTitle.trim()}
-                loading={pending}
-                onPress={() => void create()}
-              />
-            }
-          >
-            <FormField label="会話名">
-              <FormInput
-                value={newTitle}
-                maxLength={100}
-                onChangeText={setNewTitle}
-                editable={!pending}
-              />
-            </FormField>
-            {error ? <Notice tone="error" message={error} /> : null}
-          </ModalFrame>
         ) : null}
       </AppScreen>
     </KeyboardAvoidingView>

@@ -28,7 +28,7 @@ it('does not read or share by default, and previews only selected events without
     <CalendarShareEditor initialDate={day} readEvents={read} apply={apply} close={jest.fn()} />,
   );
   expect(read).not.toHaveBeenCalled();
-  await fireEvent.press(screen.getByRole('button', { name: '共有なしで戻る' }));
+  await fireEvent.press(screen.getByRole('button', { name: '共有しない' }));
   expect(apply).toHaveBeenCalledWith(day);
   await fireEvent.press(screen.getByRole('radio', { name: 'カレンダー共有 選んだ予定の詳細' }));
   await fireEvent.press(screen.getByRole('button', { name: '端末の予定を確認' }));

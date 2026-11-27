@@ -37,7 +37,7 @@ function setup(fail = false) {
         {
           id: 'reply',
           role: 'assistant' as const,
-          body: '追加しました',
+          body: 'まず10分の読書から始めると続けやすくなります。',
           createdAt: '2026-11-26T09:00:00Z',
         },
       ],
@@ -60,7 +60,7 @@ it('keeps a task as a proposal until Add succeeds, then restores its saved state
   const screen = await render(<ChatScreen repository={repository} reviewPlan={jest.fn()} />);
   await fireEvent.press(await screen.findByRole('button', { name: '会話' }));
   expect(await screen.findByText(/操作の提案/)).toBeTruthy();
-  expect(screen.queryByText('追加しました')).toBeNull();
+  expect(screen.getByText('まず10分の読書から始めると続けやすくなります。')).toBeTruthy();
   expect(repository.approve).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByRole('button', { name: '追加' }));
   expect(repository.approve).toHaveBeenCalledTimes(1);
