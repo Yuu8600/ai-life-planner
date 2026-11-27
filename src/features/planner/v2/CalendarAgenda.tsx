@@ -4,7 +4,7 @@ import { ActionButton } from '@/shared/components/ActionButton';
 import { Card } from '@/shared/components/Card';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import type { LoadedDay } from './dayService';
 import { timelineWindow } from './timelineEntries';
 
@@ -21,6 +21,8 @@ export function CalendarAgenda({
   onRemove: (id: string) => void;
   onOpenPlan: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [showBlocked, setShowBlocked] = useState(false);
   const window = timelineWindow(day);
   const events = day.events
@@ -104,9 +106,10 @@ export function CalendarAgenda({
     </>
   );
 }
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs },
-  label: { flex: 1, minWidth: 120 },
-  title: { ...typography.bodyStrong, color: colors.textPrimary },
-  muted: { ...typography.secondary, color: colors.textSecondary },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs },
+    label: { flex: 1, minWidth: 120 },
+    title: { ...typography.bodyStrong, color: colors.textPrimary },
+    muted: { ...typography.secondary, color: colors.textSecondary },
+  });

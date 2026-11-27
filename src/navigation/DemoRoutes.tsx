@@ -4,7 +4,7 @@ import { StyleSheet, Text } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
 import { Card } from '@/shared/components/Card';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { GoalsScreen } from '@/features/goals/GoalsScreen';
@@ -50,6 +50,8 @@ function DemoNextStep({
   label: string;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <Card style={styles.nextStep}>
       <Text style={styles.nextStepCopy}>{message}</Text>
@@ -185,13 +187,14 @@ export function DemoSettingsRoute() {
   );
 }
 
-const styles = StyleSheet.create({
-  nextStep: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  nextStepCopy: { ...typography.body, color: colors.textSecondary, flexBasis: 300, flexGrow: 1 },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    nextStep: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    nextStepCopy: { ...typography.body, color: colors.textSecondary, flexBasis: 300, flexGrow: 1 },
+  });

@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { SectionHeader } from '@/shared/components/SectionHeader';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import { getAuthErrorMessage } from '../errors';
 export function AccountPanel({ email, signOut }: { email?: string; signOut: () => Promise<void> }) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -52,15 +54,16 @@ export function AccountPanel({ email, signOut }: { email?: string; signOut: () =
   );
 }
 
-const styles = StyleSheet.create({
-  section: { gap: spacing.sm, minWidth: 0, width: '100%', maxWidth: 720, alignSelf: 'center' },
-  label: { color: colors.textSecondary, ...typography.secondary },
-  email: {
-    color: colors.textPrimary,
-    ...typography.bodyStrong,
-    flexShrink: 1,
-    minWidth: 0,
-    maxWidth: '100%',
-  },
-  detail: { color: colors.textSecondary, ...typography.secondary },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    section: { gap: spacing.sm, minWidth: 0, width: '100%', maxWidth: 720, alignSelf: 'center' },
+    label: { color: colors.textSecondary, ...typography.secondary },
+    email: {
+      color: colors.textPrimary,
+      ...typography.bodyStrong,
+      flexShrink: 1,
+      minWidth: 0,
+      maxWidth: '100%',
+    },
+    detail: { color: colors.textSecondary, ...typography.secondary },
+  });

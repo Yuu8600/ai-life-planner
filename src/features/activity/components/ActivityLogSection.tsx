@@ -4,7 +4,7 @@ import { formatLocalTimeJa } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { Badge } from '@/shared/components/Badge';
 import { SectionHeader } from '@/shared/components/SectionHeader';
-import { colors, spacing } from '@/shared/theme';
+import { spacing, useThemeColors } from '@/shared/theme';
 
 import type { ActivityLogsState } from '../useActivityLogs';
 
@@ -17,6 +17,8 @@ export function ActivityLogSection({
   onRetry: () => void;
   title?: string;
 }) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <View testID="today-activity-log-section">
       <SectionHeader
@@ -61,17 +63,18 @@ export function ActivityLogSection({
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexWrap: 'wrap',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  time: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
-  title: { flex: 1, minWidth: 100, color: colors.text, fontSize: 15 },
-  message: { color: colors.textMuted, fontSize: 14, lineHeight: 21, marginVertical: spacing.md },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    row: {
+      flexWrap: 'wrap',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    time: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+    title: { flex: 1, minWidth: 100, color: colors.text, fontSize: 15 },
+    message: { color: colors.textMuted, fontSize: 14, lineHeight: 21, marginVertical: spacing.md },
+  });

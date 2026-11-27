@@ -11,7 +11,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Keyboard, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/shared/components/ActionButton';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 
 import type {
   ProfilePlanningSettings,
@@ -50,6 +50,8 @@ export function PlanningSettingsForm({
   saveSucceeded,
   settings,
 }: PlanningSettingsFormProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [values, setValues] = useState<SettingsFormValues>(() =>
     createSettingsFormValues(settings),
   );
@@ -335,20 +337,21 @@ export function PlanningSettingsForm({
     </View>
   );
 }
-const styles = StyleSheet.create({
-  form: { gap: spacing.lg },
-  helper: { color: colors.textSecondary, ...typography.secondary },
-  statusSlot: { minHeight: 24, justifyContent: 'center' },
-  fieldError: { color: colors.error, ...typography.secondary },
-  saveArea: {
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    width: '100%',
-    maxWidth: 720,
-    alignSelf: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderSubtle,
-    backgroundColor: colors.surface,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    form: { gap: spacing.lg },
+    helper: { color: colors.textSecondary, ...typography.secondary },
+    statusSlot: { minHeight: 24, justifyContent: 'center' },
+    fieldError: { color: colors.error, ...typography.secondary },
+    saveArea: {
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      width: '100%',
+      maxWidth: 720,
+      alignSelf: 'center',
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.borderSubtle,
+      backgroundColor: colors.surface,
+    },
+  });

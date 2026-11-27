@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/shared/components/Badge';
-import { colors, radius, spacing } from '@/shared/theme';
+import { radius, spacing, useThemeColors } from '@/shared/theme';
 
 import type { DeadlineTaskItem } from '../types';
 
@@ -10,6 +10,8 @@ type DeadlineTaskListProps = {
 };
 
 export function DeadlineTaskList({ items }: DeadlineTaskListProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   if (items.length === 0) {
     return (
       <View style={styles.empty} testID="today-deadline-tasks-empty">
@@ -53,47 +55,48 @@ export function DeadlineTaskList({ items }: DeadlineTaskListProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  list: {
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  lastItem: {
-    borderBottomWidth: 0,
-  },
-  copy: {
-    flex: 1,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  goal: {
-    marginTop: spacing.xs,
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  empty: {
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: 14,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    list: {
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+    },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      padding: spacing.lg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    lastItem: {
+      borderBottomWidth: 0,
+    },
+    copy: {
+      flex: 1,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    goal: {
+      marginTop: spacing.xs,
+      color: colors.textMuted,
+      fontSize: 12,
+    },
+    empty: {
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: 14,
+    },
+  });

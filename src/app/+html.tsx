@@ -14,6 +14,13 @@ export default function Html({ children }: PropsWithChildren) {
           name="description"
           content="目標・タスクとサンプル予定から一日の計画を作る、ログイン不要のWeb Demo。"
         />
+        <meta name="color-scheme" content="light dark" />
+        <style
+          dangerouslySetInnerHTML={{
+            __html:
+              'html,body{background:#F3F5F9;color:#0F172A} @media(prefers-color-scheme:dark){html,body{background:#0B1220;color:#F1F5F9}}',
+          }}
+        />
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>

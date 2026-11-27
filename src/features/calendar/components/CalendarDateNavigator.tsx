@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { LocalDate } from '@/features/today';
 import { Card } from '@/shared/components/Card';
-import { colors, controls, radius, spacing, typography } from '@/shared/theme';
+import { controls, radius, spacing, typography, useThemeColors } from '@/shared/theme';
 
 import { getCalendarDateLabel } from '../presentation';
 
@@ -25,6 +25,8 @@ export function CalendarDateNavigator({
   onToday,
   onSelectDate,
 }: CalendarDateNavigatorProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const dateLabel = getCalendarDateLabel(selectedDate, timeZone);
 
   return (
@@ -93,88 +95,89 @@ export function CalendarDateNavigator({
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  row: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-    width: '100%',
-  },
-  navButton: {
-    width: controls.minimumTarget,
-    height: controls.minimumTarget,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navPressed: {
-    backgroundColor: colors.primarySoft,
-    transform: [{ scale: 0.94 }],
-  },
-  navIcon: {
-    fontSize: 24,
-    lineHeight: 26,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  dateButton: {
-    flex: 1,
-    minHeight: controls.minimumTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    gap: 2,
-  },
-  datePressed: {
-    backgroundColor: colors.primarySoft,
-  },
-  dateText: {
-    ...typography.sectionTitle,
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  dateHint: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  todaySlot: {
-    minHeight: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  todayPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
-  },
-  todayPillText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  backTodayPill: {
-    minHeight: 36,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-  },
-  backTodayText: {
-    ...typography.label,
-    color: colors.primary,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    card: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      gap: spacing.sm,
+      alignItems: 'center',
+    },
+    row: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+      width: '100%',
+    },
+    navButton: {
+      width: controls.minimumTarget,
+      height: controls.minimumTarget,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surfaceSubtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    navPressed: {
+      backgroundColor: colors.primarySoft,
+      transform: [{ scale: 0.94 }],
+    },
+    navIcon: {
+      fontSize: 24,
+      lineHeight: 26,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    dateButton: {
+      flex: 1,
+      minHeight: controls.minimumTarget,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      gap: 2,
+    },
+    datePressed: {
+      backgroundColor: colors.primarySoft,
+    },
+    dateText: {
+      ...typography.sectionTitle,
+      color: colors.textPrimary,
+      textAlign: 'center',
+    },
+    dateHint: {
+      ...typography.caption,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    todaySlot: {
+      minHeight: 36,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    todayPill: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primarySoft,
+    },
+    todayPillText: {
+      ...typography.caption,
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    backTodayPill: {
+      minHeight: 36,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      backgroundColor: colors.surface,
+      justifyContent: 'center',
+    },
+    backTodayText: {
+      ...typography.label,
+      color: colors.primary,
+    },
+  });

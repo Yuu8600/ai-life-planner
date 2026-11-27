@@ -11,7 +11,7 @@ import { ActionButton } from '@/shared/components/ActionButton';
 import { Card } from '@/shared/components/Card';
 import { Notice } from '@/shared/components/Notice';
 import { SectionHeader } from '@/shared/components/SectionHeader';
-import { colors, spacing } from '@/shared/theme';
+import { spacing, useThemeColors } from '@/shared/theme';
 
 export type LegacyPlanHistoryRepository = {
   getPlanForDate(date: string): Promise<TodayDailyPlan | null>;
@@ -26,6 +26,7 @@ export function LegacyPlanHistory({
   plans: LegacyPlanHistoryRepository;
   activities: ActivityLogRepository;
 }) {
+  const colors = useThemeColors();
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<
     { kind: 'loading' | 'error' } | { kind: 'loaded'; plan: TodayDailyPlan | null }

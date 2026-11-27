@@ -15,7 +15,7 @@ import {
 import type { AuthCredentials, SignUpResult } from '@/services/supabase/auth';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { radius, spacing, typography, useThemeColors } from '@/shared/theme';
 
 import { type AuthMode, validateAuthCredentials } from '../credentials';
 import { getAuthErrorMessage } from '../errors';
@@ -30,6 +30,8 @@ const CONFIRMATION_MESSAGE =
   '確認メールを送信しました。メール内のリンクを開いてからログインしてください。';
 
 export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -236,6 +238,8 @@ function ModeButton({
   buttonRef,
   onNavigate,
 }: ModeButtonProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
@@ -282,120 +286,121 @@ function ModeButton({
   );
 }
 
-const styles = StyleSheet.create({
-  keyboardView: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    justifyContent: 'flex-start',
-    gap: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-  intro: {
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  brandMark: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOpacity: 0.28,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: { elevation: 4 },
-      web: { boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)' } as object,
-    }),
-  },
-  brandMarkText: {
-    color: colors.onPrimary,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  title: {
-    color: colors.textPrimary,
-    ...typography.screenTitle,
-    letterSpacing: -0.6,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    ...typography.secondary,
-    textAlign: 'center',
-  },
-  modeSwitch: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 0,
-    padding: 4,
-    borderRadius: radius.control,
-    backgroundColor: colors.surfaceSubtle,
-  },
-  modeButton: {
-    minHeight: 42,
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  selectedModeButton: {
-    backgroundColor: colors.surface,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 1 },
-      },
-      android: { elevation: 1 },
-      web: { boxShadow: '0 1px 3px rgba(15, 23, 42, 0.1)' } as object,
-    }),
-  },
-  modeLabel: {
-    color: colors.textSecondary,
-    ...typography.label,
-  },
-  selectedModeLabel: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  form: {
-    gap: spacing.lg,
-    marginTop: 0,
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  passwordInput: {
-    flex: 1,
-  },
-  passwordToggle: {
-    paddingHorizontal: spacing.md,
-  },
-  submitButton: {
-    minHeight: 50,
-    marginTop: spacing.xs,
-  },
-  footnote: {
-    marginTop: 0,
-    color: colors.textSubtle,
-    ...typography.secondary,
-    textAlign: 'center',
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    keyboardView: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      width: '100%',
+      maxWidth: 480,
+      alignSelf: 'center',
+      justifyContent: 'flex-start',
+      gap: spacing.lg,
+      paddingTop: spacing.xl,
+    },
+    intro: {
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.sm,
+    },
+    brandMark: {
+      width: 56,
+      height: 56,
+      borderRadius: 16,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xs,
+      ...Platform.select({
+        ios: {
+          shadowColor: colors.primary,
+          shadowOpacity: 0.28,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+        },
+        android: { elevation: 4 },
+        web: { boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)' } as object,
+      }),
+    },
+    brandMarkText: {
+      color: colors.onPrimary,
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+    title: {
+      color: colors.textPrimary,
+      ...typography.screenTitle,
+      letterSpacing: -0.6,
+      textAlign: 'center',
+    },
+    subtitle: {
+      color: colors.textSecondary,
+      ...typography.secondary,
+      textAlign: 'center',
+    },
+    modeSwitch: {
+      flexDirection: 'row',
+      gap: 4,
+      marginTop: 0,
+      padding: 4,
+      borderRadius: radius.control,
+      backgroundColor: colors.surfaceSubtle,
+    },
+    modeButton: {
+      minHeight: 42,
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.sm,
+      paddingHorizontal: spacing.sm,
+    },
+    selectedModeButton: {
+      backgroundColor: colors.surface,
+      ...Platform.select({
+        ios: {
+          shadowColor: colors.shadow,
+          shadowOpacity: 0.08,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 1 },
+        },
+        android: { elevation: 1 },
+        web: { boxShadow: '0 1px 3px rgba(15, 23, 42, 0.1)' } as object,
+      }),
+    },
+    modeLabel: {
+      color: colors.textSecondary,
+      ...typography.label,
+    },
+    selectedModeLabel: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    form: {
+      gap: spacing.lg,
+      marginTop: 0,
+    },
+    passwordRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    passwordInput: {
+      flex: 1,
+    },
+    passwordToggle: {
+      paddingHorizontal: spacing.md,
+    },
+    submitButton: {
+      minHeight: 50,
+      marginTop: spacing.xs,
+    },
+    footnote: {
+      marginTop: 0,
+      color: colors.textSubtle,
+      ...typography.secondary,
+      textAlign: 'center',
+    },
+  });

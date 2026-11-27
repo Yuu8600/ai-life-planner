@@ -10,7 +10,7 @@ import { FormField, FormInput } from '@/shared/components/FormField';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
 import { confirmDiscardChanges } from '@/shared/feedback/confirmDiscardChanges';
-import { colors, radius, spacing } from '@/shared/theme';
+import { radius, spacing, useThemeColors } from '@/shared/theme';
 
 import type { CreateTaskInput, Task, TaskGoalOption } from '../repositories/TaskRepository';
 import {
@@ -57,6 +57,8 @@ export function TaskFormModal({
   onDelete,
   initialGoalId,
 }: TaskFormModalProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [values, setValues] = useState<TaskFormValues>(() => ({
     ...createTaskFormValues(
       task && planningTimezone && task.deadline
@@ -438,6 +440,8 @@ type GoalOptionProps = {
 };
 
 function GoalOption({ disabled, label, onPress, selected }: GoalOptionProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <Pressable
       accessibilityLabel={`Goal ${label}`}
@@ -458,42 +462,43 @@ function GoalOption({ disabled, label, onPress, selected }: GoalOptionProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  field: { flex: 1, gap: spacing.sm },
-  label: { color: colors.text, fontSize: 13, fontWeight: '700' },
-  goalOptions: { gap: spacing.sm },
-  goalOption: {
-    minHeight: 46,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-  },
-  selectedOption: { borderColor: colors.accentMuted, backgroundColor: colors.accentSoft },
-  optionLabel: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
-  selectedOptionLabel: { color: colors.accent },
-  helperText: { color: colors.textMuted, fontSize: 13 },
-  goalErrorRow: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    backgroundColor: colors.warningSoft,
-  },
-  goalErrorText: { color: colors.warning, fontSize: 13, lineHeight: 19 },
-  retryButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
-  retryLabel: { color: colors.warning, fontSize: 13, fontWeight: '700' },
-  fieldError: { color: colors.warning, fontSize: 12, lineHeight: 18 },
-  submitButton: { minHeight: 50 },
-  relatedSection: {
-    gap: spacing.sm,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-  },
-  dangerSection: {
-    paddingTop: spacing.sm,
-  },
-  pressed: { opacity: 0.7 },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    field: { flex: 1, gap: spacing.sm },
+    label: { color: colors.text, fontSize: 13, fontWeight: '700' },
+    goalOptions: { gap: spacing.sm },
+    goalOption: {
+      minHeight: 46,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+    },
+    selectedOption: { borderColor: colors.accentMuted, backgroundColor: colors.accentSoft },
+    optionLabel: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
+    selectedOptionLabel: { color: colors.accent },
+    helperText: { color: colors.textMuted, fontSize: 13 },
+    goalErrorRow: {
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderRadius: radius.sm,
+      backgroundColor: colors.warningSoft,
+    },
+    goalErrorText: { color: colors.warning, fontSize: 13, lineHeight: 19 },
+    retryButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
+    retryLabel: { color: colors.warning, fontSize: 13, fontWeight: '700' },
+    fieldError: { color: colors.warning, fontSize: 12, lineHeight: 18 },
+    submitButton: { minHeight: 50 },
+    relatedSection: {
+      gap: spacing.sm,
+      paddingTop: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderSubtle,
+    },
+    dangerSection: {
+      paddingTop: spacing.sm,
+    },
+    pressed: { opacity: 0.7 },
+  });

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/shared/theme';
+import { radius, spacing, useThemeColors } from '@/shared/theme';
 
 import type { ChatMessage } from '../types';
 
@@ -9,6 +9,8 @@ type ChatBubbleProps = {
 };
 
 export function ChatBubble({ message }: ChatBubbleProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const isUser = message.role === 'user';
 
   return (
@@ -21,45 +23,46 @@ export function ChatBubble({ message }: ChatBubbleProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    width: '100%',
-    marginBottom: spacing.lg,
-  },
-  userRow: {
-    alignItems: 'flex-end',
-  },
-  assistantRow: {
-    alignItems: 'flex-start',
-  },
-  sender: {
-    marginBottom: spacing.sm,
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  bubble: {
-    maxWidth: '88%',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-  },
-  userBubble: {
-    backgroundColor: colors.accent,
-    borderBottomRightRadius: radius.sm,
-  },
-  assistantBubble: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderBottomLeftRadius: radius.sm,
-  },
-  text: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 23,
-  },
-  userText: {
-    color: colors.surface,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    row: {
+      width: '100%',
+      marginBottom: spacing.lg,
+    },
+    userRow: {
+      alignItems: 'flex-end',
+    },
+    assistantRow: {
+      alignItems: 'flex-start',
+    },
+    sender: {
+      marginBottom: spacing.sm,
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    bubble: {
+      maxWidth: '88%',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: radius.lg,
+    },
+    userBubble: {
+      backgroundColor: colors.accent,
+      borderBottomRightRadius: radius.sm,
+    },
+    assistantBubble: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      borderBottomLeftRadius: radius.sm,
+    },
+    text: {
+      color: colors.text,
+      fontSize: 15,
+      lineHeight: 23,
+    },
+    userText: {
+      color: colors.surface,
+    },
+  });

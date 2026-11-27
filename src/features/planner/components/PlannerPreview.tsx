@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { SectionHeader } from '@/shared/components/SectionHeader';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { radius, spacing, typography, useThemeColors } from '@/shared/theme';
 import { Badge } from '@/shared/components/Badge';
 import { Notice } from '@/shared/components/Notice';
 
@@ -23,6 +23,8 @@ export function PlannerPreview({
   preview,
   children,
 }: PlannerPreviewProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const calendarRows = preview.calendarEvents.map((event, index) => ({
     allDay: event.allDay,
     startAt: event.startAt,
@@ -126,43 +128,44 @@ export function PlannerPreview({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { gap: spacing.lg },
-  summaryCard: {
-    gap: spacing.sm,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radius.card,
-    backgroundColor: colors.surface,
-  },
-  count: { ...typography.bodyStrong, color: colors.action },
-  summary: { ...typography.sectionTitle, color: colors.textPrimary },
-  temporary: { ...typography.secondary, color: colors.textSecondary },
-  list: { gap: spacing.sm },
-  item: {
-    gap: spacing.sm,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radius.card,
-    backgroundColor: colors.surface,
-  },
-  action: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.action,
-    backgroundColor: colors.actionSoft,
-  },
-  itemHeader: { gap: spacing.xs },
-  time: { ...typography.secondary, color: colors.action, fontVariant: ['tabular-nums'] },
-  title: { ...typography.bodyStrong, color: colors.textPrimary },
-  reason: { ...typography.secondary, color: colors.textSecondary },
-  emptyCard: {
-    gap: spacing.sm,
-    padding: spacing.lg,
-    borderRadius: radius.card,
-    backgroundColor: colors.surface,
-  },
-  emptyText: { ...typography.body, color: colors.textSecondary },
-  warningCard: { minWidth: 0 },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    container: { gap: spacing.lg },
+    summaryCard: {
+      gap: spacing.sm,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: radius.card,
+      backgroundColor: colors.surface,
+    },
+    count: { ...typography.bodyStrong, color: colors.action },
+    summary: { ...typography.sectionTitle, color: colors.textPrimary },
+    temporary: { ...typography.secondary, color: colors.textSecondary },
+    list: { gap: spacing.sm },
+    item: {
+      gap: spacing.sm,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: radius.card,
+      backgroundColor: colors.surface,
+    },
+    action: {
+      borderLeftWidth: 3,
+      borderLeftColor: colors.action,
+      backgroundColor: colors.actionSoft,
+    },
+    itemHeader: { gap: spacing.xs },
+    time: { ...typography.secondary, color: colors.action, fontVariant: ['tabular-nums'] },
+    title: { ...typography.bodyStrong, color: colors.textPrimary },
+    reason: { ...typography.secondary, color: colors.textSecondary },
+    emptyCard: {
+      gap: spacing.sm,
+      padding: spacing.lg,
+      borderRadius: radius.card,
+      backgroundColor: colors.surface,
+    },
+    emptyText: { ...typography.body, color: colors.textSecondary },
+    warningCard: { minWidth: 0 },
+  });

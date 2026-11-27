@@ -17,7 +17,7 @@ import { Card } from '@/shared/components/Card';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { Notice } from '@/shared/components/Notice';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { radius, spacing, typography, useThemeColors } from '@/shared/theme';
 import { confirmDiscardChanges } from '@/shared/feedback/confirmDiscardChanges';
 import { CalendarShareEditor, type ReadShareableCalendar } from './CalendarShareEditor';
 import type { TaskGoalOption } from '@/features/tasks/repositories/TaskRepository';
@@ -54,6 +54,8 @@ export function ChatScreen({
   readCalendar?: ReadShareableCalendar;
   reviewPlan: (plan: PlanProposal) => void;
 }) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [composingNew, setComposingNew] = useState(!!focus);
   const [autoShare, setAutoShare] = useState(prepareCalendar);
@@ -632,7 +634,7 @@ export function ChatScreen({
                       style={{
                         ...typography.caption,
                         fontWeight: '700',
-                        color: isUser ? 'rgba(255,255,255,0.82)' : colors.primary,
+                        color: isUser ? colors.onPrimary : colors.primary,
                       }}
                     >
                       {isUser ? 'あなた' : 'AI'}
@@ -840,87 +842,88 @@ export function ChatScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  composer: {
-    backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSubtle,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    gap: spacing.xs,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: -4 },
-      },
-      android: { elevation: 4 },
-      web: { boxShadow: '0 -2px 10px rgba(15, 23, 42, 0.04)' } as object,
-    }),
-  },
-  input: { maxHeight: 120, borderRadius: radius.md },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  actionGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  threadList: { padding: 0, gap: 0, overflow: 'hidden' },
-  threadRow: {
-    minHeight: 56,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  threadLeading: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    minWidth: 0,
-  },
-  threadDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  threadDotText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  threadDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderSubtle,
-  },
-  threadTitle: { ...typography.bodyStrong, color: colors.textPrimary, flex: 1 },
-  threadChevron: { ...typography.sectionTitle, color: colors.textSecondary },
-  small: { ...typography.caption, color: colors.primary },
-  userMessage: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    borderBottomRightRadius: 6,
-    marginLeft: spacing.xl,
-    gap: spacing.xs,
-  },
-  assistantMessage: {
-    borderBottomLeftRadius: 6,
-    marginRight: spacing.xl,
-    gap: spacing.xs,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background },
+    composer: {
+      backgroundColor: colors.surface,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSubtle,
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.sm,
+      gap: spacing.xs,
+      ...Platform.select({
+        ios: {
+          shadowColor: colors.shadow,
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
+        },
+        android: { elevation: 4 },
+        web: { boxShadow: '0 -2px 10px rgba(15, 23, 42, 0.04)' } as object,
+      }),
+    },
+    input: { maxHeight: 120, borderRadius: radius.md },
+    actions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    actionGroup: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    threadList: { padding: 0, gap: 0, overflow: 'hidden' },
+    threadRow: {
+      minHeight: 56,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+    },
+    threadLeading: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      minWidth: 0,
+    },
+    threadDot: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    threadDotText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    threadDivider: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.borderSubtle,
+    },
+    threadTitle: { ...typography.bodyStrong, color: colors.textPrimary, flex: 1 },
+    threadChevron: { ...typography.sectionTitle, color: colors.textSecondary },
+    small: { ...typography.caption, color: colors.primary },
+    userMessage: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+      borderBottomRightRadius: 6,
+      marginLeft: spacing.xl,
+      gap: spacing.xs,
+    },
+    assistantMessage: {
+      borderBottomLeftRadius: 6,
+      marginRight: spacing.xl,
+      gap: spacing.xs,
+    },
+  });

@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { FreeTimeCalculationResult } from '@/features/planner';
 import { formatPlanningTime, getLocalDate } from '@/features/today';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import { Card } from '@/shared/components/Card';
 
 type FreeTimeSummaryProps = {
@@ -17,6 +17,8 @@ function formatDuration(durationMinutes: number): string {
 }
 
 export function FreeTimeSummary({ result, timezone }: FreeTimeSummaryProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   return (
     <Card style={styles.container} testID="calendar-free-time">
       <Text accessibilityRole="header" style={styles.title}>
@@ -77,28 +79,29 @@ export function FreeTimeSummary({ result, timezone }: FreeTimeSummaryProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { gap: spacing.sm },
-  title: { ...typography.sectionTitle, color: colors.textPrimary },
-  total: { ...typography.bodyStrong, color: colors.available },
-  subtitle: { ...typography.secondary, color: colors.textSecondary },
-  emptyCard: { gap: spacing.sm, paddingVertical: spacing.sm },
-  emptyText: { ...typography.body, color: colors.textSecondary },
-  list: { gap: spacing.sm },
-  slot: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-  },
-  time: {
-    ...typography.bodyStrong,
-    color: colors.available,
-    flexShrink: 1,
-    fontVariant: ['tabular-nums'],
-  },
-  duration: { ...typography.secondary, color: colors.textSecondary },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    container: { gap: spacing.sm },
+    title: { ...typography.sectionTitle, color: colors.textPrimary },
+    total: { ...typography.bodyStrong, color: colors.available },
+    subtitle: { ...typography.secondary, color: colors.textSecondary },
+    emptyCard: { gap: spacing.sm, paddingVertical: spacing.sm },
+    emptyText: { ...typography.body, color: colors.textSecondary },
+    list: { gap: spacing.sm },
+    slot: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      justifyContent: 'space-between',
+      paddingVertical: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderSubtle,
+    },
+    time: {
+      ...typography.bodyStrong,
+      color: colors.available,
+      flexShrink: 1,
+      fontVariant: ['tabular-nums'],
+    },
+    duration: { ...typography.secondary, color: colors.textSecondary },
+  });

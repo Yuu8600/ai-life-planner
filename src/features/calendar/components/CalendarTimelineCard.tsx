@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { formatLocalTimeJa, getLocalDate } from '@/features/today';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { radius, spacing, typography, useThemeColors } from '@/shared/theme';
 
 export type CalendarTimelineEvent = {
   title: string;
@@ -19,6 +19,8 @@ export function CalendarTimelineCard({
   localDate: string;
   timezone: string;
 }) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const endpoint = (instant: string) => {
     const date = getLocalDate(instant, timezone);
     const time = formatLocalTimeJa(instant, timezone);
@@ -40,16 +42,17 @@ export function CalendarTimelineCard({
     </View>
   );
 }
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.calendarSoft,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginVertical: spacing.xs,
-    gap: spacing.xs,
-  },
-  source: { ...typography.caption, color: colors.calendar },
-  time: { ...typography.caption, color: colors.calendar, fontVariant: ['tabular-nums'] },
-  title: { ...typography.body, color: colors.calendar },
-  canceled: { textDecorationLine: 'line-through' },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: colors.calendarSoft,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginVertical: spacing.xs,
+      gap: spacing.xs,
+    },
+    source: { ...typography.caption, color: colors.calendar },
+    time: { ...typography.caption, color: colors.calendar, fontVariant: ['tabular-nums'] },
+    title: { ...typography.body, color: colors.calendar },
+    canceled: { textDecorationLine: 'line-through' },
+  });

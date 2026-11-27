@@ -8,7 +8,7 @@ import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { radius, spacing, typography, useThemeColors } from '@/shared/theme';
 import { Notice } from '@/shared/components/Notice';
 
 import { PlannerPreview } from './components/PlannerPreview';
@@ -62,6 +62,8 @@ export function PlannerPreviewScreen({
   settingsRepository,
   taskRepository,
 }: PlannerPreviewScreenProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const { approve, calendar, canApprove, canGenerate, discard, generate, saveState, state } =
     usePlannerPreview({
       eventBufferRepository,
@@ -492,66 +494,67 @@ export function PlannerPreviewScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  content: { width: '100%', maxWidth: 880, alignSelf: 'center', gap: spacing.lg },
-  flow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  unavailableProvider: { backgroundColor: colors.surfaceSubtle },
-  providerOptions: { gap: spacing.sm },
-  providerHeading: { ...typography.sectionTitle, color: colors.textPrimary },
-  providerOption: {
-    minHeight: 60,
-    gap: spacing.xs,
-    borderColor: colors.borderControl,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-  },
-  focusedProvider: {
-    borderColor: colors.focusRing,
-    ...Platform.select({
-      web: {
-        outlineColor: colors.focusRing,
-        outlineWidth: 2,
-        outlineStyle: 'solid',
-        outlineOffset: 2,
-      },
-      default: { borderWidth: 2 },
-    }),
-  },
-  selectedProviderOption: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  providerTitle: { ...typography.bodyStrong, color: colors.textPrimary },
-  providerDescription: { ...typography.secondary, color: colors.textSecondary },
-  providerLabel: { ...typography.secondary, color: colors.textSecondary },
-  introCard: {
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radius.card,
-    backgroundColor: colors.surface,
-  },
-  introTitle: { ...typography.sectionTitle, color: colors.textPrimary },
-  introText: { ...typography.secondary, color: colors.textSecondary },
-  createButton: { marginTop: spacing.sm },
-  actions: { gap: spacing.sm },
-  issueCard: {
-    gap: spacing.sm,
-    padding: spacing.lg,
-    borderRadius: radius.card,
-    backgroundColor: colors.errorSoft,
-  },
-  issueTitle: { ...typography.bodyStrong, color: colors.error },
-  issueText: { ...typography.secondary, color: colors.warning },
-  feedback: { gap: spacing.sm },
-  saveArea: {
-    gap: spacing.sm,
-    padding: spacing.lg,
-    width: '100%',
-    maxWidth: 880,
-    alignSelf: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-    backgroundColor: colors.surface,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    content: { width: '100%', maxWidth: 880, alignSelf: 'center', gap: spacing.lg },
+    flow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    unavailableProvider: { backgroundColor: colors.surfaceSubtle },
+    providerOptions: { gap: spacing.sm },
+    providerHeading: { ...typography.sectionTitle, color: colors.textPrimary },
+    providerOption: {
+      minHeight: 60,
+      gap: spacing.xs,
+      borderColor: colors.borderControl,
+      borderRadius: radius.card,
+      borderWidth: 1,
+      backgroundColor: colors.surface,
+      padding: spacing.md,
+    },
+    focusedProvider: {
+      borderColor: colors.focusRing,
+      ...Platform.select({
+        web: {
+          outlineColor: colors.focusRing,
+          outlineWidth: 2,
+          outlineStyle: 'solid',
+          outlineOffset: 2,
+        },
+        default: { borderWidth: 2 },
+      }),
+    },
+    selectedProviderOption: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+    providerTitle: { ...typography.bodyStrong, color: colors.textPrimary },
+    providerDescription: { ...typography.secondary, color: colors.textSecondary },
+    providerLabel: { ...typography.secondary, color: colors.textSecondary },
+    introCard: {
+      gap: spacing.md,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: radius.card,
+      backgroundColor: colors.surface,
+    },
+    introTitle: { ...typography.sectionTitle, color: colors.textPrimary },
+    introText: { ...typography.secondary, color: colors.textSecondary },
+    createButton: { marginTop: spacing.sm },
+    actions: { gap: spacing.sm },
+    issueCard: {
+      gap: spacing.sm,
+      padding: spacing.lg,
+      borderRadius: radius.card,
+      backgroundColor: colors.errorSoft,
+    },
+    issueTitle: { ...typography.bodyStrong, color: colors.error },
+    issueText: { ...typography.secondary, color: colors.warning },
+    feedback: { gap: spacing.sm },
+    saveArea: {
+      gap: spacing.sm,
+      padding: spacing.lg,
+      width: '100%',
+      maxWidth: 880,
+      alignSelf: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.borderSubtle,
+      backgroundColor: colors.surface,
+    },
+  });

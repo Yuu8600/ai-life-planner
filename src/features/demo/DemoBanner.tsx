@@ -4,12 +4,14 @@ import { StyleSheet, Text, View } from 'react-native';
 import { formatLocalTimeJa, getLocalDate } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { appAlert } from '@/shared/feedback/appAlert';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import { DEMO_AFTERNOON, DEMO_TIMEZONE } from '@/services/demo/sampleData';
 
 import { useDemo } from './DemoProvider';
 
 export function DemoBanner() {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [expanded, setExpanded] = useState(false);
   const { repositories, reset, advance, overnight } = useDemo();
   const now = repositories.now();
@@ -65,25 +67,26 @@ export function DemoBanner() {
   );
 }
 
-const styles = StyleSheet.create({
-  banner: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.xs,
-    borderBottomWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    columnGap: spacing.sm,
-  },
-  copy: { flexBasis: 175, flexGrow: 1, flexShrink: 1, minWidth: 0 },
-  title: { ...typography.caption, color: colors.primary },
-  detail: { ...typography.caption, color: colors.textSecondary },
-  toggle: { paddingHorizontal: spacing.sm },
-  panel: { gap: spacing.sm, paddingVertical: spacing.sm },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    banner: {
+      backgroundColor: colors.primarySoft,
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.xs,
+      borderBottomWidth: 1,
+      borderColor: colors.borderSubtle,
+    },
+    row: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      columnGap: spacing.sm,
+    },
+    copy: { flexBasis: 175, flexGrow: 1, flexShrink: 1, minWidth: 0 },
+    title: { ...typography.caption, color: colors.primary },
+    detail: { ...typography.caption, color: colors.textSecondary },
+    toggle: { paddingHorizontal: spacing.sm },
+    panel: { gap: spacing.sm, paddingVertical: spacing.sm },
+    actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  });

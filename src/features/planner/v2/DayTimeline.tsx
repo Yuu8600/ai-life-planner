@@ -16,17 +16,18 @@ import {
   type AxisWindow,
 } from '@/features/today';
 import { ActionButton } from '@/shared/components/ActionButton';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { radius, spacing, typography, useThemeColors } from '@/shared/theme';
 import { moveByPixels, sessionLabel, type TimelineEntry } from './timelineEntries';
 
-export const timelineKinds = {
-  task: { label: '作業枠', ink: colors.action, fill: colors.actionSoft },
-  fixed: { label: '固定予定', ink: colors.warning, fill: colors.warningSoft },
-  device: { label: 'iPhone予定', ink: colors.calendar, fill: colors.calendarSoft },
-  lifestyle: { label: '生活予定', ink: colors.success, fill: colors.successSoft },
-  leisure: { label: '自由時間', ink: colors.available, fill: colors.availableSoft },
-  travel: { label: '移動・余白', ink: colors.warning, fill: colors.surfaceSubtle },
-} as const;
+export const createTimelineKinds = (colors: ReturnType<typeof useThemeColors>) =>
+  ({
+    task: { label: '作業枠', ink: colors.action, fill: colors.actionSoft },
+    fixed: { label: '固定予定', ink: colors.warning, fill: colors.warningSoft },
+    device: { label: 'iPhone予定', ink: colors.calendar, fill: colors.calendarSoft },
+    lifestyle: { label: '生活予定', ink: colors.success, fill: colors.successSoft },
+    leisure: { label: '自由時間', ink: colors.available, fill: colors.availableSoft },
+    travel: { label: '移動・余白', ink: colors.warning, fill: colors.surfaceSubtle },
+  }) as const;
 
 const AXIS_PADDING = 16;
 const EDGE = 110;
@@ -72,6 +73,9 @@ export function DayTimeline({
   showFullDay: boolean;
   onToggleFullDay: () => void;
 }) {
+  const colors = useThemeColors();
+  const timelineKinds = createTimelineKinds(colors);
+  const styles = createStyles(colors);
   const { fontScale, height: screenHeight } = useWindowDimensions();
   const scale = Math.max(1, fontScale);
   const labelWidth = Math.ceil(55 * scale);
@@ -352,49 +356,60 @@ export function DayTimeline({
   );
 }
 
-const styles = StyleSheet.create({
-  section: { gap: spacing.xs },
-  header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.xs },
-  heading: { ...typography.sectionTitle, color: colors.textPrimary, flexGrow: 1 },
-  displayRange: { alignSelf: 'flex-start', paddingHorizontal: 0 },
-  caption: { ...typography.caption, color: colors.textSecondary },
-  axis: { backgroundColor: colors.surface, borderRadius: radius.md },
-  tick: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'flex-start' },
-  tickLabel: {
-    ...typography.caption,
-    paddingHorizontal: 5,
-    color: colors.textSecondary,
-    marginTop: -8,
-  },
-  tickLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSubtle },
-  blockTarget: { position: 'absolute' },
-  block: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    borderRadius: radius.sm,
-    borderLeftWidth: 3,
-    paddingHorizontal: 6,
-    overflow: 'hidden',
-  },
-  blockTitle: { ...typography.caption, lineHeight: 16, fontWeight: '700' },
-  blockTime: { ...typography.caption, lineHeight: 16, color: colors.textSecondary },
-  now: { position: 'absolute', right: 0, flexDirection: 'row', alignItems: 'center' },
-  nowLabel: { ...typography.caption, color: colors.nowIndicator, backgroundColor: colors.surface },
-  nowLine: { height: 1, backgroundColor: colors.nowIndicator, flex: 1 },
-  dropLine: {
-    position: 'absolute',
-    right: 0,
-    borderTopWidth: 2,
-    backgroundColor: colors.overlaySubtle,
-    borderColor: colors.primary,
-    alignItems: 'flex-start',
-  },
-  dropLabel: {
-    ...typography.bodyStrong,
-    color: colors.onPrimary,
-    backgroundColor: colors.primary,
-    padding: 4,
-    borderRadius: radius.sm,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    section: { gap: spacing.xs },
+    header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.xs },
+    heading: { ...typography.sectionTitle, color: colors.textPrimary, flexGrow: 1 },
+    displayRange: { alignSelf: 'flex-start', paddingHorizontal: 0 },
+    caption: { ...typography.caption, color: colors.textSecondary },
+    axis: { backgroundColor: colors.surface, borderRadius: radius.md },
+    tick: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+    },
+    tickLabel: {
+      ...typography.caption,
+      paddingHorizontal: 5,
+      color: colors.textSecondary,
+      marginTop: -8,
+    },
+    tickLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSubtle },
+    blockTarget: { position: 'absolute' },
+    block: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      borderRadius: radius.sm,
+      borderLeftWidth: 3,
+      paddingHorizontal: 6,
+      overflow: 'hidden',
+    },
+    blockTitle: { ...typography.caption, lineHeight: 16, fontWeight: '700' },
+    blockTime: { ...typography.caption, lineHeight: 16, color: colors.textSecondary },
+    now: { position: 'absolute', right: 0, flexDirection: 'row', alignItems: 'center' },
+    nowLabel: {
+      ...typography.caption,
+      color: colors.nowIndicator,
+      backgroundColor: colors.surface,
+    },
+    nowLine: { height: 1, backgroundColor: colors.nowIndicator, flex: 1 },
+    dropLine: {
+      position: 'absolute',
+      right: 0,
+      borderTopWidth: 2,
+      backgroundColor: colors.overlaySubtle,
+      borderColor: colors.primary,
+      alignItems: 'flex-start',
+    },
+    dropLabel: {
+      ...typography.bodyStrong,
+      color: colors.onPrimary,
+      backgroundColor: colors.primary,
+      padding: 4,
+      borderRadius: radius.sm,
+    },
+  });

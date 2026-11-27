@@ -60,3 +60,23 @@
   全role一致、明示darkとlightの切替で共通ヘッダー・入力色が更新されることをテスト。
 - 最終コードのQAビルド成功。iPhone 17e / iOS 27.2で予定・追加モーダルのライト表示を画像で確認。
   ダークのSimulator表示は全画面移行後の検証とし、この段階では自動テストのみ。DB変更なし。
+
+## R-18：全画面のダークモード・OS追従
+
+- 日常画面、認証、旧履歴、高度な時間割、Web Demoの静的palette参照をテーマContextへ移行。
+  StyleSheetと時間割凡例をactive paletteから生成し、起動中の外観変更を反映する。
+- Native/WebのルートにThemeProviderのOS追従を接続。タブ・ナビ背景・StatusBar・Webページ外周・
+  HTML日付入力も対応。app.jsonはautomaticへ変更。独自の永続設定・DB変更なし。
+- 型チェック・ESLint・全Prettier・94 suites / 848 tests・Web出力／分離検証成功。
+  OS切替と主要な文字・状態色のコントラスト比4.5以上をテスト。
+- 生成済みiOSに旧Light指定が残っていたためExpo prebuildとpod installでローカルNativeを更新。
+  Automaticを確認して現在コードを再ビルド。React Native/Expoの警告とXcode診断を伴うが終了コード0、
+  QA成果物の検証・インストール・起動成功。本番・実機への配備はしていない。
+- iPhone 17e / iOS 27.2：OSダークで今日・タスク・日付シート・AI履歴・高度な時間割を画像確認。
+  ライトへの切替はアニメーション終了後の画像で追従確認。キャンセル・画面遷移・戻るも確認。
+- iPhone SE第3世代 / iOS 27.2（375×667）：同じ最新QA成果物で認証のダーク／ライト、入力・
+  キーボード表示、縦スワイプ、accessibility-largeでフォーム下部への到達を確認。
+  ログイン送信なし。文字設定をlargeへ戻し追加Simulatorを停止。認証後の全画面をSEで網羅してはいない。
+- アクセシビリティはラベル・状態・文字拡大・コントラストを確認。VoiceOver実操作は未検証。
+  Webは自動テストと静的出力の範囲で、ブラウザー実操作は未実施。
+- セルフレビュー：変更は表示とOS追従に限定。Phase 1/2の固定ヘッダー、dirty、保存・旧URL契約を維持。

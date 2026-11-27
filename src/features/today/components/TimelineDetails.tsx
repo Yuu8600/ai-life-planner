@@ -5,7 +5,7 @@ import { orderDailyTimeline } from '@/shared/types/dailyTimeline';
 
 import { Badge } from '@/shared/components/Badge';
 import { ActionButton } from '@/shared/components/ActionButton';
-import { colors, radius, spacing } from '@/shared/theme';
+import { radius, spacing, useThemeColors } from '@/shared/theme';
 
 import type { TimelineItem } from '../types';
 import type { ActionExecutionStatus } from '../repositories/PlannedActionExecutionRepository';
@@ -34,6 +34,8 @@ export function TimelineDetails({
   mutations = {},
   onExecute,
 }: TimelineProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const nextActionId =
     suppliedNextActionId === undefined
       ? items.find((item) => item.status === 'scheduled')?.id
@@ -145,86 +147,87 @@ export function TimelineDetails({
   );
 }
 
-const styles = StyleSheet.create({
-  list: {
-    marginTop: spacing.sm,
-  },
-  row: {
-    minHeight: 88,
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  lastRow: {
-    borderBottomWidth: 0,
-  },
-  timeColumn: {
-    width: 58,
-    paddingTop: spacing.md,
-  },
-  startTime: {
-    fontVariant: ['tabular-nums'],
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  endTime: {
-    marginTop: 3,
-    color: colors.textSubtle,
-    fontSize: 12,
-  },
-  rail: {
-    width: 24,
-    alignItems: 'center',
-  },
-  dot: {
-    zIndex: 1,
-    width: 10,
-    height: 10,
-    marginTop: 17,
-    borderRadius: 5,
-  },
-  plannedDot: {
-    backgroundColor: colors.accent,
-  },
-  line: {
-    position: 'absolute',
-    top: 24,
-    bottom: -17,
-    width: 1,
-    backgroundColor: colors.border,
-  },
-  details: {
-    flex: 1,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  nextAction: {
-    marginVertical: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentSoft,
-    gap: spacing.xs,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  relation: {
-    marginTop: spacing.xs,
-    color: colors.textMuted,
-    fontSize: 13,
-  },
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    list: {
+      marginTop: spacing.sm,
+    },
+    row: {
+      minHeight: 88,
+      flexDirection: 'row',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    lastRow: {
+      borderBottomWidth: 0,
+    },
+    timeColumn: {
+      width: 58,
+      paddingTop: spacing.md,
+    },
+    startTime: {
+      fontVariant: ['tabular-nums'],
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    endTime: {
+      marginTop: 3,
+      color: colors.textSubtle,
+      fontSize: 12,
+    },
+    rail: {
+      width: 24,
+      alignItems: 'center',
+    },
+    dot: {
+      zIndex: 1,
+      width: 10,
+      height: 10,
+      marginTop: 17,
+      borderRadius: 5,
+    },
+    plannedDot: {
+      backgroundColor: colors.accent,
+    },
+    line: {
+      position: 'absolute',
+      top: 24,
+      bottom: -17,
+      width: 1,
+      backgroundColor: colors.border,
+    },
+    details: {
+      flex: 1,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+    },
+    nextAction: {
+      marginVertical: spacing.sm,
+      padding: spacing.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.accentSoft,
+      gap: spacing.xs,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    relation: {
+      marginTop: spacing.xs,
+      color: colors.textMuted,
+      fontSize: 13,
+    },
 
-  meta: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
+    meta: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
 
-  operations: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
-  error: { color: colors.warning, fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
-});
+    operations: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+    error: { color: colors.warning, fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
+  });

@@ -9,7 +9,7 @@ import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame, type ModalFrameProps } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
-import { colors, spacing, typography } from '@/shared/theme';
+import { spacing, typography, useThemeColors } from '@/shared/theme';
 import type {
   ChatRepository,
   Draft,
@@ -93,6 +93,8 @@ export function DraftEditor({
   discardPrivate?: () => void;
   reviewPlan: (plan: PlanProposal) => void;
 }) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [items, setItems] = useState(draft.items);
   const [selected, setSelected] = useState<string[]>(() =>
     draft.items
@@ -578,12 +580,13 @@ export function DraftEditor({
   );
 }
 
-const styles = StyleSheet.create({
-  selection: {
-    minHeight: 44,
-    alignSelf: 'flex-start',
-    justifyContent: 'center',
-    paddingRight: spacing.lg,
-  },
-  selectionText: { ...typography.bodyStrong, color: colors.primary },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    selection: {
+      minHeight: 44,
+      alignSelf: 'flex-start',
+      justifyContent: 'center',
+      paddingRight: spacing.lg,
+    },
+    selectionText: { ...typography.bodyStrong, color: colors.primary },
+  });
