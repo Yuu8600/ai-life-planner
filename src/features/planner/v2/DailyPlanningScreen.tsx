@@ -271,7 +271,7 @@ export function DailyPlanningScreen({
       }}
       header={
         <ScreenHeader
-          title={mode === 'today' ? '今日の計画' : 'カレンダー'}
+          title={mode === 'today' ? '時間割' : '固定・生活予定'}
           backAction={closeAdvanced ? { label: '戻る', onPress: closeAdvanced } : undefined}
           action={
             closeAdvanced ? undefined : (

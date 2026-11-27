@@ -227,6 +227,14 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
         onSelectDate={() => setDateDraft(date)}
       />
       {agenda}
+      <ActionButton
+        label="時間割を組む"
+        variant="secondary"
+        onPress={() => router.push({ pathname: '/advanced-planner', params: { date } })}
+      />
+      <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
+        作業する時刻を決めたいときに使えます。今日のおすすめとは別に、確認して保存します。
+      </Text>
       <View style={{ gap: spacing.sm }}>
         <ActionButton
           label="アプリ内に予定を追加"

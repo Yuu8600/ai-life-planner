@@ -151,3 +151,18 @@ it('opens a task-focused AI conversation directly from Today', async () => {
     },
   });
 });
+
+it('opens the timetable for the selected calendar day without loading Planner first', async () => {
+  mockUseAuth.mockReturnValue({ session: { user: { id: userId } } });
+  const screen = await render(<CalendarRoute />);
+  await fireEvent.press(await screen.findByRole('button', { name: '時間割を組む' }));
+  const original = mockPush.mock.calls.at(-1)?.[0]?.params?.date;
+  await fireEvent.press(await screen.findByRole('button', { name: '次の日を表示' }));
+  await fireEvent.press(screen.getByRole('button', { name: '時間割を組む' }));
+  const date = mockPush.mock.calls.at(-1)?.[0]?.params?.date;
+  expect(
+    new Date(date + 'T00:00:00Z').getTime() - new Date(original + 'T00:00:00Z').getTime(),
+  ).toBe(86400000);
+  expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/advanced-planner', params: { date } });
+  expect(mockCreateDailyRepository).not.toHaveBeenCalled();
+});
