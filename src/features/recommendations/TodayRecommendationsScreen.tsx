@@ -135,6 +135,7 @@ export function TodayRecommendationsScreen({
   const [showHistory, setShowHistory] = useState(false);
   const [recordSelection, setRecordSelection] = useState<string[] | null>(null);
   const [title, setTitle] = useState('');
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [quickAddBusy, setQuickAddBusy] = useState(false);
@@ -334,6 +335,7 @@ export function TodayRecommendationsScreen({
         estimatedMinutes: null,
       });
       setTitle('');
+      setQuickAddOpen(false);
       setSnapshot((previous) =>
         previous
           ? { ...previous, tasks: [task, ...previous.tasks.filter((item) => item.id !== task.id)] }
@@ -706,7 +708,7 @@ export function TodayRecommendationsScreen({
   const dateText = formatLocalDateJa(getUtcDayBounds(date, timezone).startAt, timezone);
 
   const toastOverlay =
-    !showHistory && feedback ? (
+    !showHistory && !quickAddOpen && feedback ? (
       <ToastBanner
         message={feedback.message}
         tone={feedback.error ? 'error' : 'default'}
@@ -733,72 +735,47 @@ export function TodayRecommendationsScreen({
             title="今日"
             compact
             action={
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="設定"
-                onPress={openSettings}
-                style={({ pressed }) => ({
-                  minHeight: 38,
-                  paddingHorizontal: spacing.md,
-                  borderRadius: radius.pill,
-                  backgroundColor: pressed ? colors.primarySoft : colors.surface,
-                  borderWidth: 1,
-                  borderColor: colors.borderSubtle,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                })}
-              >
-                <Text style={{ ...typography.label, color: colors.textPrimary }}>設定</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                <ActionButton
+                  label="＋"
+                  accessibilityLabel="タスクをクイック追加する"
+                  disabled={busy || editorLoading || candidateClosing}
+                  onPress={() => {
+                    setFeedback(undefined);
+                    setQuickAddOpen(true);
+                  }}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="設定"
+                  onPress={openSettings}
+                  style={({ pressed }) => ({
+                    minHeight: 38,
+                    paddingHorizontal: spacing.md,
+                    borderRadius: radius.pill,
+                    backgroundColor: pressed ? colors.primarySoft : colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.borderSubtle,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  })}
+                >
+                  <Text style={{ ...typography.label, color: colors.textPrimary }}>設定</Text>
+                </Pressable>
+              </View>
             }
           />
         }
       >
-        <View style={styles.summaryRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`今日の達成 ${completed.length}件`}
-            onPress={() => {
-              setRecordSelection(null);
-              setShowHistory(true);
-            }}
-            style={({ pressed }) => [
-              styles.metricCard,
-              {
-                backgroundColor: pressed ? colors.primarySoft : colors.surface,
-                borderColor: colors.borderSubtle,
-                borderRadius: radius.md,
-              },
-            ]}
-          >
-            <Text style={{ ...typography.caption, color: colors.textSecondary }}>今日の達成</Text>
-            <View style={styles.metricValueRow}>
-              <Text style={{ ...typography.dialogTitle, color: colors.primary }}>
-                {completed.length}
-              </Text>
-              <Text style={{ ...typography.caption, color: colors.textSecondary }}>件</Text>
-            </View>
-          </Pressable>
-
-          <View
-            style={[
-              styles.metricCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.borderSubtle,
-                borderRadius: radius.md,
-              },
-            ]}
-          >
-            <Text style={{ ...typography.caption, color: colors.textSecondary }}>いまの候補</Text>
-            <View style={styles.metricValueRow}>
-              <Text style={{ ...typography.dialogTitle, color: colors.textPrimary }}>
-                {items.length}
-              </Text>
-              <Text style={{ ...typography.caption, color: colors.textSecondary }}>件</Text>
-            </View>
-          </View>
-        </View>
+        <ActionButton
+          label={`今日の達成 ${completed.length}件 ›`}
+          accessibilityLabel={`今日の達成 ${completed.length}件`}
+          variant="ghost"
+          onPress={() => {
+            setRecordSelection(null);
+            setShowHistory(true);
+          }}
+        />
 
         {choices?.overdue.length ? (
           <Pressable
@@ -977,7 +954,7 @@ export function TodayRecommendationsScreen({
                 <Text
                   style={{ ...typography.caption, color: colors.textSecondary, lineHeight: 20 }}
                 >
-                  1. 下のクイック追加から最初のタスクを登録{'\n'}
+                  1. 右上の＋から最初のタスクを登録{'\n'}
                   2. 予定タブでカレンダーを連携（任意・読み取り専用）{'\n'}
                   3. タスク画面から目標を登録して紐付け
                 </Text>
@@ -1057,30 +1034,42 @@ export function TodayRecommendationsScreen({
 
         {agenda}
 
-        <Card style={{ gap: spacing.sm }}>
-          <FormField label="タスクをクイック追加">
-            <FormInput
-              accessibilityLabel="クイック追加するタスク名"
-              maxLength={200}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="例：英単語を復習する"
-              editable={!quickAddBusy}
-              returnKeyType="done"
-              onFocus={() => {
-                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
-              }}
-              onSubmitEditing={() => void addTask()}
-            />
-          </FormField>
-          <ActionButton
-            label="タスクを追加"
-            loading={quickAddBusy}
-            variant={title.trim() ? 'primary' : 'secondary'}
-            disabled={quickAddBusy || !title.trim()}
-            onPress={() => void addTask()}
-          />
-        </Card>
+        {quickAddOpen ? (
+          <ModalFrame
+            title="タスクをクイック追加"
+            onClose={() => {
+              setTitle('');
+              setQuickAddOpen(false);
+            }}
+            closeDisabled={quickAddBusy}
+            dirty={!!title.trim()}
+            footer={
+              <ActionButton
+                label="タスクを追加"
+                loading={quickAddBusy}
+                disabled={!title.trim()}
+                onPress={() => void addTask()}
+              />
+            }
+          >
+            <FormField label="タスク名">
+              <FormInput
+                accessibilityLabel="クイック追加するタスク名"
+                autoFocus
+                maxLength={200}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="例：英単語を復習する"
+                editable={!quickAddBusy}
+                returnKeyType="done"
+                onSubmitEditing={() => void addTask()}
+              />
+            </FormField>
+            {feedback?.scope === 'quickAdd' && feedback.error ? (
+              <Notice tone="error" message={feedback.message} />
+            ) : null}
+          </ModalFrame>
+        ) : null}
 
         <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
           <Pressable
@@ -1347,22 +1336,6 @@ export function TodayRecommendationsScreen({
 }
 
 const styles = StyleSheet.create({
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  metricCard: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    gap: 2,
-  },
-  metricValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 3,
-  },
   focusCard: {
     paddingVertical: 16,
     gap: 12,

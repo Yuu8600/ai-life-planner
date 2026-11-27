@@ -198,6 +198,7 @@ export function TaskFormModal({
 
       <DeadlineField
         accessibilityLabel="タスクの期限"
+        timezone={planningTimezone}
         label={recommendationMode ? '期限（任意）' : undefined}
         disabled={isSubmitting}
         error={fieldErrors.deadline}

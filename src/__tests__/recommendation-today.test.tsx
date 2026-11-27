@@ -144,6 +144,7 @@ it('quick-adds a title without manufacturing an estimate', async () => {
       openStep={jest.fn()}
     />,
   );
+  await fireEvent.press(screen.getByRole('button', { name: 'タスクをクイック追加する' }));
   await fireEvent.changeText(screen.getByLabelText('クイック追加するタスク名'), ' ざっくり読む ');
   await fireEvent.press(screen.getByRole('button', { name: 'タスクを追加' }));
   expect(create).toHaveBeenCalledWith(

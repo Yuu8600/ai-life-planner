@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Keyboard, Platform } from 'react-native';
+import { Keyboard, Platform, View } from 'react-native';
 
+import { addLocalDays, getLocalDate } from '@/features/today';
 import { formatCalendarDateJa, formatDateInput } from '@/shared/dateInput';
 import { ActionButton } from './ActionButton';
 import { DeadlineCalendar } from './DeadlineCalendar';
@@ -18,8 +19,10 @@ export function DeadlineField({
   error,
   onChange,
   value,
+  timezone,
 }: {
   label?: string;
+  timezone?: string;
   allowClear?: boolean;
   emptyLabel?: string;
   clearLabel?: string;
@@ -38,6 +41,26 @@ export function DeadlineField({
     close();
   };
 
+  const today = timezone ? getLocalDate(new Date(), timezone) : formatDateInput(new Date());
+  const presets = (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {[
+        { label: '今日', days: 0 },
+        { label: '明日', days: 1 },
+        { label: '来週（7日後）', days: 7 },
+      ].map((item) => (
+        <ActionButton
+          key={item.days}
+          label={item.label}
+          accessibilityLabel={`${accessibilityLabel}を${item.label}にする`}
+          variant="secondary"
+          disabled={disabled}
+          onPress={() => commit(addLocalDays(today, item.days))}
+        />
+      ))}
+    </View>
+  );
+
   return (
     <FormField error={error} label={label}>
       <SelectionRow
@@ -46,10 +69,11 @@ export function DeadlineField({
         disabled={disabled}
         onOpen={(position) => {
           if (Platform.OS !== 'web') Keyboard.dismiss();
-          setDraft(value || formatDateInput(new Date()));
+          setDraft(value || today);
           setAnchor(position);
         }}
       />
+      {Platform.OS === 'android' ? presets : null}
       {anchor && !disabled ? (
         Platform.OS === 'android' ? (
           <DeadlineCalendar
@@ -62,6 +86,7 @@ export function DeadlineField({
           />
         ) : (
           <SelectionPanel title={accessibilityLabel} anchor={anchor} onCancel={close}>
+            {presets}
             <DeadlineCalendar label={accessibilityLabel} value={draft} onChange={setDraft} />
             <ActionButton label="日付を決定" disabled={!draft} onPress={() => commit(draft)} />
             {allowClear ? (
