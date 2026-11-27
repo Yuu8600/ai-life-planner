@@ -1,7 +1,9 @@
+import { formatCalendarDateJa } from '@/shared/dateInput';
 import type { TaskGoalOption } from '@/features/tasks/repositories/TaskRepository';
 import { policyLabels } from '@/features/recommendations/policy';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { DeadlineField } from '@/shared/components/DeadlineField';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { ModalFrame, type ModalFrameProps } from '@/shared/components/ModalFrame';
@@ -58,7 +60,7 @@ const priorityLabels = { low: '低', medium: '中', high: '高' };
 function detail(
   item: Pick<RecordProposal, 'title' | 'priority' | 'deadline'> & { minutes?: number | null },
 ) {
-  return `${item.title} ・ 優先度 ${priorityLabels[item.priority]} ・ ${item.deadline ?? '期限なし'}${item.minutes ? ` ・ ${item.minutes}分` : ''}`;
+  return `${item.title} ・ 優先度 ${priorityLabels[item.priority]} ・ ${item.deadline ? formatCalendarDateJa(item.deadline) : '期限なし'}${item.minutes ? ` ・ ${item.minutes}分` : ''}`;
 }
 
 function InlineFrame({ children, footer }: ModalFrameProps) {
@@ -79,8 +81,10 @@ export function DraftEditor({
   loadGoals,
   discardPrivate,
   inline = false,
+  onDirtyChange,
 }: {
   inline?: boolean;
+  onDirtyChange?: (id: string, dirty: boolean) => void;
   repository: ChatRepository;
   draft: Draft;
   close: () => void;
@@ -105,6 +109,10 @@ export function DraftEditor({
   const lock = useRef(false);
   const [error, setError] = useState('');
   const dirty = JSON.stringify(items) !== JSON.stringify(draft.items);
+  useEffect(() => {
+    onDirtyChange?.(draft.id, dirty);
+  }, [draft.id, dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(draft.id, false), [draft.id, onDirtyChange]);
   const records = items.filter(
     (item): item is RecordProposal | StepProposal | PolicyProposal =>
       item.kind !== 'plan' && item.kind !== 'goal' && (item.kind !== 'task' || !item.goalKey),
@@ -175,6 +183,7 @@ export function DraftEditor({
       }
       onClose={close}
       closeDisabled={pending}
+      dirty={dirty}
       footer={
         closed ? null : (
           <View style={{ gap: spacing.sm }}>
@@ -255,7 +264,7 @@ export function DraftEditor({
                 推薦だけ変更 ・ {policyLabels[item.policyKind]} {item.targetTitle}
               </Text>
               <Text style={{ color: colors.textPrimary }}>
-                {item.startDate} ～ {item.endDate}
+                {formatCalendarDateJa(item.startDate)} ～ {formatCalendarDateJa(item.endDate)}
               </Text>
               {!closed && !confirmation ? (
                 <>
@@ -278,20 +287,22 @@ export function DraftEditor({
                   />
                   {editing === item.key ? (
                     <>
-                      <FormField label="開始日（YYYY-MM-DD）">
-                        <FormInput
-                          value={item.startDate}
-                          editable={!pending}
-                          onChangeText={(startDate) => update({ ...item, startDate })}
-                        />
-                      </FormField>
-                      <FormField label="終了日（YYYY-MM-DD）">
-                        <FormInput
-                          value={item.endDate}
-                          editable={!pending}
-                          onChangeText={(endDate) => update({ ...item, endDate })}
-                        />
-                      </FormField>
+                      <DeadlineField
+                        label="開始日"
+                        accessibilityLabel={`${item.title}の開始日`}
+                        value={item.startDate}
+                        allowClear={false}
+                        disabled={pending}
+                        onChange={(startDate) => update({ ...item, startDate })}
+                      />
+                      <DeadlineField
+                        label="終了日"
+                        accessibilityLabel={`${item.title}の終了日`}
+                        value={item.endDate}
+                        allowClear={false}
+                        disabled={pending}
+                        onChange={(endDate) => update({ ...item, endDate })}
+                      />
                     </>
                   ) : null}
                 </>
@@ -314,7 +325,9 @@ export function DraftEditor({
             </Text>
             {item.kind === 'plan' ? (
               <>
-                <Text style={{ color: colors.textPrimary }}>対象日　{item.date}</Text>
+                <Text style={{ color: colors.textPrimary }}>
+                  対象日　{formatCalendarDateJa(item.date)}
+                </Text>
                 <ActionButton
                   label="Plannerで変更案を確認"
                   variant="secondary"
@@ -408,12 +421,14 @@ export function DraftEditor({
                   />
                 </FormField>
                 {item.kind === 'plan' ? (
-                  <FormField label="日付（YYYY-MM-DD）">
-                    <FormInput
-                      value={item.date}
-                      onChangeText={(date) => update({ ...item, date })}
-                    />
-                  </FormField>
+                  <DeadlineField
+                    label="計画日"
+                    accessibilityLabel={`${item.title}の計画日`}
+                    value={item.date}
+                    allowClear={false}
+                    disabled={pending}
+                    onChange={(date) => update({ ...item, date })}
+                  />
                 ) : (
                   <>
                     {item.kind !== 'step' ? (
@@ -434,12 +449,13 @@ export function DraftEditor({
                             })
                           }
                         />
-                        <FormField label="期限（YYYY-MM-DD）">
-                          <FormInput
-                            value={item.deadline ?? ''}
-                            onChangeText={(value) => update({ ...item, deadline: value || null })}
-                          />
-                        </FormField>
+                        <DeadlineField
+                          label="期限"
+                          accessibilityLabel={`${item.title}の期限`}
+                          value={item.deadline ?? ''}
+                          disabled={pending}
+                          onChange={(value) => update({ ...item, deadline: value || null })}
+                        />
                       </>
                     ) : null}
                     {item.kind === 'task' && item.patch ? (

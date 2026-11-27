@@ -76,7 +76,14 @@ function DailyRoute({ mode, userId }: { mode: 'today' | 'calendar'; userId: stri
   } = useV25Date(settings);
   const [schedule, setSchedule] = useState<AgendaWindowInput>();
   const openChat = (day: string) =>
-    router.push({ pathname: '/ai', params: { date: day, entry: String(Date.now()) } });
+    router.push({
+      pathname: '/ai',
+      params: {
+        date: day,
+        prepareCalendar: mode === 'calendar' ? '1' : undefined,
+        entry: String(Date.now()),
+      },
+    });
   const [selected, setSelected] = useState<LocalDate>();
   const [dateDraft, setDateDraft] = useState<string>();
   const [editingEvent, setEditingEvent] = useState<FixedEvent>();
