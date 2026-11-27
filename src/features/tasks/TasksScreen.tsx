@@ -21,6 +21,9 @@ import { SectionHeader } from '@/shared/components/SectionHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
 import { radius, spacing, useTheme } from '@/shared/theme';
 
+import { FormInput } from '@/shared/components/FormField';
+import { OptionGroup } from '@/shared/components/OptionGroup';
+import { selectTaskList, type TaskSort } from './selectTaskList';
 import { GoalOptionsNotice } from './components/GoalOptionsNotice';
 import { TaskFilters } from './components/TaskFilters';
 import { TaskFormModal } from './components/TaskFormModal';
@@ -96,6 +99,10 @@ export function TasksScreen({
     setLastFilterSync(filterSyncKey);
     setNativeFilter(initialFilter === 'overdue' ? 'overdue' : 'incomplete');
   }
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<TaskSort>('recent');
+  const [goal, setGoal] = useState('all');
+  const [refinements, setRefinements] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [taskSelection, setTaskSelection] = useState<string[] | null>(null);
   const [batchMessage, setBatchMessage] = useState('');
@@ -161,7 +168,7 @@ export function TasksScreen({
     ? tasks.filter((task) => !isComplete(task) && (task.recurrence?.kind ?? 'once') !== 'once')
         .length
     : 0;
-  const visibleTasks = recommendationMode
+  const statusTasks = recommendationMode
     ? tasks.filter((task) => {
         if (nativeFilter === 'incomplete') return !isComplete(task);
         if (nativeFilter === 'overdue') return !isComplete(task) && isOverdue(task);
@@ -174,9 +181,12 @@ export function TasksScreen({
   const finishedTasks = completedTasks.filter((task) => task.status === 'completed');
   const performedToday = completedTasks.filter((task) => task.status !== 'completed');
   const selectedTasks = finishedTasks.filter((task) => taskSelection?.includes(task.id));
-  if (recommendationMode && (initialFilter === 'overdue' || nativeFilter === 'overdue')) {
-    visibleTasks.sort((a, b) => Number(isOverdue(b)) - Number(isOverdue(a)));
-  }
+  const visibleTasks = selectTaskList(statusTasks, {
+    query,
+    goal,
+    sort,
+    timezone: planningTimezone,
+  });
   const initialLoading = isLoading && (!recommendationMode || !tasks.length);
   const isMutating = pendingMutation !== null || actionBusy;
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
@@ -506,6 +516,63 @@ export function TasksScreen({
       }
     >
       {intro}
+      <View style={{ gap: spacing.sm }}>
+        <FormInput
+          accessibilityLabel="タスクを検索"
+          placeholder="タスク名で検索"
+          value={query}
+          onChangeText={setQuery}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        <ActionButton
+          label={
+            refinements
+              ? '並び替え・目標を閉じる'
+              : `並び替え・目標${goal !== 'all' || sort !== 'recent' ? '（指定中）' : ''}`
+          }
+          expanded={refinements}
+          variant="ghost"
+          onPress={() => setRefinements((value) => !value)}
+        />
+        {refinements ? (
+          <>
+            <OptionGroup
+              label="並び替え"
+              disabled={false}
+              selectedValue={sort}
+              onChange={(value) => setSort(value as TaskSort)}
+              options={[
+                { label: '更新順', value: 'recent' },
+                { label: '期限順', value: 'deadline' },
+                { label: '優先度順', value: 'priority' },
+                { label: '名前順', value: 'title' },
+              ]}
+            />
+            <OptionGroup
+              label="目標で絞り込み"
+              disabled={isLoadingGoalOptions}
+              selectedValue={goal}
+              onChange={setGoal}
+              options={[
+                { label: 'すべて', value: 'all' },
+                { label: '目標なし', value: 'none' },
+                ...goalOptions.map((item) => ({ label: item.title, value: item.id })),
+              ]}
+            />
+          </>
+        ) : null}
+        {query || goal !== 'all' ? (
+          <ActionButton
+            label="検索・目標をクリア"
+            variant="ghost"
+            onPress={() => {
+              setQuery('');
+              setGoal('all');
+            }}
+          />
+        ) : null}
+      </View>
       {recommendationMode ? (
         <View style={{ gap: spacing.sm }}>
           <View style={styles.secondaryActions}>
@@ -606,13 +673,13 @@ export function TasksScreen({
         </View>
       ) : null}
 
-      {!recommendationMode ? (
+      {
         <GoalOptionsNotice
           isLoading={isLoadingGoalOptions}
           message={goalOptionsError}
           onRetry={retryGoalOptions}
         />
-      ) : null}
+      }
 
       {initialLoading ? (
         <TaskStatePanel
@@ -641,7 +708,7 @@ export function TasksScreen({
         />
       ) : visibleTasks.length === 0 ? (
         <TaskStatePanel
-          message="別のフィルターを選ぶと、ほかのタスクを確認できます。"
+          message="検索語・目標・状態フィルターを変更すると、ほかのタスクを確認できます。"
           testID="tasks-filter-empty-state"
           title="該当するタスクはありません"
         />
