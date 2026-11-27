@@ -1,7 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getUtcDayBounds, formatLocalTimeJa } from '@/features/today';
+import {
+  getUtcDayBounds,
+  getPlanningWindow,
+  addLocalDays,
+  formatLocalTimeJa,
+} from '@/features/today';
+import { calculateFreeTime } from '@/features/planner';
+import type { ProfilePlanningSettings } from '@/features/settings';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { Badge } from '@/shared/components/Badge';
 import { Card } from '@/shared/components/Card';
@@ -11,7 +18,7 @@ import { appAlert } from '@/shared/feedback/appAlert';
 import { useTheme } from '@/shared/theme';
 
 import type { CalendarRepository } from './repositories/CalendarRepository';
-import type { FixedEventRepository } from './FixedEventRepository';
+import type { FixedEvent, FixedEventRepository } from './FixedEventRepository';
 import { recommendationIntervals, type AgendaAvailability } from './recommendationCalendar';
 import type { CalendarEvent, CalendarInterval } from './types';
 
@@ -35,6 +42,8 @@ type Props = {
   now?: number;
   onSchedule?: (state: AgendaWindowInput) => void;
   onOpenCalendar?: () => void;
+  onEditEvent?: (event: FixedEvent) => void;
+  planningSettings?: ProfilePlanningSettings;
 };
 
 type DayState<T> = {
@@ -54,6 +63,8 @@ export function DayAgenda({
   now,
   onSchedule,
   onOpenCalendar,
+  onEditEvent,
+  planningSettings,
 }: Props) {
   const { colors, controls, radius, spacing, typography } = useTheme();
   const [device, setDevice] = useState<DayState<CalendarEvent>>();
@@ -61,13 +72,30 @@ export function DayAgenda({
     useState<DayState<Awaited<ReturnType<FixedEventRepository['list']>>[number]>>();
   const [retry, setRetry] = useState(0);
   const [actionError, setActionError] = useState('');
+  const deleteLock = useRef(false);
+  const [deleting, setDeleting] = useState(false);
   const [permissionBusy, setPermissionBusy] = useState(false);
   const bounds = getUtcDayBounds(date, timezone);
-  const scopeKey = JSON.stringify([date, timezone]);
+  let planningWindow: CalendarInterval | undefined;
+  try {
+    if (planningSettings) planningWindow = getPlanningWindow(date, planningSettings);
+  } catch {
+    // The calculation below reports invalid settings without hiding the agenda.
+  }
+  const queryStart =
+    Math.min(Date.parse(bounds.startAt), Date.parse(planningWindow?.startAt ?? bounds.startAt)) -
+    (planningSettings?.calendarBufferAfterMinutes ?? 0) * 60000;
+  const queryEnd =
+    Math.max(Date.parse(bounds.endAt), Date.parse(planningWindow?.endAt ?? bounds.endAt)) +
+    (planningSettings?.calendarBufferBeforeMinutes ?? 0) * 60000;
+  const scopeKey = JSON.stringify([date, timezone, queryStart, queryEnd]);
 
   useEffect(() => {
     let active = true;
-    const day = getUtcDayBounds(date, timezone);
+    const day = {
+      startAt: new Date(queryStart).toISOString(),
+      endAt: new Date(queryEnd).toISOString(),
+    };
     void (async () => {
       try {
         const permission = await calendar.getPermission();
@@ -81,11 +109,24 @@ export function DayAgenda({
           });
           return;
         }
-        const result = await calendar.listEvents(day, date);
+        const results = await Promise.all([
+          calendar.listEvents(day, date),
+          ...(planningSettings?.planningEndDayOffset === 1
+            ? [calendar.listEvents(day, addLocalDays(date, 1))]
+            : []),
+        ]);
+        const result = results[0];
+        const values = [
+          ...new Map(
+            results
+              .flatMap((item) => item.events)
+              .map((event) => [JSON.stringify([event.calendarId, event.id, event.startAt]), event]),
+          ).values(),
+        ];
         if (active)
           setDevice({
             scopeKey,
-            values: result.events.filter((event) => event.status !== 'canceled'),
+            values: values.filter((event) => event.status !== 'canceled'),
             status: result.calendarCount ? 'ready' : 'missing',
           });
       } catch {
@@ -103,7 +144,18 @@ export function DayAgenda({
     return () => {
       active = false;
     };
-  }, [calendar, fixed, date, timezone, revision, retry, scopeKey]);
+  }, [
+    calendar,
+    fixed,
+    date,
+    timezone,
+    revision,
+    retry,
+    scopeKey,
+    queryStart,
+    queryEnd,
+    planningSettings?.planningEndDayOffset,
+  ]);
 
   // Keep previous results for the same (date, timezone) while refreshing to avoid layout flicker.
   const deviceState = device?.scopeKey === scopeKey ? device : undefined;
@@ -157,9 +209,19 @@ export function DayAgenda({
       allDay: false,
       isApp: true,
     })),
-  ].sort(
-    (a, b) => Number(b.allDay) - Number(a.allDay) || Date.parse(a.startAt) - Date.parse(b.startAt),
-  );
+  ]
+    .filter((event) =>
+      event.allDay
+        ? !('allDayStartDate' in event) ||
+          !event.allDayStartDate ||
+          (event.allDayStartDate <= date && !!event.allDayEndDate && event.allDayEndDate > date)
+        : Date.parse(event.startAt) < Date.parse(bounds.endAt) &&
+          Date.parse(event.endAt) > Date.parse(bounds.startAt),
+    )
+    .sort(
+      (a, b) =>
+        Number(b.allDay) - Number(a.allDay) || Date.parse(a.startAt) - Date.parse(b.startAt),
+    );
   const time = { ...typography.secondary, color: colors.textSecondary };
   const refresh = () => setRetry((value) => value + 1);
   const upcoming =
@@ -168,8 +230,77 @@ export function DayAgenda({
       : events.filter((event) => event.allDay || Date.parse(event.endAt) > now);
   const shown = summary ? upcoming.slice(0, 3) : events;
 
+  let freeTime: ReturnType<typeof calculateFreeTime> | undefined;
+  let freeError = '';
+  if (planningSettings && deviceState && localState) {
+    try {
+      freeTime = calculateFreeTime({
+        ...planningSettings,
+        selectedDate: date,
+        events: [
+          ...deviceState.values.filter(
+            (event) =>
+              !event.allDay ||
+              ((event.availability === 'busy' || event.availability === 'unavailable') &&
+                !!event.allDayStartDate &&
+                !!event.allDayEndDate),
+          ),
+          ...localState.values.map((event) => ({
+            ...event,
+            allDay: false,
+            allDayStartDate: null,
+            allDayEndDate: null,
+            availability: 'busy' as const,
+            status: 'confirmed' as const,
+            calendarId: 'app',
+            calendarTitle: null,
+            instanceId: null,
+            location: null,
+            timeZone: timezone,
+          })),
+        ],
+      });
+    } catch {
+      freeError = '空き時間を計算できませんでした。活動時間の設定を確認してください。';
+    }
+  }
+  const complete = deviceState?.status === 'ready' && localState?.status === 'ready';
+  const clock = (instant: string) =>
+    `${Date.parse(instant) >= Date.parse(bounds.endAt) ? '翌日 ' : ''}${formatLocalTimeJa(instant, timezone)}`;
+
   return (
     <View style={{ gap: spacing.sm }}>
+      {planningSettings && freeTime ? (
+        <Card>
+          <SectionHeader compact title="活動時間の空き枠" />
+          <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
+            {clock(freeTime.planningWindow.startAt)} – {clock(freeTime.planningWindow.endAt)}・
+            {planningSettings.minimumFreeMinutes}分以上の枠
+          </Text>
+          {!complete ? (
+            <Notice
+              tone="warning"
+              message="一部の予定を確認できていません。確認できた予定のみを使った参考表示です。"
+            />
+          ) : null}
+          <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>
+            {complete ? '空き時間' : '参考の空き時間'}：合計{' '}
+            {Math.floor(
+              freeTime.freeSlots.reduce((total, slot) => total + slot.durationMinutes, 0),
+            )}{' '}
+            分
+          </Text>
+          {freeTime.freeSlots.map((slot) => (
+            <Text key={slot.startAt} style={{ ...typography.body, color: colors.textPrimary }}>
+              {clock(slot.startAt)} – {clock(slot.endAt)}（{Math.floor(slot.durationMinutes)}分）
+            </Text>
+          ))}
+          {!freeTime.freeSlots.length ? (
+            <Text style={time}>条件に合う空き枠はありません。</Text>
+          ) : null}
+        </Card>
+      ) : null}
+      {freeError ? <Notice tone="warning" message={freeError} /> : null}
       {summary ? (
         <View style={styles.summaryHeader}>
           <SectionHeader compact title="直近の予定" />
@@ -237,10 +368,23 @@ export function DayAgenda({
                   {event.title}
                 </Text>
               </View>
+              {!summary && event.isApp && onEditEvent && fixed.update ? (
+                <ActionButton
+                  label="編集"
+                  accessibilityLabel={`${event.title}を編集`}
+                  variant="secondary"
+                  disabled={deleting}
+                  onPress={() => {
+                    const original = localState?.values.find((value) => value.id === event.id);
+                    if (original) onEditEvent(original);
+                  }}
+                />
+              ) : null}
               {!summary && event.isApp ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`${event.title}を削除`}
+                  disabled={deleting}
                   onPress={() =>
                     appAlert.alert(
                       '予定を削除しますか？',
@@ -251,12 +395,19 @@ export function DayAgenda({
                           text: '削除',
                           style: 'destructive',
                           onPress: () => {
+                            if (deleteLock.current) return;
+                            deleteLock.current = true;
+                            setDeleting(true);
                             setActionError('');
                             void fixed
                               .remove(event.id)
                               .then(refresh, () =>
                                 setActionError('予定を削除できませんでした。再試行してください。'),
-                              );
+                              )
+                              .finally(() => {
+                                deleteLock.current = false;
+                                setDeleting(false);
+                              });
                           },
                         },
                       ],

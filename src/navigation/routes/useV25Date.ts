@@ -3,12 +3,13 @@ import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '@/features/auth';
-import type { SettingsRepository } from '@/features/settings';
+import type { ProfilePlanningSettings, SettingsRepository } from '@/features/settings';
 import { getLocalDate, resolveTimeZone } from '@/features/today';
 import { getTaskErrorMessage } from '@/features/tasks/errors';
 
 export function useV25Date(settings: SettingsRepository) {
   const accessToken = useAuth().session?.access_token;
+  const [planningSettings, setPlanningSettings] = useState<ProfilePlanningSettings>();
   const [timezone, setTimezone] = useState<string>();
   const [now, setNow] = useState(() => new Date());
   const [revision, setRevision] = useState(0);
@@ -40,6 +41,7 @@ export function useV25Date(settings: SettingsRepository) {
         const value = resolveTimeZone(profile.timezone);
         if (active) {
           setTimezone(value);
+          setPlanningSettings({ ...profile, timezone: value });
           setError('');
         }
       })
@@ -53,6 +55,7 @@ export function useV25Date(settings: SettingsRepository) {
 
   return {
     timezone,
+    planningSettings,
     now,
     date: timezone ? getLocalDate(now, timezone) : null,
     revision,

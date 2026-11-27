@@ -1,5 +1,13 @@
-import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, Text, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import {
+  Dimensions,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmDiscardChanges } from '@/shared/feedback/confirmDiscardChanges';
 import { useTheme } from '@/shared/theme';
@@ -31,6 +39,7 @@ export function ModalFrame({
   testID,
 }: ModalFrameProps) {
   const { colors, radius, spacing, typography } = useTheme();
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const close = () => {
     if (closeDisabled) return;
     confirmDiscardChanges(dirty, onClose);
@@ -46,64 +55,77 @@ export function ModalFrame({
       onRequestClose={close}
       allowSwipeDismissal={false}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1, backgroundColor: colors.surface }}
+      <View
+        style={{ flex: 1 }}
+        onLayout={({ nativeEvent }) => {
+          // iPhone page sheets are bottom anchored in a separate window. Their local
+          // origin is zero, while keyboard screenY is measured in screen coordinates.
+          if (Platform.OS === 'ios')
+            setKeyboardOffset(
+              Math.max(0, Dimensions.get('screen').height - nativeEvent.layout.height),
+            );
+        }}
       >
-        <SafeAreaView
-          edges={['top', 'left', 'right', 'bottom']}
-          testID={testID}
+        <KeyboardAvoidingView
+          keyboardVerticalOffset={keyboardOffset}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1, backgroundColor: colors.surface }}
-          accessibilityViewIsModal
-          onAccessibilityEscape={close}
         >
-          {Platform.OS === 'ios' ? (
-            <View style={{ alignItems: 'center', paddingTop: spacing.sm }}>
+          <SafeAreaView
+            edges={['top', 'left', 'right', 'bottom']}
+            testID={testID}
+            style={{ flex: 1, backgroundColor: colors.surface }}
+            accessibilityViewIsModal
+            onAccessibilityEscape={close}
+          >
+            {Platform.OS === 'ios' ? (
+              <View style={{ alignItems: 'center', paddingTop: spacing.sm }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 4,
+                    borderRadius: radius.pill,
+                    backgroundColor: colors.borderSubtle,
+                  }}
+                />
+              </View>
+            ) : null}
+            <ModalHeader
+              title={title}
+              closeLabel={closeLabel}
+              disabled={closeDisabled}
+              onClose={close}
+            />
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {description ? (
+                <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
+                  {description}
+                </Text>
+              ) : null}
+              {children}
+            </ScrollView>
+            {footer ? (
               <View
                 style={{
-                  width: 36,
-                  height: 4,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.borderSubtle,
+                  paddingHorizontal: spacing.lg,
+                  paddingVertical: spacing.md,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.borderSubtle,
+                  backgroundColor: colors.surface,
                 }}
-              />
-            </View>
-          ) : null}
-          <ModalHeader
-            title={title}
-            closeLabel={closeLabel}
-            disabled={closeDisabled}
-            onClose={close}
-          />
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
-            style={{ flex: 1 }}
-            showsVerticalScrollIndicator={false}
-          >
-            {description ? (
-              <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
-                {description}
-              </Text>
+              >
+                {footer}
+              </View>
             ) : null}
-            {children}
-          </ScrollView>
-          {footer ? (
-            <View
-              style={{
-                paddingHorizontal: spacing.lg,
-                paddingVertical: spacing.md,
-                borderTopWidth: 1,
-                borderTopColor: colors.borderSubtle,
-                backgroundColor: colors.surface,
-              }}
-            >
-              {footer}
-            </View>
-          ) : null}
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
