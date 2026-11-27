@@ -88,7 +88,9 @@ describe('UI/UX improvements regression coverage', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: '英語リスニングの詳細を開く' }));
     expect(screen.getByText('目標：TOEIC 800')).toBeTruthy();
+    const dismiss = screen.getByTestId('candidate-details-presentation').props.onDismiss;
     await fireEvent.press(screen.getByRole('button', { name: '小さな行動を見る・分ける' }));
+    await act(() => dismiss());
     expect(openStep).toHaveBeenCalledWith('task-1', 30);
   });
 
@@ -134,7 +136,7 @@ describe('UI/UX improvements regression coverage', () => {
 
     expect(await screen.findByText('目安 30分')).toBeTruthy();
     expect(screen.getAllByText('TOEIC 800').length).toBeGreaterThan(0);
-    expect(screen.getByText('期限切れ 2026-11-20')).toBeTruthy();
+    expect(screen.getByText('期限切れ 2026年11月20日')).toBeTruthy();
 
     // Silent refocus refresh must NOT hide the add button or unmount tasks.
     await screen.rerender(

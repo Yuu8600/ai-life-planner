@@ -15,6 +15,7 @@ import { colors, spacing } from '@/shared/theme';
 
 type AppScreenProps = {
   children: ReactNode;
+  header?: ReactNode;
   footer?: ReactNode;
   overlay?: ReactNode;
   scrollRef?: Ref<ScrollView>;
@@ -27,6 +28,7 @@ type AppScreenProps = {
 
 export function AppScreen({
   children,
+  header,
   footer,
   overlay,
   scrollRef,
@@ -56,6 +58,7 @@ export function AppScreen({
   if (!scroll) {
     return (
       <SafeAreaView edges={edges} style={styles.safeArea} testID={testID}>
+        {header ? <View style={styles.header}>{header}</View> : null}
         <View style={[styles.staticContent, contentContainerStyle]}>{children}</View>
         {overlay}
         {footer}
@@ -65,14 +68,19 @@ export function AppScreen({
 
   return (
     <SafeAreaView edges={edges} style={styles.safeArea} testID={testID}>
+      {header ? <View style={styles.header}>{header}</View> : null}
       <ScrollView
         ref={scrollRef}
         scrollEnabled={scrollEnabled}
         onScroll={onScroll}
         scrollEventThrottle={onScroll ? 16 : undefined}
         alwaysBounceVertical={Platform.OS === 'ios'}
-        style={footer ? { flex: 1 } : undefined}
-        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          header ? { paddingTop: 0 } : undefined,
+          contentContainerStyle,
+        ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
@@ -86,6 +94,12 @@ export function AppScreen({
 }
 
 const styles = StyleSheet.create({
+  header: {
+    flexShrink: 0,
+    paddingHorizontal: spacing.base,
+    paddingTop: spacing.md,
+    ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
+  },
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,

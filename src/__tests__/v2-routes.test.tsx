@@ -37,7 +37,15 @@ jest.mock('@/features/calendar/DayAgenda', () => ({
   DayAgenda: () => <MockText>予定だけを表示</MockText>,
 }));
 jest.mock('@/features/recommendations/TodayRecommendationsScreen', () => ({
-  TodayRecommendationsScreen: () => <MockText>今日のおすすめ</MockText>,
+  TodayRecommendationsScreen: ({
+    askTaskAI,
+  }: {
+    askTaskAI: (task: { id: string; title: string }) => void;
+  }) => (
+    <MockText onPress={() => askTaskAI({ id: 'parent-task', title: '相談するタスク' })}>
+      今日のおすすめ
+    </MockText>
+  ),
 }));
 jest.mock('@/features/auth', () => ({ useAuth: () => mockUseAuth() }));
 jest.mock('@/services/calendar/ExpoCalendarRepository', () => ({
@@ -125,4 +133,21 @@ it('retains the advanced Planner route with the existing account and date', asyn
   const screen = await render(<AdvancedPlannerRoute />);
   expect(screen.getByText('today 2026-11-16')).toBeTruthy();
   expect(mockCreateDailyRepository).toHaveBeenCalledWith(userId);
+});
+
+it('opens a task-focused AI conversation directly from Today', async () => {
+  mockUseAuth.mockReturnValue({ session: { user: { id: userId } } });
+  const screen = await render(<TodayRoute />);
+  await fireEvent.press(screen.getByText('今日のおすすめ'));
+  expect(mockPush).toHaveBeenCalledWith({
+    pathname: '/ai',
+    params: {
+      date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      intent: 'edit',
+      focusKind: 'task',
+      focusId: 'parent-task',
+      focusTitle: '相談するタスク',
+      entry: expect.any(String),
+    },
+  });
 });

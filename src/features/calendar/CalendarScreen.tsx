@@ -94,8 +94,11 @@ export function CalendarScreen({
     !calendar.loadError;
 
   return (
-    <AppScreen testID="calendar-screen" contentContainerStyle={styles.content}>
-      <ScreenHeader title="カレンダー" />
+    <AppScreen
+      testID="calendar-screen"
+      contentContainerStyle={styles.content}
+      header={<ScreenHeader title="カレンダー" />}
+    >
       {intro}
 
       {calendar.accessState === 'granted' && selectedDate && timeZone ? (

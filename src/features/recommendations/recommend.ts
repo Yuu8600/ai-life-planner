@@ -150,7 +150,7 @@ export function recommend({
       if (fitsCalendar) reasons.push(`次の予定まで${calendarMinutes}分`);
       if (recurrence === 'daily') reasons.push('毎日のタスク');
       if (scheduledDays) reasons.push(`毎週${weekdays[dayOfWeek]}曜`);
-      if (task.priority === 'high') reasons.push(expandedToday ? '重要度：高' : '優先度：高');
+      if (task.priority === 'high') reasons.push('優先度：高');
       if (lastDone && lastDone <= addLocalDays(date, -7)) reasons.push(`前回の完了：${lastDone}`);
       if (step?.effort)
         reasons.push(

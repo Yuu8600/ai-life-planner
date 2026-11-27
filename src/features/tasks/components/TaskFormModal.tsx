@@ -9,6 +9,7 @@ import { ModalFrame } from '@/shared/components/ModalFrame';
 import { FormField, FormInput } from '@/shared/components/FormField';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
+import { confirmDiscardChanges } from '@/shared/feedback/confirmDiscardChanges';
 import { colors, radius, spacing } from '@/shared/theme';
 
 import type { CreateTaskInput, Task, TaskGoalOption } from '../repositories/TaskRepository';
@@ -362,7 +363,7 @@ export function TaskFormModal({
               label="小さな行動を見る・追加する"
               variant="secondary"
               disabled={isSubmitting}
-              onPress={onOpenSteps}
+              onPress={() => confirmDiscardChanges(dirty, onOpenSteps)}
             />
           ) : null}
           {onAskAI ? (
@@ -370,7 +371,7 @@ export function TaskFormModal({
               label="このタスクをAIに相談"
               variant="secondary"
               disabled={isSubmitting}
-              onPress={onAskAI}
+              onPress={() => confirmDiscardChanges(dirty, onAskAI)}
             />
           ) : null}
         </View>

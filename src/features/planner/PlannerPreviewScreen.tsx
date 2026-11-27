@@ -286,23 +286,24 @@ export function PlannerPreviewScreen({
       contentContainerStyle={styles.content}
       footer={footer}
       scrollRef={scrollRef}
+      header={
+        <ScreenHeader
+          eyebrow={dateLabel}
+          subtitle={
+            mode === 'replan'
+              ? isDemo
+                ? 'デモ時計の時刻から先の予定を、タスクとカレンダーを使って組み直します。'
+                : '現在時刻以降の予定を、最新のTaskとカレンダーから組み直します。'
+              : isDemo
+                ? preview
+                  ? undefined
+                  : 'サンプル入りのタスク一覧から、カレンダーの予定と重ならない時間に割り振ります。'
+                : '目標につながるタスクを、カレンダーの空き時間へ配置します。'
+          }
+          title={mode === 'replan' ? '今日の計画を再計画' : '今日の計画を作成'}
+        />
+      }
     >
-      <ScreenHeader
-        eyebrow={dateLabel}
-        subtitle={
-          mode === 'replan'
-            ? isDemo
-              ? 'デモ時計の時刻から先の予定を、タスクとカレンダーを使って組み直します。'
-              : '現在時刻以降の予定を、最新のTaskとカレンダーから組み直します。'
-            : isDemo
-              ? preview
-                ? undefined
-                : 'サンプル入りのタスク一覧から、カレンダーの予定と重ならない時間に割り振ります。'
-              : '目標につながるタスクを、カレンダーの空き時間へ配置します。'
-        }
-        title={mode === 'replan' ? '今日の計画を再計画' : '今日の計画を作成'}
-      />
-
       <View accessibilityLabel="計画作成の流れ" style={styles.flow}>
         <Badge label="1 作成" tone={state.status !== 'success' ? 'accent' : 'neutral'} />
         <Badge

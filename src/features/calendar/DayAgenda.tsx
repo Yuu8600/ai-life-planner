@@ -289,7 +289,6 @@ export function DayAgenda({
           <Text style={{ ...typography.bodyStrong, color: colors.textPrimary }}>
             この日の予定はありません
           </Text>
-          <Text style={time}>表示する予定はありません。</Text>
         </Card>
       ) : null}
 

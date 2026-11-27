@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { appAlert } from '@/shared/feedback/appAlert';
+import { confirmDiscardChanges } from '@/shared/feedback/confirmDiscardChanges';
 import { useTheme } from '@/shared/theme';
 import { ModalHeader } from './ModalHeader';
 export type ModalFrameProps = {
@@ -10,6 +10,8 @@ export type ModalFrameProps = {
   children: ReactNode;
   footer?: ReactNode;
   onClose: () => void;
+  visible?: boolean;
+  onDismiss?: () => void;
   closeLabel?: string;
   closeDisabled?: boolean;
   dirty?: boolean;
@@ -21,6 +23,8 @@ export function ModalFrame({
   children,
   footer,
   onClose,
+  visible = true,
+  onDismiss,
   closeLabel,
   closeDisabled = false,
   dirty = false,
@@ -29,22 +33,16 @@ export function ModalFrame({
   const { colors, radius, spacing, typography } = useTheme();
   const close = () => {
     if (closeDisabled) return;
-    if (!dirty) {
-      onClose();
-      return;
-    }
-    appAlert.alert('変更を破棄しますか？', '保存していない入力内容は失われます。', [
-      { text: '編集を続ける', style: 'cancel' },
-      { text: '変更を破棄', style: 'destructive', onPress: onClose },
-    ]);
+    confirmDiscardChanges(dirty, onClose);
   };
   return (
     <Modal
-      visible
+      visible={visible}
+      onDismiss={onDismiss}
       accessibilityLabel={title}
       testID={testID ? `${testID}-presentation` : undefined}
       animationType="slide"
-      presentationStyle={Platform.OS === 'ios' && dirty ? 'fullScreen' : 'pageSheet'}
+      presentationStyle="pageSheet"
       onRequestClose={close}
       allowSwipeDismissal={false}
     >
@@ -59,7 +57,7 @@ export function ModalFrame({
           accessibilityViewIsModal
           onAccessibilityEscape={close}
         >
-          {Platform.OS === 'ios' && !dirty ? (
+          {Platform.OS === 'ios' ? (
             <View style={{ alignItems: 'center', paddingTop: spacing.sm }}>
               <View
                 style={{

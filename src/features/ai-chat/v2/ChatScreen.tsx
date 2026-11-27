@@ -437,33 +437,39 @@ export function ChatScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.screen}
     >
-      <AppScreen contentContainerStyle={{ gap: spacing.md }} footer={composer} scrollRef={scroll}>
-        <ScreenHeader
-          title={current?.title ?? 'AI相談'}
-          backAction={
-            current
-              ? {
-                  label: '会話一覧',
-                  accessibilityLabel: '会話一覧',
-                  disabled: pending || loadingOlder,
-                  onPress: () => open(),
-                }
-              : undefined
-          }
-          action={
-            current ? undefined : (
-              <ActionButton
-                label="新規会話"
-                loading={pending}
-                disabled={usage !== undefined && !usage.configured}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setNewTitle('');
-                }}
-              />
-            )
-          }
-        />
+      <AppScreen
+        contentContainerStyle={{ gap: spacing.md }}
+        footer={composer}
+        scrollRef={scroll}
+        header={
+          <ScreenHeader
+            title={current?.title ?? 'AI相談'}
+            backAction={
+              current
+                ? {
+                    label: '会話一覧',
+                    accessibilityLabel: '会話一覧',
+                    disabled: pending || loadingOlder,
+                    onPress: () => open(),
+                  }
+                : undefined
+            }
+            action={
+              current ? undefined : (
+                <ActionButton
+                  label="新規会話"
+                  loading={pending}
+                  disabled={usage !== undefined && !usage.configured}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setNewTitle('');
+                  }}
+                />
+              )
+            }
+          />
+        }
+      >
         {usage?.configured ? (
           <Text style={{ color: colors.textSecondary }}>
             {usage.remainingMicros
