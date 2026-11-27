@@ -40,10 +40,10 @@ export function EventEditor({
   const [kind, setKind] = useState<'fixed' | 'flexible'>(initialEvent?.kind ?? 'fixed');
   const [title, setTitle] = useState(initialEvent?.title ?? '');
   const [from, setFrom] = useState(
-    initialEvent ? formatLocalTimeJa(initialEvent.startAt, timezone) : fixedOnly ? '09:00' : '',
+    initialEvent ? formatLocalTimeJa(initialEvent.startAt, timezone) : '09:00',
   );
   const [to, setTo] = useState(
-    initialEvent ? formatLocalTimeJa(initialEvent.endAt, timezone) : fixedOnly ? '10:00' : '',
+    initialEvent ? formatLocalTimeJa(initialEvent.endAt, timezone) : '10:00',
   );
   const [offset, setOffset] = useState(
     initialEvent && getLocalDate(initialEvent.endAt, timezone) > date ? '1' : '0',
@@ -75,7 +75,7 @@ export function EventEditor({
         to === formatLocalTimeJa(initialEvent.endAt, timezone) &&
         offset === (getLocalDate(initialEvent.endAt, timezone) > date ? '1' : '0')
           ? initialEvent.endAt
-          : readPlanTime(fixedOnly && offset === '1' ? `翌日 ${to}` : to, date, timezone);
+          : readPlanTime(offset === '1' ? `翌日 ${to}` : to, date, timezone);
       const minutes = (Date.parse(endAt) - Date.parse(startAt)) / 60_000;
       if (!title.trim() || minutes <= 0 || minutes > 1500)
         throw new Error('予定名と開始・終了時刻を確認してください。');
@@ -129,38 +129,21 @@ export function EventEditor({
           onChangeText={setTitle}
         />
       </FormField>
-      {fixedOnly ? (
-        <>
-          <TimeSelectionRow label="開始" value={from} disabled={pending} onChange={setFrom} />
-          <TimeSelectionRow
-            label="終了"
-            value={to}
-            dayOffset={offset}
-            disabled={pending}
-            onChange={(time, dayOffset) => {
-              setTo(time);
-              setOffset(dayOffset ?? '0');
-            }}
-          />
-          <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
-            {formatCalendarDateJa(date)} の予定として登録し、おすすめの時間判定に使います。
-          </Text>
-        </>
-      ) : (
-        <>
-          <FormField label="開始（HH:MM）">
-            <FormInput
-              editable={!pending}
-              placeholder="12:00"
-              value={from}
-              onChangeText={setFrom}
-            />
-          </FormField>
-          <FormField label="終了（HH:MM）">
-            <FormInput editable={!pending} placeholder="13:00" value={to} onChangeText={setTo} />
-          </FormField>
-        </>
-      )}
+      <TimeSelectionRow label="開始" value={from} disabled={pending} onChange={setFrom} />
+      <TimeSelectionRow
+        label="終了"
+        value={to}
+        dayOffset={offset}
+        disabled={pending}
+        onChange={(time, dayOffset) => {
+          setTo(time);
+          setOffset(dayOffset ?? '0');
+        }}
+      />
+      <Text style={{ ...typography.secondary, color: colors.textSecondary }}>
+        {formatCalendarDateJa(date)} の予定として登録します。
+        {kind === 'flexible' ? '開始から終了までの時間帯の中に、所要時間分を配置します。' : ''}
+      </Text>
       {fixedOnly ? null : kind === 'fixed' ? (
         <>
           <FormField label="前の移動時間（分）">

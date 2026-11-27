@@ -8,6 +8,13 @@ import { ActionStepsScreen } from '@/features/recommendations/ActionStepsScreen'
 import type { ActionStep, RecommendationRepository } from '@/features/recommendations/repository';
 import type { Task, TaskRepository } from '@/features/tasks';
 
+// Drain native focus animation callbacks before Jest destroys this environment.
+beforeEach(() => jest.useFakeTimers());
+afterEach(async () => {
+  await act(() => jest.runOnlyPendingTimers());
+  jest.useRealTimers();
+});
+
 const mockDispatch = jest.fn();
 const mockPreventRemove = jest.fn();
 jest.mock('expo-router/react-navigation', () => ({
