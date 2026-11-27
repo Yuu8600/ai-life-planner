@@ -1,17 +1,31 @@
-import { Text } from 'react-native';
+import { Text as MockText } from 'react-native';
 import { render } from '@testing-library/react-native';
 
-import GoalsRoute from '@/app/(tabs)/goals';
+import GoalsRoute from '@/app/goal-library';
+import LegacyGoalsRoute from '@/app/(tabs)/goals';
 
 const mockUseAuth = jest.fn();
 const mockCreateRepository = jest.fn((_userId: string) => ({ repository: true }));
 const mockGoalsScreen = jest.fn(({ repository }: { repository: unknown }) => (
-  <Text testID="goals-route-probe">{repository ? 'with-repository' : 'without-repository'}</Text>
+  <MockText testID="goals-route-probe">
+    {repository ? 'with-repository' : 'without-repository'}
+  </MockText>
 ));
 
 jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
+  Redirect: ({ href }: { href: string }) => <MockText testID="legacy-goals-link">{href}</MockText>,
   useRouter: () => ({ navigate: jest.fn(), push: jest.fn() }),
+}));
+
+jest.mock('@/navigation/routes/useV25Date', () => ({
+  useV25Date: () => ({ revision: 0, timezone: 'Asia/Tokyo' }),
+}));
+jest.mock('@/services/supabase/repositories/SupabaseTaskRepository', () => ({
+  createSupabaseTaskRepository: jest.fn(() => ({})),
+}));
+jest.mock('@/services/supabase/repositories/SupabaseSettingsRepository', () => ({
+  createSupabaseSettingsRepository: jest.fn(() => ({})),
 }));
 
 jest.mock('@/features/auth', () => ({
@@ -36,7 +50,7 @@ describe('Goals route composition', () => {
 
     const screen = await render(<GoalsRoute />);
 
-    expect(screen.getByTestId('goals-route-probe').props.children).toBe('without-repository');
+    expect(screen.toJSON()).toBeNull();
     expect(mockCreateRepository).not.toHaveBeenCalled();
   });
 
@@ -50,4 +64,9 @@ describe('Goals route composition', () => {
     expect(screen.getByTestId('goals-route-probe').props.children).toBe('with-repository');
     expect(mockCreateRepository).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
   });
+});
+
+it('keeps legacy /goals links while moving native goals outside the hidden tab', async () => {
+  const screen = await render(<LegacyGoalsRoute />);
+  expect(screen.getByTestId('legacy-goals-link').props.children).toBe('/goal-library');
 });

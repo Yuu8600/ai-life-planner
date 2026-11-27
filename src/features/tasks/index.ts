@@ -6,3 +6,5 @@ export type {
   TaskGoalOption,
   TaskRepository,
 } from './repositories/TaskRepository';
+
+export { useTasks } from './useTasks';

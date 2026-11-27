@@ -1,7 +1,14 @@
 import { Notice } from '@/shared/components/Notice';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRef, useState, type ReactNode } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 
+import {
+  TaskFormModal,
+  useTasks,
+  type Task,
+  type TaskRepository,
+  type CreateTaskInput,
+} from '@/features/tasks';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
@@ -18,6 +25,9 @@ import { GoalStatePanel } from './components/GoalStatePanel';
 
 type GoalsScreenProps = {
   repository: GoalRepository | null;
+  taskRepository?: TaskRepository | null;
+  planningTimezone?: string;
+  intro?: ReactNode;
   compactActions?: boolean;
   refreshToken?: number;
   onOpenAI?: (goal: Goal) => void;
@@ -30,6 +40,9 @@ export function GoalsScreen({
   refreshToken = 0,
   onOpenAI,
   onBack,
+  taskRepository,
+  planningTimezone,
+  intro,
 }: GoalsScreenProps) {
   const {
     clearMutationError,
@@ -43,8 +56,45 @@ export function GoalsScreen({
     retry,
     updateGoal,
   } = useGoals(repository, refreshToken);
+  const taskState = useTasks(taskRepository ?? null, refreshToken);
+  const [editingTask, setEditingTask] = useState<Task | null | undefined>();
+  const [taskGoalId, setTaskGoalId] = useState<string>();
+  const [goalClosing, setGoalClosing] = useState(false);
+  const afterGoalClose = useRef<(() => void) | undefined>(undefined);
+  const openTask = (goalId: string, task: Task | null = null) => {
+    taskState.clearMutationError();
+    setTaskGoalId(goalId);
+    setEditingTask(task);
+  };
+  const transition = (action: () => void) => {
+    if (Platform.OS !== 'ios') {
+      setEditingGoal(undefined);
+      action();
+      return;
+    }
+    afterGoalClose.current = action;
+    setGoalClosing(true);
+  };
+  const finishGoalClose = () => {
+    setEditingGoal(undefined);
+    setGoalClosing(false);
+    const action = afterGoalClose.current;
+    afterGoalClose.current = undefined;
+    action?.();
+  };
+  async function saveTask(input: CreateTaskInput, keepAdding = false) {
+    const { status: _status, ...editable } = input;
+    const saved = editingTask
+      ? await taskState.updateTask(editingTask.id, editable)
+      : await taskState.createTask(input);
+    if (saved && !keepAdding) {
+      setEditingTask(undefined);
+      setTaskGoalId(undefined);
+    }
+    return saved;
+  }
   const [editingGoal, setEditingGoal] = useState<Goal | null | undefined>(undefined);
-  const isMutating = pendingMutation !== null;
+  const isMutating = pendingMutation !== null || taskState.pendingMutation !== null || goalClosing;
   const initialLoading = isLoading && !goals.length;
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
 
@@ -112,6 +162,20 @@ export function GoalsScreen({
         />
       }
     >
+      {intro}
+      {taskRepository && taskState.loadError ? (
+        <Notice
+          tone="warning"
+          message="関連タスクを読み込めませんでした。進捗は確認できません。"
+          action={
+            <ActionButton
+              label="関連タスクを再読み込み"
+              variant="secondary"
+              onPress={taskState.retry}
+            />
+          }
+        />
+      ) : null}
       {initialLoading ? (
         <GoalStatePanel
           isLoading
@@ -145,6 +209,13 @@ export function GoalsScreen({
               key={goal.id}
               onDelete={() => confirmDelete(goal)}
               onEdit={() => openEditForm(goal)}
+              relatedTasks={
+                taskRepository && !taskState.loadError && !taskState.isLoading
+                  ? taskState.tasks.filter((task) => task.goalId === goal.id)
+                  : undefined
+              }
+              onAddTask={taskRepository ? () => openTask(goal.id) : undefined}
+              onEditTask={taskRepository ? (task) => openTask(goal.id, task) : undefined}
             />
           ))}
         </View>
@@ -156,19 +227,45 @@ export function GoalsScreen({
 
       {editingGoal !== undefined ? (
         <GoalFormModal
+          visible={!goalClosing}
+          onDismiss={finishGoalClose}
+          planningTimezone={planningTimezone}
           errorMessage={mutationError}
           goal={editingGoal}
           isSubmitting={isSaving}
           onClose={() => setEditingGoal(undefined)}
           onSubmit={saveGoal}
+          onAddTask={
+            editingGoal && taskRepository
+              ? () => transition(() => openTask(editingGoal.id))
+              : undefined
+          }
           onOpenAI={
             editingGoal && onOpenAI
               ? () => {
-                  setEditingGoal(undefined);
-                  onOpenAI(editingGoal);
+                  transition(() => onOpenAI(editingGoal));
                 }
               : undefined
           }
+        />
+      ) : null}
+      {editingTask !== undefined ? (
+        <TaskFormModal
+          task={editingTask}
+          initialGoalId={editingTask ? undefined : taskGoalId}
+          planningTimezone={planningTimezone}
+          recommendationMode
+          errorMessage={taskState.mutationError}
+          isSubmitting={taskState.pendingMutation !== null}
+          goalOptions={goals.map((goal) => ({ id: goal.id, title: goal.title }))}
+          goalOptionsError={loadError}
+          isLoadingGoalOptions={isLoading}
+          onRetryGoalOptions={retry}
+          onSubmit={saveTask}
+          onClose={() => {
+            setEditingTask(undefined);
+            setTaskGoalId(undefined);
+          }}
         />
       ) : null}
     </AppScreen>
