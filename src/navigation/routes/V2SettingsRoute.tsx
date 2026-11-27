@@ -5,27 +5,21 @@ import { Card } from '@/shared/components/Card';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { AccountSection, useAuth } from '@/features/auth';
 import { SettingsScreen } from '@/features/settings/SettingsScreen';
-import { PlannerGapSettings } from '@/features/settings/components/PlannerGapSettings';
 import { SettingsExitControl } from '@/navigation/SettingsExitControl';
 import { createSupabaseSettingsRepository } from '@/services/supabase/repositories/SupabaseSettingsRepository';
-import { createSupabaseDailyPlanningRepository } from '@/services/supabase/repositories/SupabaseDailyPlanningRepository';
 
 export default function V2SettingsRoute() {
   const userId = useAuth().session?.user.id;
   const router = useRouter();
   const repository = useMemo(
-    () => (userId ? createSupabaseSettingsRepository(userId) : null),
-    [userId],
-  );
-  const planner = useMemo(
-    () => (userId ? createSupabaseDailyPlanningRepository(userId) : null),
+    () => (userId ? createSupabaseSettingsRepository(userId, { includeTaskGap: true }) : null),
     [userId],
   );
   return (
     <SettingsScreen
       CloseControl={SettingsExitControl}
       planningAccessory={
-        planner ? (
+        userId ? (
           <Card>
             <SectionHeader title="高度な時間割" />
             <ActionButton
@@ -42,9 +36,6 @@ export default function V2SettingsRoute() {
             />
           </Card>
         ) : null
-      }
-      advancedSettings={
-        planner ? <PlannerGapSettings key={userId} repository={planner} /> : undefined
       }
       sections={[]}
       accountSection={<AccountSection />}

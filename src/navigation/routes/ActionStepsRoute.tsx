@@ -7,6 +7,7 @@ import { createSupabaseRecommendationRepository } from '@/services/supabase/repo
 import { createSupabaseSettingsRepository } from '@/services/supabase/repositories/SupabaseSettingsRepository';
 import { createSupabaseTaskRepository } from '@/services/supabase/repositories/SupabaseTaskRepository';
 
+import { ActionStepsExitGuard } from '@/navigation/ActionStepsExitGuard';
 import { useV25Date } from './useV25Date';
 
 export default function ActionStepsRoute() {
@@ -44,6 +45,7 @@ function SignedInActionSteps({
 
   return (
     <ActionStepsScreen
+      ExitGuard={ActionStepsExitGuard}
       date={date ?? undefined}
       revision={revision}
       dayError={error}

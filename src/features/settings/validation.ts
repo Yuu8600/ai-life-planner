@@ -13,6 +13,7 @@ export type SettingsFormValues = {
   planningEndDayOffset: string;
   planningStart: string;
   timezone: string;
+  taskGapMinutes?: string;
 };
 
 export type SettingsFormErrors = Partial<Record<keyof SettingsFormValues, string>>;
@@ -49,6 +50,9 @@ export function createSettingsFormValues(settings: ProfilePlanningSettings): Set
     planningEndDayOffset: String(settings.planningEndDayOffset),
     planningStart: settings.planningStart,
     timezone: settings.timezone,
+    ...(settings.taskGapMinutes === undefined
+      ? {}
+      : { taskGapMinutes: String(settings.taskGapMinutes) }),
   };
 }
 
@@ -119,6 +123,12 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
     errors.minimumFreeMinutes = '1以上の整数で入力してください。';
   }
 
+  if (
+    values.taskGapMinutes !== undefined &&
+    (!/^\d{1,3}$/.test(values.taskGapMinutes) || Number(values.taskGapMinutes) > 240)
+  )
+    errors.taskGapMinutes = '0〜240分の整数で入力してください。';
+
   if (Object.keys(errors).length > 0 || !resolvedTimeZone) {
     return { errors, input: null };
   }
@@ -133,6 +143,9 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
       planningEndDayOffset: Number(planningEndDayOffset) as 0 | 1,
       planningStart,
       timezone: resolvedTimeZone,
+      ...(values.taskGapMinutes === undefined
+        ? {}
+        : { taskGapMinutes: Number(values.taskGapMinutes) }),
     },
   };
 }

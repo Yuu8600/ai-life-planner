@@ -58,10 +58,14 @@ function createBuilder(response: { data: unknown; error: unknown }): Builder {
   return builder;
 }
 
-function createRepository(builder: Builder) {
+function createRepository(builder: Builder, includeTaskGap = false) {
   const from = jest.fn(() => builder);
   const client = { from } as unknown as SupabaseClient<Database>;
-  const repository: SettingsRepository = new SupabaseSettingsRepository(client, userId);
+  const repository: SettingsRepository = new SupabaseSettingsRepository(
+    client,
+    userId,
+    includeTaskGap,
+  );
   return { builder, from, repository };
 }
 
@@ -177,4 +181,37 @@ it.each([-1, 241, 0.5, NaN])('rejects invalid buffers before a DB write: %s', as
     }),
   ).rejects.toThrow();
   expect(builder.update).not.toHaveBeenCalled();
+});
+
+it('opts V2 into a single validated profile update including the existing task gap', async () => {
+  const { repository, builder } = createRepository(
+    createBuilder({ data: { ...profileRow, v2_task_gap_minutes: 45 }, error: null }),
+    true,
+  );
+  expect((await repository.getProfilePlanningSettings()).taskGapMinutes).toBe(45);
+  await repository.updateProfilePlanningSettings({ ...updateInput, taskGapMinutes: 45 });
+  expect(builder.update).toHaveBeenCalledTimes(1);
+  expect(builder.update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      timezone: updateInput.timezone,
+      planning_start: '09:15:00',
+      v2_task_gap_minutes: 45,
+    }),
+  );
+  expect(builder.eq).toHaveBeenCalledWith('id', userId);
+});
+it('rejects invalid or unrequested gap writes before touching Supabase', async () => {
+  const v2 = createRepository(createBuilder({ data: profileRow, error: null }), true);
+  await expect(
+    v2.repository.updateProfilePlanningSettings({ ...updateInput, taskGapMinutes: 241 }),
+  ).rejects.toThrow('Invalid');
+  await expect(v2.repository.updateProfilePlanningSettings(updateInput)).rejects.toThrow(
+    'Unexpected',
+  );
+  expect(v2.builder.update).not.toHaveBeenCalled();
+  const v1 = createRepository(createBuilder({ data: profileRow, error: null }));
+  await expect(
+    v1.repository.updateProfilePlanningSettings({ ...updateInput, taskGapMinutes: 30 }),
+  ).rejects.toThrow('Unexpected');
+  expect(v1.builder.update).not.toHaveBeenCalled();
 });

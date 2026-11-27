@@ -68,7 +68,7 @@ it('supports presets, cancels duration drafts, and respects disabled rows', asyn
   await fireEvent.press(screen.getByRole('button', { name: '最小、7分' }));
   expect(screen.queryByText('決定')).toBeNull();
 });
-it('resaves legacy exact clock, minimum and buffers unchanged without opening a keyboard', async () => {
+it('keeps legacy exact values without enabling an unchanged save', async () => {
   const original = {
     ...DEMO_SETTINGS,
     planningStart: '08:10',
@@ -91,6 +91,6 @@ it('resaves legacy exact clock, minimum and buffers unchanged without opening a 
   expect(screen.getByRole('button', { name: '活動終了時間、23:59' })).toBeTruthy();
   expect(screen.getByRole('button', { name: '最小空き時間、7分' })).toBeTruthy();
   expect(screen.getByRole('button', { name: '予定前の余白時間、17分' })).toBeTruthy();
-  await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
-  expect(save).toHaveBeenCalledWith(original);
+  expect(screen.queryByRole('button', { name: 'プロフィール設定を保存する' })).toBeNull();
+  expect(save).not.toHaveBeenCalled();
 });

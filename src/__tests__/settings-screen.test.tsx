@@ -167,6 +167,7 @@ describe('SettingsScreen', () => {
     const screen = await render(<SettingsScreen onPressBack={jest.fn()} repository={repository} />);
 
     await screen.findByDisplayValue('Asia/Tokyo');
+    await fireEvent.changeText(screen.getByLabelText('タイムゾーン'), ' Asia/Tokyo ');
     const saveButton = screen.getByRole('button', { name: 'プロフィール設定を保存する' });
     await fireEvent.press(saveButton);
     await fireEvent.press(saveButton);
@@ -235,6 +236,7 @@ describe('SettingsScreen', () => {
     const screen = await render(<SettingsScreen onPressBack={jest.fn()} repository={repository} />);
 
     await screen.findByDisplayValue('Asia/Tokyo');
+    await fireEvent.changeText(screen.getByLabelText('タイムゾーン'), ' Asia/Tokyo ');
     await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
     expect(await screen.findByText('設定を保存しました。')).toBeTruthy();
 
@@ -293,9 +295,11 @@ describe('Clear Settings save and close controls', () => {
   it('groups existing settings by purpose and keeps one save action', async () => {
     const repository = createRepository();
     const screen = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
-    await screen.findByTestId('settings-save-area');
+    await screen.findByTestId('planning-settings-form');
     for (const title of ['活動時間', '空き時間・予定の余白', '地域・時間帯'])
       expect(screen.getByRole('header', { name: title })).toBeTruthy();
+    expect(screen.queryByTestId('settings-save-area')).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('タイムゾーン'), ' Asia/Tokyo ');
     expect(screen.getAllByRole('button', { name: 'プロフィール設定を保存する' })).toHaveLength(1);
     expect(repository.updateProfilePlanningSettings).not.toHaveBeenCalled();
   });
@@ -304,7 +308,7 @@ describe('Clear Settings save and close controls', () => {
       repository = createRepository();
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const screen = await render(<SettingsScreen repository={repository} onPressBack={close} />);
-    await screen.findByTestId('settings-save-area');
+    await screen.findByTestId('planning-settings-form');
     await selectTime(screen, '活動開始時間', '08:10');
     await fireEvent.press(screen.getByRole('button', { name: '設定を閉じる' }));
     expect(alert).toHaveBeenCalledTimes(1);
@@ -402,7 +406,7 @@ describe('Clear Settings save and close controls', () => {
 it('shows validation feedback beside save without writing an invalid planning window', async () => {
   const repository = createRepository();
   const screen = await render(<SettingsScreen repository={repository} onPressBack={jest.fn()} />);
-  await screen.findByTestId('settings-save-area');
+  await screen.findByTestId('planning-settings-form');
   await selectTime(screen, '活動終了時間', '09:00', '1');
   await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));
   expect(await screen.findByText('入力内容を確認してください。')).toBeTruthy();
@@ -430,7 +434,7 @@ it('synchronizes the returned profile without remounting account operations', as
       accountSection={<AccountProbe />}
     />,
   );
-  await screen.findByTestId('settings-save-area');
+  await screen.findByTestId('planning-settings-form');
   const before = mounted.mock.calls.length;
   await selectTime(screen, '活動開始時間', '09:17');
   await fireEvent.press(screen.getByRole('button', { name: 'プロフィール設定を保存する' }));

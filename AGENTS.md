@@ -147,8 +147,11 @@ and require separate explicit authorization. Other development rules remain unch
   than silently falling back. Do not use `tasks.deadline` as an execution date.
 - Keep Settings UI and state management dependent on `SettingsRepository`. Read and update only
   `timezone`, `planning_start`, `planning_end`, `planning_end_day_offset`, `minimum_free_minutes`,
-  `calendar_buffer_before_minutes`, and `calendar_buffer_after_minutes`; scope every adapter
-  operation to the authenticated profile id and validate inputs before writing.
+  `calendar_buffer_before_minutes`, and `calendar_buffer_after_minutes`. The V2 Settings form may
+  explicitly opt in to the existing `v2_task_gap_minutes` column and save it atomically with those
+  fields; include it in validation and the shared dirty guard. V1 and default adapters retain the
+  seven-field contract. Scope every adapter operation to the authenticated profile id and validate
+  inputs before writing.
 - Keep Calendar UI and state management dependent on `CalendarRepository`; only the adapter under
   `src/services/calendar` may import `expo-calendar`. Keep integration read-only, retain all-day and
   availability metadata without assigning busy semantics, and never persist device events to
