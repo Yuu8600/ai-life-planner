@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { PlannerGapSettings } from './PlannerGapSettings';
 import { Card } from '@/shared/components/Card';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { FormField, FormInput } from '@/shared/components/FormField';
@@ -82,7 +83,7 @@ export function PlanningSettingsForm({
   };
 
   const submit = async () => {
-    if (isSaving || submitLock.current) return;
+    if (isSaving || submitLock.current || !dirty) return;
 
     Keyboard.dismiss();
     const validation = validateSettingsForm(values);
@@ -179,6 +180,14 @@ export function PlanningSettingsForm({
           );
         })}
       </Card>
+      {values.taskGapMinutes !== undefined ? (
+        <PlannerGapSettings
+          value={values.taskGapMinutes}
+          disabled={isSaving}
+          error={fieldErrors.taskGapMinutes}
+          onChange={(value) => updateValue('taskGapMinutes', value)}
+        />
+      ) : null}
     </>
   );
   const plannerTip = (
@@ -220,7 +229,7 @@ export function PlanningSettingsForm({
   );
   const body = (
     <View style={styles.form} testID="planning-settings-form">
-      {advancedSettings ? (
+      {advancedSettings || values.taskGapMinutes !== undefined ? (
         <>
           {regionFields}
           <ActionButton
@@ -247,56 +256,65 @@ export function PlanningSettingsForm({
       )}
     </View>
   );
-  const footer = (
-    <View
-      ref={saveAreaRef}
-      testID="settings-save-area"
-      style={styles.saveArea}
-      {...(Platform.OS === 'web'
-        ? { tabIndex: -1, role: 'group' as const, 'aria-label': '設定の保存結果' }
-        : {})}
-    >
-      <View style={styles.statusSlot}>
-        {saveError ? (
-          <Text
-            accessibilityRole="alert"
-            style={[styles.helper, { color: colors.error, fontWeight: '600' }]}
-          >
-            保存できませんでした
-          </Text>
-        ) : Object.values(fieldErrors).some(Boolean) ? (
-          <Text
-            accessibilityRole="alert"
-            style={[styles.helper, { color: colors.error, fontWeight: '600' }]}
-          >
-            入力内容を確認してください。
-          </Text>
-        ) : saveSucceeded ? (
-          <Text
-            accessibilityLiveRegion="polite"
-            style={[styles.helper, { color: colors.success, fontWeight: '600' }]}
-          >
+  const footer =
+    !dirty && !saveError && !Object.values(fieldErrors).some(Boolean) ? (
+      saveSucceeded ? (
+        <View style={styles.saveArea}>
+          <Text accessibilityLiveRegion="polite" style={[styles.helper, { color: colors.success }]}>
             設定を保存しました。
           </Text>
-        ) : (
-          <Text
-            accessibilityLiveRegion="polite"
-            style={[styles.helper, dirty && { color: colors.primary, fontWeight: '600' }]}
-          >
-            {dirty ? '未保存の変更があります' : '変更はありません'}
-          </Text>
-        )}
+        </View>
+      ) : null
+    ) : (
+      <View
+        ref={saveAreaRef}
+        testID="settings-save-area"
+        style={styles.saveArea}
+        {...(Platform.OS === 'web'
+          ? { tabIndex: -1, role: 'group' as const, 'aria-label': '設定の保存結果' }
+          : {})}
+      >
+        <View style={styles.statusSlot}>
+          {saveError ? (
+            <Text
+              accessibilityRole="alert"
+              style={[styles.helper, { color: colors.error, fontWeight: '600' }]}
+            >
+              保存できませんでした
+            </Text>
+          ) : Object.values(fieldErrors).some(Boolean) ? (
+            <Text
+              accessibilityRole="alert"
+              style={[styles.helper, { color: colors.error, fontWeight: '600' }]}
+            >
+              入力内容を確認してください。
+            </Text>
+          ) : saveSucceeded ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[styles.helper, { color: colors.success, fontWeight: '600' }]}
+            >
+              設定を保存しました。
+            </Text>
+          ) : (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[styles.helper, dirty && { color: colors.primary, fontWeight: '600' }]}
+            >
+              {dirty ? '未保存の変更があります' : '変更はありません'}
+            </Text>
+          )}
+        </View>
+        <ActionButton
+          accessibilityLabel={isSaving ? 'プロフィール設定を保存中' : 'プロフィール設定を保存する'}
+          disabled={isSaving || !dirty}
+          loading={isSaving}
+          label={isSaving ? '保存中…' : '変更を保存'}
+          variant={dirty ? 'primary' : 'secondary'}
+          onPress={() => void submit()}
+        />
       </View>
-      <ActionButton
-        accessibilityLabel={isSaving ? 'プロフィール設定を保存中' : 'プロフィール設定を保存する'}
-        disabled={isSaving}
-        loading={isSaving}
-        label={isSaving ? '保存中…' : '変更を保存'}
-        variant={dirty ? 'primary' : 'secondary'}
-        onPress={() => void submit()}
-      />
-    </View>
-  );
+    );
   const feedback = saveError ? <Notice tone="error" message={saveError} /> : null;
   return renderLayout ? (
     renderLayout(body, footer, dirty, feedback)

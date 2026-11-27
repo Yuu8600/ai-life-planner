@@ -6,6 +6,7 @@ export type ProfilePlanningSettings = {
   planningEndDayOffset: 0 | 1;
   planningStart: string;
   timezone: string;
+  taskGapMinutes?: number;
 };
 
 export type UpdateProfilePlanningSettingsInput = ProfilePlanningSettings;

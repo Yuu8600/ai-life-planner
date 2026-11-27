@@ -232,7 +232,7 @@ it('guards step drafts, supports reverting to the initial values, and saves expl
       openAI={jest.fn()}
     />,
   );
-  await fireEvent.press(screen.getByRole('button', { name: '小さな行動を追加' }));
+  await fireEvent.press(screen.getByRole('button', { name: '詳細を指定して小さな行動を追加' }));
   await fireEvent.changeText(screen.getByLabelText('小さな行動の名前'), '最初の一歩');
   await fireEvent.press(screen.getByRole('button', { name: 'パネルを閉じる' }));
   expect(repository.addStep).not.toHaveBeenCalled();
@@ -241,7 +241,7 @@ it('guards step drafts, supports reverting to the initial values, and saves expl
   await fireEvent.press(screen.getByRole('button', { name: 'パネルを閉じる' }));
   expect(Alert.alert).toHaveBeenCalledTimes(1);
   expect(screen.queryByLabelText('小さな行動の名前')).toBeNull();
-  await fireEvent.press(screen.getByRole('button', { name: '小さな行動を追加' }));
+  await fireEvent.press(screen.getByRole('button', { name: '詳細を指定して小さな行動を追加' }));
   await fireEvent.changeText(screen.getByLabelText('小さな行動の名前'), '最初の一歩');
   await fireEvent.press(screen.getByRole('button', { name: '保存' }));
   expect(repository.addStep).toHaveBeenCalledTimes(1);
