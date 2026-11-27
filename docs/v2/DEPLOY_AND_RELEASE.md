@@ -29,7 +29,7 @@ git switch feat/v2-redesign
 git push -u origin feat/v2-redesign
 ```
 
-GitHubで `feat/v2-redesign` → `main` のPRを作成し、CIと差分を確認する。実機テストは [MANUAL_TEST_CHECKLIST.md](MANUAL_TEST_CHECKLIST.md) を使う。テストと後述の本番適用計画を確認してからマージする。V1のソースは固定済みブランチ・タグから取得できる。
+Codexが作業ブランチをpushし、GitHubでmain向けPRを作成してCI・差分・レビューを確認する。上のコマンドはV2着手時のブランチ例であり、今後の通常開発は[現行のGit運用](../development.md#git--github運用)に従い、個別許可なしでマージ条件の確認まで担当する。実機テストは [MANUAL_TEST_CHECKLIST.md](MANUAL_TEST_CHECKLIST.md) を使う。テストと後述の本番適用計画を確認してからマージする。V1のソースは固定済みブランチ・タグから取得できる。
 
 ### 2. テスト用Supabaseで先に確認する
 

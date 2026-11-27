@@ -14,14 +14,43 @@ Web Demo uses sample data and in-memory repositories, with no Auth, Supabase, Op
 Calendar access. Native and `.web.tsx` composition lives in `src/navigation`; `src/app` stays thin.
 Shared Planner business rules remain common to both platforms. See `docs/web-demo.md` for the
 static export, Project Pages base path, manual deployment workflow and verification limits.
-For requested improvements, Codex may sync main, create a branch, implement and verify, commit,
-push the branch, create a PR, inspect CI and review the diff, fix issues, merge after CI succeeds,
-sync local main, and remove merged local branches. Never push directly to main, force-push, or
-bypass CI. Remote branch deletion, DB migrations, Web publication, and device installation still
-require separate explicit authorization. Stop and report required permissions or destructive risks.
 
 Treat the versioned requirements file as a project source of truth. Do not silently reformat or
 rewrite it; requirement changes need explicit user authorization and should be versioned.
+
+## Git / GitHub workflow
+
+Codex owns the normal development workflow end to end. For requested work, inspect Git status
+and existing worktrees, preserve all unrelated staged / unstaged / untracked files and unpublished
+commits, fast-forward local main from the remote, and create a dedicated `feat/`, `fix/`, or
+`docs/` branch. If synchronization would overwrite existing work or main has diverged, use an
+isolated checkout or report the conflict; never reset or discard the user's changes.
+
+Implement only the requested scope, run the checks below, self-review the diff, and create focused
+Conventional Commits. Then push the work branch, create a PR targeting main, inspect the PR diff,
+CI and reviews, and fix relevant failures. Routine branch pushes, PR creation, and PR merges do
+not need separate user permission.
+
+Merge only when all of these conditions hold for the current PR head:
+
+- The requested scope is complete and the necessary tests, typecheck and lint pass.
+- All required CI checks succeed, and required reviews and branch protection / rulesets are met.
+- The PR contains no unrelated changes, unresolved serious issues, unintended data changes, or secrets.
+
+Recheck the PR head, diff and review status before merging; pin the merge to the reviewed head SHA
+when supported. If any condition is unmet or cannot be verified, keep the PR unmerged and report
+why. Do not bypass required checks, reviews or branch protection, including through admin overrides.
+
+After merging, fast-forward local main, verify that it contains the result, and remove only merged
+local work branches whose commits are preserved and which are not in use by another worktree.
+Report the PR URL, merge result, checks, current branch, retained user changes and any blockers.
+Never push directly to main, force-push, discard existing changes, change unrelated files, commit
+secrets, or perform unrequested destructive DB operations.
+
+Release publication, production DB changes, destructive operations, remote branch deletion,
+DB migrations, Web publication and device installation remain outside routine PR authorization
+and require separate explicit authorization. Other development rules remain unchanged. See
+[the development workflow](docs/development.md#git--github運用) for the operational sequence.
 
 ## Commands
 
