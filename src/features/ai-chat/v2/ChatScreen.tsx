@@ -459,6 +459,7 @@ export function ChatScreen({
       <FormField label="相談内容">
         <FormInput
           multiline
+          keyboardDismissAccessory={false}
           value={prompt}
           editable={!pending}
           maxLength={1000}
