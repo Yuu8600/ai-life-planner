@@ -48,15 +48,18 @@ export function LegacyPlanHistory({
   }, [plans, date, attempt]);
 
   const plan = state.kind === 'loaded' ? state.plan : null;
+  const empty =
+    state.kind === 'loaded' && !plan && logs.state.status === 'success' && !logs.state.logs.length;
+  if (empty) return <Notice tone="info" message="この日の旧計画・実行履歴はありません。" />;
   return (
     <Card style={{ gap: spacing.sm }}>
-      <SectionHeader title="V1で保存した計画" />
+      <SectionHeader title="以前の方式で保存した計画" />
       {state.kind === 'loading' ? (
         <Text style={{ color: colors.textSecondary }}>計画を読み込んでいます。</Text>
       ) : null}
       {state.kind === 'error' ? (
         <>
-          <Notice tone="error" message="V1の計画を読み込めませんでした。" />
+          <Notice tone="error" message="過去の計画を読み込めませんでした。" />
           <ActionButton
             label="計画を再読み込み"
             variant="secondary"
@@ -68,7 +71,7 @@ export function LegacyPlanHistory({
         </>
       ) : null}
       {state.kind === 'loaded' && !plan?.actions.length ? (
-        <Text style={{ color: colors.textSecondary }}>この日のV1作業枠はありません。</Text>
+        <Text style={{ color: colors.textSecondary }}>この日の旧計画に作業枠はありません。</Text>
       ) : null}
       {plan?.summary ? <Text style={{ color: colors.textPrimary }}>{plan.summary}</Text> : null}
       {plan?.actions.map((item) => (
@@ -78,7 +81,7 @@ export function LegacyPlanHistory({
           {item.status === 'completed' ? '完了' : item.status === 'skipped' ? 'スキップ' : '予定'}
         </Text>
       ))}
-      <ActivityLogSection title="V1の実行履歴" state={logs.state} onRetry={logs.retry} />
+      <ActivityLogSection title="以前の方式の実行履歴" state={logs.state} onRetry={logs.retry} />
     </Card>
   );
 }

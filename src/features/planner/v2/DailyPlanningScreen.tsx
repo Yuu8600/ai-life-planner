@@ -516,7 +516,11 @@ export function DailyPlanningScreen({
         <>
           <ActionButton
             variant="secondary"
-            label={legacyDate === day.input.date ? 'V1の記録を閉じる' : 'V1の計画と実行履歴を見る'}
+            label={
+              legacyDate === day.input.date
+                ? '過去の計画・実行履歴を閉じる'
+                : '過去の計画・実行履歴を見る'
+            }
             onPress={() =>
               setLegacyDate(legacyDate === day.input.date ? undefined : day.input.date)
             }
