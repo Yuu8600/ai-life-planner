@@ -26,7 +26,7 @@ export function DeadlineCalendar({
   clearLabel = '期限なし',
   onDismiss,
 }: DeadlineCalendarProps) {
-  const { colors } = useTheme();
+  const { colors, name } = useTheme();
   return (
     <DateTimePicker
       accessibilityLabel={label}
@@ -42,7 +42,12 @@ export function DeadlineCalendar({
               ? { neutralButton: { label: clearLabel }, onNeutralButtonPress: onClear }
               : {}),
           }
-        : { display: 'inline' as const, accentColor: colors.primary, locale: 'ja-JP' })}
+        : {
+            display: 'inline' as const,
+            themeVariant: name === 'clear-dark' ? ('dark' as const) : ('light' as const),
+            accentColor: colors.primary,
+            locale: 'ja-JP',
+          })}
     />
   );
 }

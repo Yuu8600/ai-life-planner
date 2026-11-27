@@ -1,3 +1,4 @@
+import { useTheme } from '@/shared/theme';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 import { ActionButton } from '../ActionButton';
@@ -17,6 +18,7 @@ export function TimeSelectionRow({
   disabled?: boolean;
   onChange: (time: string, offset?: string) => void;
 }) {
+  const { colors } = useTheme();
   const [anchor, setAnchor] = useState<PanelAnchor | null>(null),
     [hour, setHour] = useState('00'),
     [minute, setMinute] = useState('00'),
@@ -44,7 +46,7 @@ export function TimeSelectionRow({
       />
       {anchor ? (
         <SelectionPanel title={label} anchor={anchor} onCancel={close}>
-          <Text>
+          <Text style={{ color: colors.textPrimary }}>
             {offset === '1' && dayOffset !== undefined ? '翌日 ' : ''}
             {hour}:{minute}
           </Text>
@@ -72,7 +74,9 @@ export function TimeSelectionRow({
             <OptionColumn label="分" options={minutes} value={minute} onChange={setMinute} />
           </View>
           {!quarters.includes(minute) ? (
-            <Text>現在の分「{minute}」を正確に保持しています。</Text>
+            <Text style={{ color: colors.textPrimary }}>
+              現在の分「{minute}」を正確に保持しています。
+            </Text>
           ) : null}
           <ActionButton
             label={fine ? '15分刻みの候補に戻す' : '1分単位で選ぶ'}

@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { colors, spacing } from '@/shared/theme';
+import { spacing, useThemeColors } from '@/shared/theme';
 export type OptionColumnProps = {
   label: string;
   options: string[];
@@ -8,6 +8,7 @@ export type OptionColumnProps = {
   onChange: (value: string) => void;
 };
 export function OptionColumn({ label, options, value, onChange }: OptionColumnProps) {
+  const colors = useThemeColors();
   const ref = useRef<ScrollView>(null);
   const selectedLayout = useRef({ y: 0, height: 48 });
   const revealSelection = () =>
@@ -17,7 +18,7 @@ export function OptionColumn({ label, options, value, onChange }: OptionColumnPr
     });
   return (
     <View style={{ flex: 1, minWidth: 72 }}>
-      <Text>{label}</Text>
+      <Text style={{ color: colors.textPrimary }}>{label}</Text>
       <ScrollView
         ref={ref}
         nestedScrollEnabled

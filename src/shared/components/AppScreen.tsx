@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing } from '@/shared/theme';
+import { spacing, useThemeColors } from '@/shared/theme';
 
 type AppScreenProps = {
   children: ReactNode;
@@ -38,6 +38,8 @@ export function AppScreen({
   onScroll,
   testID,
 }: AppScreenProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
@@ -93,26 +95,27 @@ export function AppScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  header: {
-    flexShrink: 0,
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.md,
-    ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  staticContent: {
-    flex: 1,
-    ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
-  },
-  scrollContent: {
-    flexGrow: 1,
-    ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xxl + spacing.xl,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    header: {
+      flexShrink: 0,
+      paddingHorizontal: spacing.base,
+      paddingTop: spacing.md,
+      ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
+    },
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    staticContent: {
+      flex: 1,
+      ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
+    },
+    scrollContent: {
+      flexGrow: 1,
+      ...Platform.select({ web: { width: '100%', maxWidth: 960, alignSelf: 'center' } as const }),
+      paddingHorizontal: spacing.base,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.xxl + spacing.xl,
+    },
+  });

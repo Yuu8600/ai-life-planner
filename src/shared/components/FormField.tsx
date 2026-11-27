@@ -64,7 +64,7 @@ export const FormInput = forwardRef<TextInput, FormInputProps>(function FormInpu
             borderColor: invalid ? c.error : focused ? c.focusRing : c.borderSubtle,
             borderRadius: radius.control,
             backgroundColor:
-              editable === false ? c.disabledSurface : focused ? c.surface : '#F8FAFC',
+              editable === false ? c.disabledSurface : focused ? c.surface : c.inputSurface,
             ...typography.body,
             color: editable === false ? c.disabledText : c.textPrimary,
           },
