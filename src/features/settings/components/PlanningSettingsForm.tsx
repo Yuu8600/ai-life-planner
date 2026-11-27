@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { TimeZonePresets } from './TimeZonePresets';
 import { PlannerGapSettings } from './PlannerGapSettings';
 import { Card } from '@/shared/components/Card';
 import { SectionHeader } from '@/shared/components/SectionHeader';
@@ -205,6 +206,14 @@ export function PlanningSettingsForm({
   const regionFields = (
     <Card>
       <SectionHeader compact title="地域・時間帯" />
+      <TimeZonePresets
+        value={values.timezone}
+        disabled={isSaving}
+        onChange={(value) => updateValue('timezone', value)}
+      />
+      <Text style={styles.helper}>
+        タイムゾーンを変えると「今日」の日付や日付の切り替わりが変わる場合があります。保存済みの計画は自動変更されません。
+      </Text>
       <FormField error={fieldErrors.timezone} helper="例：日本は Asia/Tokyo" label="タイムゾーン">
         <FormInput
           accessibilityLabel="タイムゾーン"
