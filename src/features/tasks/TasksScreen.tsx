@@ -1,3 +1,5 @@
+import { SwipeActions } from '@/shared/components/SwipeActions';
+import { useSuccessFeedback } from '@/shared/feedback/SuccessFeedback';
 import { formatCalendarDateJa } from '@/shared/dateInput';
 import { getLocalDate } from '@/features/today';
 import type {
@@ -71,6 +73,7 @@ export function TasksScreen({
   repository,
 }: TasksScreenProps) {
   const theme = useTheme();
+  const notifySuccess = useSuccessFeedback();
   const {
     clearMutationError,
     createTask,
@@ -231,6 +234,7 @@ export function TasksScreen({
             outcome === 'skipped' ? '今日のおすすめ対象に戻しました。' : '未完了に戻しました。',
         });
       }
+      notifySuccess();
       const fresh = await recommendations.listResults(today, today);
       setDaily({ date: today, results: fresh });
     } catch (error) {
@@ -357,106 +361,112 @@ export function TasksScreen({
     const rowBusy = busyTaskId === task.id;
 
     return (
-      <View
+      <SwipeActions
         key={task.id}
-        style={[
-          styles.taskRow,
-          rowBusy && { opacity: 0.55 },
-          !isLast && {
-            borderBottomWidth: StyleSheet.hairlineWidth,
-            borderColor: theme.colors.borderSubtle,
-          },
-        ]}
-        testID={`task-card-${task.id}`}
+        label={task.title}
+        disabled={isMutating || selecting}
+        onDelete={() => confirmDelete(task)}
       >
-        {selecting ? (
-          <CompletionCheckbox
-            checked={taskSelection?.includes(task.id) ?? false}
-            label={`${task.title}を選択`}
-            disabled={isMutating}
-            onPress={() =>
-              setTaskSelection((prior) =>
-                prior?.includes(task.id)
-                  ? prior.filter((id) => id !== task.id)
-                  : [...(prior ?? []), task.id],
-              )
-            }
-          />
-        ) : skipped ? (
-          <ActionButton
-            label="戻す"
-            accessibilityLabel={`${task.title}をおすすめ対象に戻す`}
-            variant="ghost"
-            disabled={isMutating || !!dailyError || !!dayError}
-            onPress={() => void toggle(task)}
-          />
-        ) : (
-          <CompletionCheckbox
-            checked={checked}
-            label={
-              dailyCheck
-                ? `${task.title}の今日の実施を${checked ? '取り消す' : '記録'}`
-                : `${task.title}を${checked ? '未完了に戻す' : '完了'}`
-            }
-            disabled={!today || daily?.date !== today || isMutating || !!dailyError || !!dayError}
-            onPress={() => void toggle(task)}
-          />
-        )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${task.title}を編集する`}
-          disabled={isMutating || selecting}
-          onPress={() => {
-            setShowCompleted(false);
-            openEditForm(task);
-          }}
-          style={({ pressed }) => [styles.rowTitle, pressed && { opacity: 0.65 }]}
+        <View
+          style={[
+            styles.taskRow,
+            rowBusy && { opacity: 0.55 },
+            !isLast && {
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderColor: theme.colors.borderSubtle,
+            },
+          ]}
+          testID={`task-card-${task.id}`}
         >
-          <View style={styles.rowContent}>
-            <Text
-              style={[
-                {
-                  ...theme.typography.bodyStrong,
-                  color: theme.colors.textPrimary,
-                  flexShrink: 1,
-                },
-                checked && {
-                  color: theme.colors.textSecondary,
-                  textDecorationLine: 'line-through',
-                },
-              ]}
-            >
-              {task.title}
-            </Text>
-            <View style={styles.metaPills}>
-              {overdue && deadline ? (
-                <Badge label={`期限切れ ${formatCalendarDateJa(deadline)}`} tone="error" />
-              ) : null}
-              {!overdue && deadline ? (
-                <Badge label={`期限 ${formatCalendarDateJa(deadline)}`} tone="neutral" />
-              ) : null}
-              {!checked && task.priority === 'high' ? (
-                <Badge label="優先度 高" tone="warning" />
-              ) : null}
-              {task.estimatedMinutes !== null ? (
-                <Badge label={`目安 ${task.estimatedMinutes}分`} tone="neutral" />
-              ) : null}
-              {checked ? (
-                <Badge label={dailyCheck ? '今日の実施済み' : '完了'} tone="success" />
-              ) : recurring ? (
-                <Badge label="繰り返し" tone="accent" />
-              ) : null}
-              {skipped ? <Badge label="あとで" tone="neutral" /> : null}
-              {goalTitle ? <Badge label={goalTitle} tone="info" /> : null}
+          {selecting ? (
+            <CompletionCheckbox
+              checked={taskSelection?.includes(task.id) ?? false}
+              label={`${task.title}を選択`}
+              disabled={isMutating}
+              onPress={() =>
+                setTaskSelection((prior) =>
+                  prior?.includes(task.id)
+                    ? prior.filter((id) => id !== task.id)
+                    : [...(prior ?? []), task.id],
+                )
+              }
+            />
+          ) : skipped ? (
+            <ActionButton
+              label="戻す"
+              accessibilityLabel={`${task.title}をおすすめ対象に戻す`}
+              variant="ghost"
+              disabled={isMutating || !!dailyError || !!dayError}
+              onPress={() => void toggle(task)}
+            />
+          ) : (
+            <CompletionCheckbox
+              checked={checked}
+              label={
+                dailyCheck
+                  ? `${task.title}の今日の実施を${checked ? '取り消す' : '記録'}`
+                  : `${task.title}を${checked ? '未完了に戻す' : '完了'}`
+              }
+              disabled={!today || daily?.date !== today || isMutating || !!dailyError || !!dayError}
+              onPress={() => void toggle(task)}
+            />
+          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${task.title}を編集する`}
+            disabled={isMutating || selecting}
+            onPress={() => {
+              setShowCompleted(false);
+              openEditForm(task);
+            }}
+            style={({ pressed }) => [styles.rowTitle, pressed && { opacity: 0.65 }]}
+          >
+            <View style={styles.rowContent}>
+              <Text
+                style={[
+                  {
+                    ...theme.typography.bodyStrong,
+                    color: theme.colors.textPrimary,
+                    flexShrink: 1,
+                  },
+                  checked && {
+                    color: theme.colors.textSecondary,
+                    textDecorationLine: 'line-through',
+                  },
+                ]}
+              >
+                {task.title}
+              </Text>
+              <View style={styles.metaPills}>
+                {overdue && deadline ? (
+                  <Badge label={`期限切れ ${formatCalendarDateJa(deadline)}`} tone="error" />
+                ) : null}
+                {!overdue && deadline ? (
+                  <Badge label={`期限 ${formatCalendarDateJa(deadline)}`} tone="neutral" />
+                ) : null}
+                {!checked && task.priority === 'high' ? (
+                  <Badge label="優先度 高" tone="warning" />
+                ) : null}
+                {task.estimatedMinutes !== null ? (
+                  <Badge label={`目安 ${task.estimatedMinutes}分`} tone="neutral" />
+                ) : null}
+                {checked ? (
+                  <Badge label={dailyCheck ? '今日の実施済み' : '完了'} tone="success" />
+                ) : recurring ? (
+                  <Badge label="繰り返し" tone="accent" />
+                ) : null}
+                {skipped ? <Badge label="あとで" tone="neutral" /> : null}
+                {goalTitle ? <Badge label={goalTitle} tone="info" /> : null}
+              </View>
             </View>
-          </View>
-          {!selecting ? (
-            <Text style={{ ...theme.typography.sectionTitle, color: theme.colors.textSecondary }}>
-              ›
-            </Text>
-          ) : null}
-        </Pressable>
-      </View>
+            {!selecting ? (
+              <Text style={{ ...theme.typography.sectionTitle, color: theme.colors.textSecondary }}>
+                ›
+              </Text>
+            ) : null}
+          </Pressable>
+        </View>
+      </SwipeActions>
     );
   }
 

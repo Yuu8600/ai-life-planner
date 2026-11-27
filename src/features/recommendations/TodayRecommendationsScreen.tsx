@@ -1,3 +1,5 @@
+import { SwipeActions } from '@/shared/components/SwipeActions';
+import { useSuccessFeedback } from '@/shared/feedback/SuccessFeedback';
 import { effectivePolicies, policyLabels, type RecommendationPolicy } from './policy';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
@@ -104,6 +106,7 @@ export function TodayRecommendationsScreen({
   openTasks,
   openStep,
 }: Props) {
+  const notifySuccess = useSuccessFeedback();
   const { colors, controls, radius, spacing, typography } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const [editingTask, setEditingTask] = useState<Task>();
@@ -270,6 +273,7 @@ export function TodayRecommendationsScreen({
     setLastChange(undefined);
     try {
       const message = await operation();
+      notifySuccess();
       loadVersion.current++;
       setRetry((count) => count + 1);
       setFeedback({ message, scope });
@@ -589,70 +593,78 @@ export function TodayRecommendationsScreen({
     ];
 
     return (
-      <View
+      <SwipeActions
         key={key}
-        style={[
-          row,
-          {
-            paddingVertical: spacing.sm,
-            opacity: itemBusy ? 0.5 : 1,
-          },
-          index > 0 && {
-            borderTopWidth: StyleSheet.hairlineWidth,
-            borderTopColor: colors.borderSubtle,
-          },
-        ]}
+        label={item.title}
+        disabled={actionDisabled}
+        onLater={() => void record(item, 'skipped')}
       >
-        <CompletionCheckbox
-          label={
-            repeats(item.kind, item.id) ? `${item.title}の今日の実施を記録` : `${item.title}を完了`
-          }
-          checked={false}
-          disabled={actionDisabled}
-          onPress={() => void record(item, 'completed')}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${item.title}の詳細を開く`}
-          disabled={actionDisabled}
-          onPress={() => {
-            setEditorError('');
-            setSelectedCandidate(item);
-          }}
-          style={({ pressed }) => ({
-            flex: 1,
-            gap: 5,
-            paddingVertical: 2,
-            opacity: pressed ? 0.65 : 1,
-          })}
+        <View
+          style={[
+            row,
+            {
+              paddingVertical: spacing.sm,
+              opacity: itemBusy ? 0.5 : 1,
+            },
+            index > 0 && {
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: colors.borderSubtle,
+            },
+          ]}
         >
-          <Text style={titleStyle}>{item.title}</Text>
-          <View style={styles.tagRow}>
-            {tags.map((tag) => (
-              <Badge key={tag.label} label={tag.label} tone={tag.tone} />
-            ))}
-          </View>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${item.title}を今日だけあとでにする`}
-          disabled={actionDisabled}
-          onPress={() => void record(item, 'skipped')}
-          style={({ pressed }) => ({
-            minHeight: 34,
-            paddingHorizontal: spacing.md,
-            justifyContent: 'center',
-            alignItems: 'center',
-            borderRadius: radius.pill,
-            backgroundColor: pressed ? colors.borderSubtle : colors.surfaceSubtle,
-            opacity: itemBusy ? 0.45 : 1,
-          })}
-        >
-          <Text style={{ ...typography.caption, fontWeight: '600', color: colors.textSecondary }}>
-            あとで
-          </Text>
-        </Pressable>
-      </View>
+          <CompletionCheckbox
+            label={
+              repeats(item.kind, item.id)
+                ? `${item.title}の今日の実施を記録`
+                : `${item.title}を完了`
+            }
+            checked={false}
+            disabled={actionDisabled}
+            onPress={() => void record(item, 'completed')}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title}の詳細を開く`}
+            disabled={actionDisabled}
+            onPress={() => {
+              setEditorError('');
+              setSelectedCandidate(item);
+            }}
+            style={({ pressed }) => ({
+              flex: 1,
+              gap: 5,
+              paddingVertical: 2,
+              opacity: pressed ? 0.65 : 1,
+            })}
+          >
+            <Text style={titleStyle}>{item.title}</Text>
+            <View style={styles.tagRow}>
+              {tags.map((tag) => (
+                <Badge key={tag.label} label={tag.label} tone={tag.tone} />
+              ))}
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title}を今日だけあとでにする`}
+            disabled={actionDisabled}
+            onPress={() => void record(item, 'skipped')}
+            style={({ pressed }) => ({
+              minHeight: 34,
+              paddingHorizontal: spacing.md,
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderRadius: radius.pill,
+              backgroundColor: pressed ? colors.borderSubtle : colors.surfaceSubtle,
+              opacity: itemBusy ? 0.45 : 1,
+            })}
+          >
+            <Text style={{ ...typography.caption, fontWeight: '600', color: colors.textSecondary }}>
+              あとで
+            </Text>
+          </Pressable>
+        </View>
+      </SwipeActions>
     );
   }
 
