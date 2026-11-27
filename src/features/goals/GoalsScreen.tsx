@@ -19,6 +19,7 @@ import { GoalStatePanel } from './components/GoalStatePanel';
 type GoalsScreenProps = {
   repository: GoalRepository | null;
   compactActions?: boolean;
+  refreshToken?: number;
   onOpenAI?: (goal: Goal) => void;
   onBack?: () => void;
 };
@@ -26,6 +27,7 @@ type GoalsScreenProps = {
 export function GoalsScreen({
   repository,
   compactActions = false,
+  refreshToken = 0,
   onOpenAI,
   onBack,
 }: GoalsScreenProps) {
@@ -40,7 +42,7 @@ export function GoalsScreen({
     pendingMutation,
     retry,
     updateGoal,
-  } = useGoals(repository);
+  } = useGoals(repository, refreshToken);
   const [editingGoal, setEditingGoal] = useState<Goal | null | undefined>(undefined);
   const isMutating = pendingMutation !== null;
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
@@ -87,6 +89,11 @@ export function GoalsScreen({
     <AppScreen testID="goals-screen">
       <ScreenHeader
         title="目標"
+        backAction={
+          onBack
+            ? { label: 'タスク', accessibilityLabel: 'タスクに戻る', onPress: onBack }
+            : undefined
+        }
         action={
           repository && !isLoading ? (
             <ActionButton
@@ -101,7 +108,6 @@ export function GoalsScreen({
         }
       />
 
-      {onBack ? <ActionButton label="タスクに戻る" variant="ghost" onPress={onBack} /> : null}
       {isLoading ? (
         <GoalStatePanel
           isLoading

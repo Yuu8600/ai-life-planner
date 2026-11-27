@@ -186,6 +186,13 @@ export function PlanningSettingsForm({
       保存済みの計画は自動変更されません。反映には明示的な再計画が必要です。
     </Text>
   );
+  const deviceTimeZone = (() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch {
+      return '';
+    }
+  })();
   const regionFields = (
     <Card>
       <SectionHeader compact title="地域・時間帯" />
@@ -201,6 +208,14 @@ export function PlanningSettingsForm({
           value={values.timezone}
         />
       </FormField>
+      {deviceTimeZone && deviceTimeZone !== values.timezone.trim() ? (
+        <ActionButton
+          label={`端末のタイムゾーンを使う（${deviceTimeZone}）`}
+          variant="ghost"
+          disabled={isSaving}
+          onPress={() => updateValue('timezone', deviceTimeZone)}
+        />
+      ) : null}
     </Card>
   );
   const body = (
@@ -257,6 +272,7 @@ export function PlanningSettingsForm({
         disabled={isSaving}
         loading={isSaving}
         label={isSaving ? '保存中…' : '変更を保存'}
+        variant={dirty ? 'primary' : 'secondary'}
         onPress={() => void submit()}
       />
     </View>

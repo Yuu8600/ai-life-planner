@@ -87,7 +87,6 @@ export function DurationSelectionRow({
             </Text>
           ) : null}
           <ActionButton label="決定" onPress={confirm} />
-          <ActionButton label="キャンセル" variant="ghost" onPress={close} />
         </SelectionPanel>
       ) : null}
     </>

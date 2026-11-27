@@ -45,7 +45,12 @@ export function SelectionPanel({ title, onCancel, children }: SelectionPanelProp
             paddingBottom: Math.max(insets.bottom, spacing.lg),
           }}
         >
-          <ModalHeader title={title} onClose={onCancel} closeLabel={`${title}のパネルを閉じる`} />
+          <ModalHeader
+            title={title}
+            onClose={onCancel}
+            closeText="キャンセル"
+            closeLabel="キャンセル"
+          />
           <ScrollView
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}

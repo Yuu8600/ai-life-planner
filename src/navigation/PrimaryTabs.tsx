@@ -75,7 +75,7 @@ export default function PrimaryTabs() {
         tabBarLabelPosition: sidebar ? 'beside-icon' : 'below-icon',
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarActiveBackgroundColor: colors.primarySoft,
+        tabBarActiveBackgroundColor: sidebar ? colors.primarySoft : 'transparent',
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: web || bottom.showLabels,
         tabBarStyle: [
@@ -152,13 +152,12 @@ const styles = StyleSheet.create({
   bottomLabel: { fontSize: TAB_LABEL_SIZE, maxWidth: '100%', textAlign: 'center' },
   sideLabel: { ...typography.label, marginStart: spacing.sm },
   iconFrame: {
-    width: 32,
-    height: 26,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    width: 44,
+    height: 28,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  selectedIcon: { borderBottomColor: colors.primary, borderRadius: radius.sm },
+  selectedIcon: { backgroundColor: colors.primarySoft },
   icon: { width: 22, height: 22 },
 });

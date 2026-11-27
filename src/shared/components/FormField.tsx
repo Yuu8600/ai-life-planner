@@ -73,21 +73,25 @@ export function FormField({
 }) {
   const { colors: c, spacing, typography } = useTheme();
   const id = useId();
-  const input =
-    isValidElement<FormInputProps>(children) && children.type === FormInput
-      ? cloneElement(children, {
-          accessibilityLabel: children.props.accessibilityLabel ?? label,
-          accessibilityHint:
-            children.props.accessibilityHint ?? [helper, error].filter(Boolean).join('、'),
-          'aria-labelledby': children.props.accessibilityLabel
-            ? children.props['aria-labelledby']
-            : `${id}-label`,
-          invalid: Boolean(error),
-        })
-      : children;
+  const hasFormInput = isValidElement<FormInputProps>(children) && children.type === FormInput;
+  const input = hasFormInput
+    ? cloneElement(children, {
+        accessibilityLabel: children.props.accessibilityLabel ?? label,
+        accessibilityHint:
+          children.props.accessibilityHint ?? [helper, error].filter(Boolean).join('、'),
+        'aria-labelledby': children.props.accessibilityLabel
+          ? children.props['aria-labelledby']
+          : `${id}-label`,
+        invalid: Boolean(error),
+      })
+    : children;
   return (
     <View style={[{ minWidth: 0, gap: spacing.sm }, style]}>
-      <Text nativeID={`${id}-label`} style={{ ...typography.label, color: c.textPrimary }}>
+      <Text
+        accessible={Platform.OS === 'web' || !hasFormInput}
+        nativeID={`${id}-label`}
+        style={{ ...typography.label, color: c.textPrimary }}
+      >
         {label}
       </Text>
       {input}

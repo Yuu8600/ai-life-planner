@@ -9,7 +9,10 @@ const mockGoalsScreen = jest.fn(({ repository }: { repository: unknown }) => (
   <Text testID="goals-route-probe">{repository ? 'with-repository' : 'without-repository'}</Text>
 ));
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ navigate: jest.fn(), push: jest.fn() }) }));
+jest.mock('expo-router', () => ({
+  useFocusEffect: jest.fn(),
+  useRouter: () => ({ navigate: jest.fn(), push: jest.fn() }),
+}));
 
 jest.mock('@/features/auth', () => ({
   useAuth: () => mockUseAuth(),

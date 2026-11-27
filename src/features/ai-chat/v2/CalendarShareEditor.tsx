@@ -3,10 +3,11 @@ import { Text, View } from 'react-native';
 
 import type { CalendarEvent } from '@/features/calendar';
 import { ActionButton } from '@/shared/components/ActionButton';
-import { FormField, FormInput } from '@/shared/components/FormField';
+import { DeadlineField } from '@/shared/components/DeadlineField';
 import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { OptionGroup } from '@/shared/components/OptionGroup';
+import { formatDateInput } from '@/shared/dateInput';
 import { useTheme } from '@/shared/theme';
 
 import type { CalendarShare } from './repository';
@@ -26,7 +27,7 @@ export function CalendarShareEditor({
   close: () => void;
   apply: (date: string, share?: CalendarShare) => void;
 }) {
-  const [date, setDate] = useState(initialDate);
+  const [date, setDate] = useState(() => initialDate || formatDateInput(new Date()));
   const [mode, setMode] = useState('none');
   const [loaded, setLoaded] = useState<Awaited<ReturnType<ReadShareableCalendar>>>();
   const events = loaded?.events;
@@ -120,22 +121,19 @@ export function CalendarShareEditor({
           ]}
         />
       ) : null}
-      <FormField
-        label="対象日（YYYY-MM-DD）"
+      <DeadlineField
+        accessibilityLabel="対象日"
+        label="対象日"
+        disabled={busy}
         error={day && !valid ? '実在する日付を入力してください。' : undefined}
-      >
-        <FormInput
-          value={date}
-          editable={!busy}
-          maxLength={10}
-          onChangeText={(value) => {
-            setDate(value);
-            setLoaded(undefined);
-            setSelected([]);
-            setError('');
-          }}
-        />
-      </FormField>
+        value={date}
+        onChange={(value) => {
+          setDate(value);
+          setLoaded(undefined);
+          setSelected([]);
+          setError('');
+        }}
+      />
       {mode !== 'none' ? (
         <>
           <Notice message="選んだ端末の予定と相談文を次の送信でOpenAI APIへ送ります。相談文と回答はアプリの履歴に残りません。推薦方針を承認すると種類・対象・期間が保存されます。" />

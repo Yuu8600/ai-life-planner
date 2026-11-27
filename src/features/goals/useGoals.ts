@@ -10,7 +10,7 @@ import { getGoalErrorMessage } from './errors';
 
 export type GoalMutation = 'create' | `delete:${string}` | `update:${string}`;
 
-export function useGoals(repository: GoalRepository | null) {
+export function useGoals(repository: GoalRepository | null, refreshToken = 0) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function useGoals(repository: GoalRepository | null) {
     return () => {
       isActive = false;
     };
-  }, [loadAttempt, repository]);
+  }, [loadAttempt, refreshToken, repository]);
 
   const retry = useCallback(() => {
     if (!repository) return;

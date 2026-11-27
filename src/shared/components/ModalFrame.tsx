@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { appAlert } from '@/shared/feedback/appAlert';
 import { useTheme } from '@/shared/theme';
 import { ModalHeader } from './ModalHeader';
 export type ModalFrameProps = {
@@ -11,6 +12,7 @@ export type ModalFrameProps = {
   onClose: () => void;
   closeLabel?: string;
   closeDisabled?: boolean;
+  dirty?: boolean;
   testID?: string;
 };
 export function ModalFrame({
@@ -21,11 +23,20 @@ export function ModalFrame({
   onClose,
   closeLabel,
   closeDisabled = false,
+  dirty = false,
   testID,
 }: ModalFrameProps) {
   const { colors, spacing, typography } = useTheme();
   const close = () => {
-    if (!closeDisabled) onClose();
+    if (closeDisabled) return;
+    if (!dirty) {
+      onClose();
+      return;
+    }
+    appAlert.alert('変更を破棄しますか？', '保存していない入力内容は失われます。', [
+      { text: '編集を続ける', style: 'cancel' },
+      { text: '変更を破棄', style: 'destructive', onPress: onClose },
+    ]);
   };
   return (
     <Modal
@@ -33,7 +44,7 @@ export function ModalFrame({
       accessibilityLabel={title}
       testID={testID ? `${testID}-presentation` : undefined}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle={Platform.OS === 'ios' && dirty ? 'fullScreen' : 'pageSheet'}
       onRequestClose={close}
       allowSwipeDismissal={false}
     >

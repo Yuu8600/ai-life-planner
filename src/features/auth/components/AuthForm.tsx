@@ -33,6 +33,7 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -161,20 +162,31 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
             </FormField>
 
             <FormField label="パスワード">
-              <FormInput
-                accessibilityLabel="パスワード"
-                ref={passwordInput}
-                autoCapitalize="none"
-                autoComplete={isLogin ? 'current-password' : 'new-password'}
-                editable={!isSubmitting}
-                onChangeText={setPassword}
-                onSubmitEditing={() => void submit()}
-                placeholder={isLogin ? 'パスワードを入力' : '6文字以上で入力'}
-                returnKeyType="done"
-                secureTextEntry
-                textContentType={isLogin ? 'password' : 'newPassword'}
-                value={password}
-              />
+              <View style={styles.passwordRow}>
+                <FormInput
+                  accessibilityLabel="パスワード"
+                  ref={passwordInput}
+                  autoCapitalize="none"
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  editable={!isSubmitting}
+                  onChangeText={setPassword}
+                  onSubmitEditing={() => void submit()}
+                  placeholder={isLogin ? 'パスワードを入力' : '6文字以上で入力'}
+                  returnKeyType="done"
+                  secureTextEntry={!showPassword}
+                  style={styles.passwordInput}
+                  textContentType={isLogin ? 'password' : 'newPassword'}
+                  value={password}
+                />
+                <ActionButton
+                  accessibilityLabel={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                  disabled={isSubmitting}
+                  label={showPassword ? '隠す' : '表示'}
+                  onPress={() => setShowPassword((value) => !value)}
+                  style={styles.passwordToggle}
+                  variant="ghost"
+                />
+              </View>
             </FormField>
 
             <ActionButton
@@ -193,7 +205,7 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
         <Text style={styles.footnote}>
           {isLogin
             ? '登録したメールアドレスとパスワードを使用します。'
-            : 'メール確認が有効な場合は、登録後に確認メールをお送りします。'}
+            : '登録後、確認メールが届いた場合はメール内のリンクを開いてからログインしてください。'}
         </Text>
       </AppScreen>
     </KeyboardAvoidingView>
@@ -323,6 +335,17 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.lg,
     marginTop: 0,
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  passwordInput: {
+    flex: 1,
+  },
+  passwordToggle: {
+    paddingHorizontal: spacing.md,
   },
   submitButton: {
     minHeight: 50,

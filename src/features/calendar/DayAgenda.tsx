@@ -21,6 +21,7 @@ export type AgendaWindowInput = {
   intervals: CalendarInterval[];
   availability: AgendaAvailability;
   loading: boolean;
+  permissionMissing?: boolean;
 };
 
 type Props = {
@@ -119,6 +120,7 @@ export function DayAgenda({
         timezone,
       ),
       loading: !deviceState || !localState,
+      permissionMissing: deviceState?.status === 'permission',
       availability:
         deviceReady && localReady ? 'all' : deviceReady || localReady ? 'partial' : 'none',
     });
@@ -217,6 +219,7 @@ export function DayAgenda({
       ) : null}
       {deviceState?.status === 'permission' ? (
         <Notice
+          tone="warning"
           message="端末カレンダーの権限を確認してください。"
           action={
             !summary ? (
@@ -226,6 +229,8 @@ export function DayAgenda({
                 variant="secondary"
                 onPress={() => void checkPermission()}
               />
+            ) : onOpenCalendar ? (
+              <ActionButton label="予定タブを開く" variant="secondary" onPress={onOpenCalendar} />
             ) : undefined
           }
         />
@@ -245,12 +250,10 @@ export function DayAgenda({
         />
       ) : null}
       {actionError ? <Notice tone="error" message={actionError} /> : null}
-      {onOpenCalendar && (upcoming.length > 3 || deviceState?.status === 'permission') ? (
+      {onOpenCalendar && upcoming.length > 3 ? (
         <ActionButton
-          label={
-            upcoming.length > 3 ? `予定をすべて見る（${upcoming.length}件）` : '予定タブを開く'
-          }
-          variant="ghost"
+          label={`予定をすべて見る（${upcoming.length}件）`}
+          variant="secondary"
           onPress={onOpenCalendar}
         />
       ) : null}

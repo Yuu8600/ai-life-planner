@@ -15,8 +15,6 @@ import { appAlert } from '@/shared/feedback/appAlert';
 import { useTheme } from '@/shared/theme';
 
 import {
-  EFFORT_OPTIONS,
-  isEffort,
   type ActionStep,
   type Effort,
   type RecommendationResult,
@@ -180,7 +178,7 @@ export function ActionStepsScreen({
       <ScreenHeader
         title="小さな行動"
         subtitle={data?.task.title}
-        action={<ActionButton label="戻る" variant="ghost" onPress={close} />}
+        backAction={{ label: '戻る', onPress: close }}
       />
       {error ? (
         <Notice
@@ -334,7 +332,7 @@ function StepEditor({
 }) {
   const [title, setTitle] = useState(step?.title ?? '');
   const [minutes, setMinutes] = useState(String((step ? step.minutes : initialMinutes) ?? ''));
-  const [effort, setEffort] = useState<Effort | null>(step?.effort ?? null);
+  const effort: Effort | null = step?.effort ?? null;
   const [repeatable, setRepeatable] = useState(step?.repeatable ?? false);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
@@ -395,13 +393,6 @@ function StepEditor({
           editable={!pending}
         />
       </FormField>
-      <OptionGroup
-        label="負担の目安"
-        disabled={pending}
-        selectedValue={effort ?? ''}
-        options={[{ label: '未設定', value: '' }, ...EFFORT_OPTIONS]}
-        onChange={(value) => setEffort(isEffort(value) ? value : null)}
-      />
       <OptionGroup
         label="完了後の扱い"
         disabled={pending || step?.completed === true}

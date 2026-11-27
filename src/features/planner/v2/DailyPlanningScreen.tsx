@@ -272,10 +272,9 @@ export function DailyPlanningScreen({
     >
       <ScreenHeader
         title={mode === 'today' ? '今日の計画' : 'カレンダー'}
+        backAction={closeAdvanced ? { label: '戻る', onPress: closeAdvanced } : undefined}
         action={
-          closeAdvanced ? (
-            <ActionButton variant="ghost" label="戻る" onPress={closeAdvanced} />
-          ) : (
+          closeAdvanced ? undefined : (
             <ActionButton variant="ghost" label="設定" onPress={openSettings} />
           )
         }

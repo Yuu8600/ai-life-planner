@@ -59,7 +59,6 @@ export function DeadlineField({
             <DeadlineCalendar label="期限の日付" value={draft} onChange={setDraft} />
             <ActionButton label="日付を決定" disabled={!draft} onPress={() => commit(draft)} />
             <ActionButton label="期限なし" onPress={() => commit('')} variant="secondary" />
-            <ActionButton label="キャンセル" onPress={close} variant="ghost" />
           </SelectionPanel>
         )
       ) : null}

@@ -5,12 +5,14 @@ export function ModalHeader({
   title,
   description,
   closeLabel = 'パネルを閉じる',
+  closeText = '閉じる',
   disabled = false,
   onClose,
 }: {
   title: string;
   description?: string;
   closeLabel?: string;
+  closeText?: string;
   disabled?: boolean;
   onClose: () => void;
 }) {
@@ -21,10 +23,11 @@ export function ModalHeader({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: spacing.md,
-        padding: spacing.lg,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
         borderBottomWidth: 1,
         borderBottomColor: colors.borderSubtle,
-        alignItems: 'flex-start',
+        alignItems: 'center',
       }}
     >
       <View style={{ flex: 1, minWidth: 120, gap: spacing.xs }}>
@@ -43,7 +46,7 @@ export function ModalHeader({
       <ActionButton
         accessibilityLabel={closeLabel}
         disabled={disabled}
-        label="閉じる"
+        label={closeText}
         onPress={onClose}
         variant="ghost"
       />
