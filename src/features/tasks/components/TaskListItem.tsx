@@ -13,6 +13,7 @@ type TaskListItemProps = {
   isLast?: boolean;
   overdue?: boolean;
   recommendationMode?: boolean;
+  onTimer?: () => void;
   onComplete?: () => void;
   onReplan?: () => void;
   onDelete: () => void;
@@ -25,6 +26,7 @@ export function TaskListItem({
   isDeleting = false,
   overdue,
   recommendationMode,
+  onTimer,
   onComplete,
   onReplan,
   onDelete,
@@ -120,7 +122,7 @@ export function TaskListItem({
           tone="warning"
         />
       ) : null}
-      {(!compactActions && onComplete) || onReplan ? (
+      {(!compactActions && onComplete) || onReplan || onTimer ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           {onComplete && !compactActions ? (
             <ActionButton
@@ -132,6 +134,15 @@ export function TaskListItem({
           ) : null}
           {overdue && !compactActions ? (
             <ActionButton label="期限を編集" variant="ghost" disabled={disabled} onPress={onEdit} />
+          ) : null}
+          {onTimer ? (
+            <ActionButton
+              label="タイマー"
+              accessibilityLabel={`${task.title}の作業タイマーを開く`}
+              variant="ghost"
+              disabled={disabled}
+              onPress={onTimer}
+            />
           ) : null}
           {onReplan ? (
             <ActionButton

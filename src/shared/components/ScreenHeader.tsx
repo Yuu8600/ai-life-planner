@@ -1,3 +1,4 @@
+import { useScreenHeaderAccessory } from './ScreenHeaderAccessory';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
@@ -28,6 +29,7 @@ export function ScreenHeader({
   title,
 }: ScreenHeaderProps) {
   const colors = useThemeColors();
+  const accessory = useScreenHeaderAccessory();
   const styles = createStyles(colors);
   const { fontScale } = useWindowDimensions();
   return (
@@ -63,6 +65,7 @@ export function ScreenHeader({
         </View>
         {action ? <View style={styles.action}>{action}</View> : null}
       </View>
+      {accessory}
     </View>
   );
 }

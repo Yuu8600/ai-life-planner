@@ -1,3 +1,4 @@
+import { useFocusTimer } from '@/features/focus-timer';
 import { SwipeActions } from '@/shared/components/SwipeActions';
 import { useSuccessFeedback } from '@/shared/feedback/SuccessFeedback';
 import { formatCalendarDateJa } from '@/shared/dateInput';
@@ -73,6 +74,7 @@ export function TasksScreen({
   repository,
 }: TasksScreenProps) {
   const theme = useTheme();
+  const timer = useFocusTimer();
   const notifySuccess = useSuccessFeedback();
   const {
     clearMutationError,
@@ -465,6 +467,15 @@ export function TasksScreen({
               </Text>
             ) : null}
           </Pressable>
+          {timer && !selecting ? (
+            <ActionButton
+              label="タイマー"
+              accessibilityLabel={`${task.title}の作業タイマーを開く`}
+              variant="ghost"
+              disabled={isMutating}
+              onPress={() => timer.open({ kind: 'task', id: task.id, title: task.title })}
+            />
+          ) : null}
         </View>
       </SwipeActions>
     );
@@ -742,6 +753,11 @@ export function TasksScreen({
                 isDeleting={pendingMutation === `delete:${task.id}`}
                 isLast={index === visibleTasks.length - 1}
                 key={task.id}
+                onTimer={
+                  timer
+                    ? () => timer.open({ kind: 'task', id: task.id, title: task.title })
+                    : undefined
+                }
                 onDelete={() => confirmDelete(task)}
                 onEdit={() => openEditForm(task)}
                 task={toTaskSummary(
