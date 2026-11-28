@@ -1,3 +1,4 @@
+import { useFocusTimer } from '@/features/focus-timer';
 import { SwipeActions } from '@/shared/components/SwipeActions';
 import { useSuccessFeedback } from '@/shared/feedback/SuccessFeedback';
 import { effectivePolicies, policyLabels, type RecommendationPolicy } from './policy';
@@ -107,6 +108,7 @@ export function TodayRecommendationsScreen({
   openStep,
 }: Props) {
   const notifySuccess = useSuccessFeedback();
+  const timer = useFocusTimer();
   const { colors, controls, radius, spacing, typography } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const [editingTask, setEditingTask] = useState<Task>();
@@ -579,12 +581,17 @@ export function TodayRecommendationsScreen({
       item.minutes !== null &&
       calendarWindow?.minutes != null &&
       item.minutes > calendarWindow.minutes;
+    const overSelectedMinutes =
+      conditions.minutes !== null && item.minutes !== null && item.minutes > conditions.minutes;
     const tags = [
       ...reasons.map((label) => ({ label, tone: 'accent' as const })),
       {
         label: item.minutes === null ? '所要時間未設定' : `目安 ${item.minutes}分`,
         tone: 'neutral' as const,
       },
+      ...(overSelectedMinutes
+        ? [{ label: '設定時間超過（期限優先）', tone: 'warning' as const }]
+        : []),
       ...(overWindow ? [{ label: '予定の間には収まらない見込み', tone: 'warning' as const }] : []),
       ...(repeats(item.kind, item.id) && !hasRecurrenceReason
         ? [{ label: '今日の実施', tone: 'accent' as const }]
@@ -888,7 +895,9 @@ export function TodayRecommendationsScreen({
                     ? '予定を確認しています。'
                     : 'タスク情報でおすすめを表示しています。'
                   : calendarWindow.minutes === null
-                    ? 'このあと時間を占める予定なし（確認範囲）'
+                    ? calendarWindow.availability === 'partial'
+                      ? 'アプリ内予定のみ確認中・このあとの予定はありません'
+                      : 'このあとの予定はありません'
                     : calendarWindow.occupiedNow
                       ? `${scheduleLabel}、現在は予定の時間帯です。`
                       : calendarWindow.minutes === 0
@@ -1184,6 +1193,25 @@ export function TodayRecommendationsScreen({
             </Card>
             {editorError ? <Notice tone="error" message={editorError} /> : null}
             <View style={{ gap: spacing.sm }}>
+              {timer ? (
+                <ActionButton
+                  label="作業タイマーを開く"
+                  accessibilityLabel={`${selectedCandidate.title}の作業タイマーを開く`}
+                  variant="secondary"
+                  disabled={actionDisabled}
+                  onPress={() => {
+                    const target = selectedCandidate;
+                    closeCandidate(() =>
+                      timer.open({
+                        kind: target.kind,
+                        id: target.id,
+                        title: target.title,
+                        initialMinutes: target.minutes,
+                      }),
+                    );
+                  }}
+                />
+              ) : null}
               <ActionButton
                 label={selectedCandidate.kind === 'step' ? '親タスクを編集' : 'タスクを編集'}
                 variant="secondary"
@@ -1272,7 +1300,7 @@ export function TodayRecommendationsScreen({
                   {policyLabels[item.policyKind]} {item.targetTitle}
                 </Text>
                 <Text style={text}>
-                  {item.startDate} ～ {item.endDate} ・{' '}
+                  {formatCalendarDateJa(item.startDate)} ～ {formatCalendarDateJa(item.endDate)} ・{' '}
                   {item.status === 'revoked'
                     ? '解除済み'
                     : activePolicies.includes(item)
@@ -1332,8 +1360,8 @@ export function TodayRecommendationsScreen({
                 <SectionHeader compact title="過去の記録" />
                 {recentResults.map((item) => (
                   <Text key={`${item.date}:${targetKey(item.kind, item.targetId)}`} style={text}>
-                    {item.date} ・ {item.outcome === 'completed' ? '完了・実施' : 'あとで'} ・{' '}
-                    {item.title}
+                    {formatCalendarDateJa(item.date)} ・{' '}
+                    {item.outcome === 'completed' ? '完了・実施' : 'あとで'} ・ {item.title}
                   </Text>
                 ))}
               </>

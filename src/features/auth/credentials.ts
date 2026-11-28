@@ -8,6 +8,22 @@ export type AuthCredentialsValidation =
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MINIMUM_PASSWORD_LENGTH = 6;
 
+export type ResetEmailValidation = { email: string; error: null } | { email: null; error: string };
+
+export function validateResetEmail(value: string): ResetEmailValidation {
+  const email = value.trim();
+
+  if (!email) {
+    return { email: null, error: 'メールアドレスを入力してください。' };
+  }
+
+  if (!EMAIL_PATTERN.test(email)) {
+    return { email: null, error: '有効なメールアドレスを入力してください。' };
+  }
+
+  return { email, error: null };
+}
+
 export function validateAuthCredentials(
   values: AuthCredentials,
   mode: AuthMode,

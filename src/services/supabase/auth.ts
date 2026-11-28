@@ -19,6 +19,7 @@ export type SupabaseAuthService = {
   getCurrentSession: typeof getCurrentSession;
   loginWithPassword: typeof loginWithPassword;
   logout: typeof logout;
+  requestPasswordReset?: typeof requestPasswordReset;
   signupWithPassword: typeof signupWithPassword;
   startAuthAutoRefresh: typeof startAuthAutoRefresh;
   subscribeToAuthState: typeof subscribeToAuthState;
@@ -62,6 +63,14 @@ export async function signupWithPassword({
 
 export async function logout(): Promise<void> {
   const { error } = await getSupabaseClient().auth.signOut({ scope: 'local' });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email.trim());
 
   if (error) {
     throw error;
@@ -130,6 +139,7 @@ export const supabaseAuthService: SupabaseAuthService = {
   getCurrentSession,
   loginWithPassword,
   logout,
+  requestPasswordReset,
   signupWithPassword,
   startAuthAutoRefresh,
   subscribeToAuthState,

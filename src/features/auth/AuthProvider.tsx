@@ -18,6 +18,7 @@ import {
 
 type AuthContextValue = {
   isRestoring: boolean;
+  resetPassword?: (email: string) => Promise<void>;
   restorationError: Error | null;
   session: Session | null;
   signIn: (credentials: AuthCredentials) => Promise<void>;
@@ -128,9 +129,19 @@ export function AuthProvider({ children, service = supabaseAuthService }: AuthPr
     setSession(null);
   }, [service]);
 
+  const resetPassword = useMemo(
+    () =>
+      service.requestPasswordReset
+        ? async (email: string) => {
+            await service.requestPasswordReset!(email);
+          }
+        : undefined,
+    [service],
+  );
+
   const value = useMemo<AuthContextValue>(
-    () => ({ isRestoring, restorationError, session, signIn, signOut, signUp }),
-    [isRestoring, restorationError, session, signIn, signOut, signUp],
+    () => ({ isRestoring, resetPassword, restorationError, session, signIn, signOut, signUp }),
+    [isRestoring, resetPassword, restorationError, session, signIn, signOut, signUp],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

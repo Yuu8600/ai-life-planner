@@ -17,6 +17,7 @@ import { appAlert } from '@/shared/feedback/appAlert';
 import { confirmDiscardChanges } from '@/shared/feedback/confirmDiscardChanges';
 import { useTheme } from '@/shared/theme';
 import {
+  defaultTimerMinutes,
   formatRemaining,
   pauseTimer,
   remainingAt,
@@ -54,11 +55,18 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [ticking, active]);
+  const defaultMinutes = defaultTimerMinutes(timer?.target.initialMinutes);
   const open = useCallback(
     (target: TimerTarget) => {
       const select = () => {
-        setTimer({ target, phase: 'ready', remainingMs: 25 * 60_000, deadlineMs: null });
-        setMinutes('25');
+        const preset = defaultTimerMinutes(target.initialMinutes);
+        setTimer({
+          target,
+          phase: 'ready',
+          remainingMs: Number(preset) * 60_000,
+          deadlineMs: null,
+        });
+        setMinutes(preset);
         setError('');
         setNow(Date.now());
         setDismissed(false);
@@ -79,9 +87,13 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
             { text: '切り替える', onPress: select },
           ],
         );
-      } else confirmDiscardChanges(!!timer && timer.phase === 'ready' && minutes !== '25', select);
+      } else
+        confirmDiscardChanges(
+          !!timer && timer.phase === 'ready' && minutes !== defaultMinutes,
+          select,
+        );
     },
-    [timer, minutes],
+    [timer, minutes, defaultMinutes],
   );
   const value = useMemo(() => ({ open }), [open]);
   const close = () => {
@@ -149,7 +161,7 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
           visible={visible}
           onDismiss={() => setDismissed(true)}
           onClose={close}
-          dirty={timer.phase === 'ready' && minutes !== '25'}
+          dirty={timer.phase === 'ready' && minutes !== defaultMinutes}
           footer={
             timer.phase === 'ready' ? (
               <ActionButton

@@ -1,4 +1,17 @@
-export type TimerTarget = { kind: 'task' | 'step'; id: string; title: string };
+export type TimerTarget = {
+  kind: 'task' | 'step';
+  id: string;
+  title: string;
+  initialMinutes?: number | null;
+};
+export function defaultTimerMinutes(initialMinutes?: number | null): string {
+  return typeof initialMinutes === 'number' &&
+    Number.isInteger(initialMinutes) &&
+    initialMinutes >= 1 &&
+    initialMinutes <= 180
+    ? String(initialMinutes)
+    : '25';
+}
 export type FocusTimer = {
   target: TimerTarget;
   phase: 'ready' | 'running' | 'paused';

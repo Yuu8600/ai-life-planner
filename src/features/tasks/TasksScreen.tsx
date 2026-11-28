@@ -473,7 +473,14 @@ export function TasksScreen({
               accessibilityLabel={`${task.title}の作業タイマーを開く`}
               variant="ghost"
               disabled={isMutating}
-              onPress={() => timer.open({ kind: 'task', id: task.id, title: task.title })}
+              onPress={() =>
+                timer.open({
+                  kind: 'task',
+                  id: task.id,
+                  title: task.title,
+                  initialMinutes: task.estimatedMinutes,
+                })
+              }
             />
           ) : null}
         </View>
@@ -567,6 +574,7 @@ export function TasksScreen({
                 { label: '更新順', value: 'recent' },
                 { label: '期限順', value: 'deadline' },
                 { label: '優先度順', value: 'priority' },
+                { label: '所要時間順', value: 'duration' },
                 { label: '名前順', value: 'title' },
               ]}
             />
@@ -755,7 +763,13 @@ export function TasksScreen({
                 key={task.id}
                 onTimer={
                   timer
-                    ? () => timer.open({ kind: 'task', id: task.id, title: task.title })
+                    ? () =>
+                        timer.open({
+                          kind: 'task',
+                          id: task.id,
+                          title: task.title,
+                          initialMinutes: task.estimatedMinutes,
+                        })
                     : undefined
                 }
                 onDelete={() => confirmDelete(task)}
@@ -814,7 +828,7 @@ export function TasksScreen({
                 {repository?.removeCompleted ? (
                   <ActionButton
                     label={`${selectedTasks.length}件を削除`}
-                    variant="ghost"
+                    variant="destructive"
                     disabled={!selectedTasks.length || isMutating || initialLoading}
                     onPress={deleteSelected}
                   />

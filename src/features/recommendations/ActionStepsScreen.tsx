@@ -411,7 +411,14 @@ export function ActionStepsScreen({
                         accessibilityLabel={`${step.title}の作業タイマーを開く`}
                         variant="ghost"
                         disabled={pending}
-                        onPress={() => timer.open({ kind: 'step', id: step.id, title: step.title })}
+                        onPress={() =>
+                          timer.open({
+                            kind: 'step',
+                            id: step.id,
+                            title: step.title,
+                            initialMinutes: step.minutes,
+                          })
+                        }
                       />
                     ) : null}
                     <ActionButton

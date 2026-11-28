@@ -1,13 +1,14 @@
 import { getLocalDate } from '@/features/today';
 import type { Task } from './repositories/TaskRepository';
 
-export type TaskSort = 'recent' | 'deadline' | 'priority' | 'title';
+export type TaskSort = 'recent' | 'deadline' | 'priority' | 'duration' | 'title';
 export function selectTaskList(
   tasks: readonly Task[],
   options: { query: string; goal: string; sort: TaskSort; timezone?: string },
 ) {
   const query = options.query.normalize('NFKC').trim().toLocaleLowerCase('ja');
   const rank = { high: 0, medium: 1, low: 2 };
+  const duration = (task: Task) => task.estimatedMinutes ?? Number.MAX_SAFE_INTEGER;
   const deadline = (task: Task) =>
     task.localDeadline ??
     (task.deadline
@@ -29,9 +30,11 @@ export function selectTaskList(
           ? deadline(a).localeCompare(deadline(b))
           : options.sort === 'priority'
             ? rank[a.priority] - rank[b.priority]
-            : options.sort === 'title'
-              ? a.title.localeCompare(b.title, 'ja')
-              : timestamp(b) - timestamp(a);
+            : options.sort === 'duration'
+              ? duration(a) - duration(b)
+              : options.sort === 'title'
+                ? a.title.localeCompare(b.title, 'ja')
+                : timestamp(b) - timestamp(a);
       return order || a.id.localeCompare(b.id);
     });
 }

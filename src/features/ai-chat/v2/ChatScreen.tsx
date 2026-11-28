@@ -438,7 +438,7 @@ export function ChatScreen({
 
   const recheckAI = (
     <ActionButton
-      label="AIの設定を再確認"
+      label="接続を再確認"
       variant="ghost"
       loading={usageChecking}
       disabled={pending}
@@ -558,7 +558,11 @@ export function ChatScreen({
         ) : null}
         {composingNew && usage?.configured ? (
           <View style={styles.actionGroup}>
-            {['今日のタスクを整理したい', '目標に向けた次の一歩を考えたい'].map((text) => (
+            {[
+              '今日のタスクを整理したい',
+              '目標に向けた次の一歩を考えたい',
+              '期限切れを整理したい',
+            ].map((text) => (
               <ActionButton
                 key={text}
                 label={text}
@@ -572,8 +576,8 @@ export function ChatScreen({
         {usage?.configured ? (
           <Text style={{ color: colors.textSecondary }}>
             {usage.remainingMicros
-              ? `今月の残り予算（推定） $${(usage.remainingMicros / 1_000_000).toFixed(3)} / $0.50（UTC月ごと）`
-              : '今月のAI予算を使い切りました。会話や下書きは引き続き確認できます。'}
+              ? `今月の残り利用枠（目安）：${Math.max(0, Math.min(100, Math.round((usage.remainingMicros / 500_000) * 100)))}%（毎月1日リセット・残り $${(usage.remainingMicros / 1_000_000).toFixed(2)}）`
+              : '今月のAI利用枠を使い切りました。会話や下書きは引き続き確認できます。'}
           </Text>
         ) : usage || usageFailed ? (
           <Notice

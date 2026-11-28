@@ -3,6 +3,7 @@ import { AppState, Linking, Platform, ScrollView, StyleSheet, Text, View } from 
 import { useFocusEffect } from 'expo-router';
 
 import { addLocalDays, formatPlanningTime, getPlanningDate } from '@/features/today';
+import { formatCalendarDateJa } from '@/shared/dateInput';
 import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { Card } from '@/shared/components/Card';
@@ -293,8 +294,8 @@ export function DailyPlanningScreen({
             onPress={() => switchDate(addLocalDays(selected ?? today, -1))}
           />
           <ActionButton
-            accessibilityLabel={`表示日 ${selected ?? today}。日付を選ぶ`}
-            label={selected ?? today}
+            accessibilityLabel={`表示日 ${formatCalendarDateJa(selected ?? today)}。日付を選ぶ`}
+            label={formatCalendarDateJa(selected ?? today)}
             variant="ghost"
             onPress={() => setDateDraft(selected ?? today)}
           />

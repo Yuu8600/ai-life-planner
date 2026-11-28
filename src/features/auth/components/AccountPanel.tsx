@@ -39,7 +39,7 @@ export function AccountPanel({ email, signOut }: { email?: string; signOut: () =
         >
           {email ?? '認証済みユーザー'}
         </Text>
-        <Text style={styles.detail}>この端末に保存された認証セッションを終了します。</Text>
+        <Text style={styles.detail}>この端末からログアウトします。</Text>
         {errorMessage ? <Notice tone="error" message={errorMessage} /> : null}
         <ActionButton
           accessibilityLabel={isSigningOut ? 'ログアウト処理中' : 'ログアウトする'}

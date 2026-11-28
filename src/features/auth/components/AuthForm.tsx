@@ -17,10 +17,11 @@ import { ActionButton } from '@/shared/components/ActionButton';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { radius, spacing, typography, useThemeColors } from '@/shared/theme';
 
-import { type AuthMode, validateAuthCredentials } from '../credentials';
+import { type AuthMode, validateAuthCredentials, validateResetEmail } from '../credentials';
 import { getAuthErrorMessage } from '../errors';
 
 type AuthFormProps = {
+  onResetPassword?: (email: string) => Promise<void>;
   onSignIn: (credentials: AuthCredentials) => Promise<void>;
   onSignUp: (credentials: AuthCredentials) => Promise<SignUpResult>;
   restorationError?: string | null;
@@ -28,11 +29,14 @@ type AuthFormProps = {
 
 const CONFIRMATION_MESSAGE =
   '確認メールを送信しました。メール内のリンクを開いてからログインしてください。';
+const RESET_SENT_MESSAGE =
+  'パスワード再設定用のメールを送信しました。メール内のリンクから新しいパスワードを設定してください。';
 
-export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps) {
+export function AuthForm({ onResetPassword, onSignIn, onSignUp, restorationError }: AuthFormProps) {
   const colors = useThemeColors();
   const styles = createStyles(colors);
   const [mode, setMode] = useState<AuthMode>('login');
+  const [isResetting, setIsResetting] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -52,12 +56,45 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
   };
 
   const changeMode = (nextMode: AuthMode) => {
-    if (isSubmitting || nextMode === mode) return;
+    if (isSubmitting || (nextMode === mode && !isResetting)) return;
 
     setMode(nextMode);
+    setIsResetting(false);
     setPassword('');
     setErrorMessage(null);
     setSuccessMessage(null);
+  };
+
+  const openResetMode = () => {
+    if (isSubmitting || !onResetPassword) return;
+    setIsResetting(true);
+    setPassword('');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  };
+
+  const submitReset = async () => {
+    if (isSubmitting || !onResetPassword) return;
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const validation = validateResetEmail(email);
+    if (validation.email === null) {
+      setErrorMessage(validation.error);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await onResetPassword(validation.email);
+      setSuccessMessage(RESET_SENT_MESSAGE);
+    } catch (error) {
+      setErrorMessage(getAuthErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const submit = async () => {
@@ -161,49 +198,85 @@ export function AuthForm({ onSignIn, onSignUp, restorationError }: AuthFormProps
                 keyboardType="email-address"
                 onChangeText={setEmail}
                 placeholder="name@example.com"
-                returnKeyType="next"
-                onSubmitEditing={() => passwordInput.current?.focus()}
+                returnKeyType={isResetting ? 'done' : 'next'}
+                onSubmitEditing={() =>
+                  isResetting ? void submitReset() : passwordInput.current?.focus()
+                }
                 textContentType="emailAddress"
                 value={email}
               />
             </FormField>
 
-            <FormField label="パスワード">
-              <View style={styles.passwordRow}>
-                <FormInput
-                  accessibilityLabel="パスワード"
-                  ref={passwordInput}
-                  autoCapitalize="none"
-                  autoComplete={isLogin ? 'current-password' : 'new-password'}
-                  editable={!isSubmitting}
-                  onChangeText={setPassword}
-                  onSubmitEditing={() => void submit()}
-                  placeholder={isLogin ? 'パスワードを入力' : '6文字以上で入力'}
-                  returnKeyType="done"
-                  secureTextEntry={!showPassword}
-                  style={styles.passwordInput}
-                  textContentType={isLogin ? 'password' : 'newPassword'}
-                  value={password}
+            {isResetting ? (
+              <>
+                <Text style={styles.resetHint}>
+                  登録したメールアドレスを入力すると、パスワード再設定用のリンクを送信します。
+                </Text>
+                <ActionButton
+                  accessibilityLabel={
+                    isSubmitting ? '再設定メールを送信中' : '再設定メールを送信する'
+                  }
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                  label={isSubmitting ? '送信中…' : '再設定メールを送信'}
+                  onPress={() => void submitReset()}
+                  style={styles.submitButton}
                 />
                 <ActionButton
-                  accessibilityLabel={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
                   disabled={isSubmitting}
-                  label={showPassword ? '隠す' : '表示'}
-                  onPress={() => setShowPassword((value) => !value)}
-                  style={styles.passwordToggle}
+                  label="ログインに戻る"
+                  onPress={() => changeMode('login')}
                   variant="ghost"
                 />
-              </View>
-            </FormField>
+              </>
+            ) : (
+              <>
+                <FormField label="パスワード">
+                  <View style={styles.passwordRow}>
+                    <FormInput
+                      accessibilityLabel="パスワード"
+                      ref={passwordInput}
+                      autoCapitalize="none"
+                      autoComplete={isLogin ? 'current-password' : 'new-password'}
+                      editable={!isSubmitting}
+                      onChangeText={setPassword}
+                      onSubmitEditing={() => void submit()}
+                      placeholder={isLogin ? 'パスワードを入力' : '6文字以上で入力'}
+                      returnKeyType="done"
+                      secureTextEntry={!showPassword}
+                      style={styles.passwordInput}
+                      textContentType={isLogin ? 'password' : 'newPassword'}
+                      value={password}
+                    />
+                    <ActionButton
+                      accessibilityLabel={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                      disabled={isSubmitting}
+                      label={showPassword ? '隠す' : '表示'}
+                      onPress={() => setShowPassword((value) => !value)}
+                      style={styles.passwordToggle}
+                      variant="ghost"
+                    />
+                  </View>
+                </FormField>
 
-            <ActionButton
-              accessibilityLabel={isSubmitting ? loadingLabel : `${submitLabel}する`}
-              disabled={isSubmitting}
-              loading={isSubmitting}
-              label={isSubmitting ? loadingLabel : submitLabel}
-              onPress={() => void submit()}
-              style={styles.submitButton}
-            />
+                <ActionButton
+                  accessibilityLabel={isSubmitting ? loadingLabel : `${submitLabel}する`}
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                  label={isSubmitting ? loadingLabel : submitLabel}
+                  onPress={() => void submit()}
+                  style={styles.submitButton}
+                />
+                {isLogin && onResetPassword ? (
+                  <ActionButton
+                    disabled={isSubmitting}
+                    label="パスワードをお忘れですか？"
+                    onPress={openResetMode}
+                    variant="ghost"
+                  />
+                ) : null}
+              </>
+            )}
             {displayedError ? <Notice tone="error" message={displayedError} /> : null}
 
             {successMessage ? <Notice tone="success" message={successMessage} /> : null}
@@ -396,6 +469,10 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
     submitButton: {
       minHeight: 50,
       marginTop: spacing.xs,
+    },
+    resetHint: {
+      color: colors.textSecondary,
+      ...typography.secondary,
     },
     footnote: {
       marginTop: 0,
