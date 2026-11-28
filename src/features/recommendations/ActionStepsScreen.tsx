@@ -1,3 +1,4 @@
+import { useFocusTimer } from '@/features/focus-timer';
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { KeyboardAvoidingView, Platform, Text, TextInput, View } from 'react-native';
 
@@ -66,6 +67,7 @@ export function ActionStepsScreen({
   openAI: (task: Task) => void;
 }) {
   const { colors, spacing, typography } = useTheme();
+  const timer = useFocusTimer();
   const [data, setData] = useState<{ task: Task; steps: ActionStep[] }>();
   const [retry, setRetry] = useState(0);
   const [daily, setDaily] = useState<{ date: string; results: RecommendationResult[] }>();
@@ -403,6 +405,15 @@ export function ActionStepsScreen({
                     ) : null}
                   </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                    {timer ? (
+                      <ActionButton
+                        label="タイマー"
+                        accessibilityLabel={`${step.title}の作業タイマーを開く`}
+                        variant="ghost"
+                        disabled={pending}
+                        onPress={() => timer.open({ kind: 'step', id: step.id, title: step.title })}
+                      />
+                    ) : null}
                     <ActionButton
                       label="編集"
                       accessibilityLabel={`${step.title}を編集`}
