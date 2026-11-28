@@ -38,7 +38,7 @@ it('combines normalized search and goal filters without mutating the input, sort
   expect(selectTaskList(tasks, { ...options, query: 'ありません' })).toEqual([]);
   expect(tasks.map((task) => task.id)).toEqual(['a', 'b', 'c']);
 });
-it('combines native incomplete state with search and goal, retaining clear and completed navigation', async () => {
+it('combines native state filters with search and goal, retaining clear and inline completed display', async () => {
   const source: TaskRepository = {
     list: jest.fn(async () => [
       ...tasks,
@@ -54,15 +54,19 @@ it('combines native incomplete state with search and goal, retaining clear and c
     <TasksScreen repository={source} recommendationMode planningTimezone="Asia/Tokyo" />,
   );
   expect(await screen.findByText('ＡＩを学ぶ')).toBeTruthy();
+  expect(screen.getByText('完了AI')).toHaveStyle({ textDecorationLine: 'line-through' });
   await fireEvent.changeText(screen.getByLabelText('タスクを検索'), 'ai');
   expect(screen.queryByText('買い物')).toBeNull();
+  expect(screen.getByText('完了AI')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('tab', { name: '未完了（3）' }));
   expect(screen.queryByText('完了AI')).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: '並び替え・目標' }));
   await fireEvent.press(screen.getByRole('radio', { name: '目標で絞り込み 目標なし' }));
   expect(screen.getByText('該当するタスクはありません')).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: '検索・目標をクリア' }));
   expect(screen.getByText('買い物')).toBeTruthy();
-  expect(screen.getByRole('button', { name: '完了済み（1）' })).toBeTruthy();
+  await fireEvent.press(screen.getByRole('tab', { name: 'すべて（4）' }));
+  expect(screen.getByRole('button', { name: '完了済み（1）を折りたたむ' })).toBeTruthy();
 });
 it('uses the profile date for one-tap deadlines across device timezone and month boundaries', async () => {
   jest.useFakeTimers({ now: new Date('2026-11-30T16:00:00Z') });

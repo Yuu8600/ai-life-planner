@@ -286,7 +286,7 @@ describe('Clear deletion controls', () => {
   });
 });
 
-it('hides a recurring task after today completion and lets the user undo from completed history', async () => {
+it('shows a recurring task inline with strikethrough after today completion without a row delete button and lets the user undo inline', async () => {
   const date = '2026-11-18';
   const dailyTask: Task = { ...task, recurrence: { kind: 'weekly', weekdays: [3] } };
   let completed = false;
@@ -328,21 +328,22 @@ it('hides a recurring task after today completion and lets the user undo from co
       now={new Date(date + 'T04:00Z')}
     />,
   );
+  expect(screen.queryByRole('button', { name: /作業タイマーを開く/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'TOEIC Listeningを削除' })).toBeNull();
   await fireEvent.press(
     await screen.findByRole('checkbox', { name: 'TOEIC Listeningの今日の実施を記録' }),
   );
   expect(recommendations.record).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
   expect(await screen.findByRole('button', { name: '元に戻す' })).toBeTruthy();
-  expect(screen.queryByText('TOEIC Listening')).toBeNull();
-  await fireEvent.press(screen.getByRole('button', { name: '完了済み（1）' }));
+  expect(screen.getByTestId('tasks-completed-section')).toBeTruthy();
   expect(screen.getByText('TOEIC Listening')).toHaveStyle({ textDecorationLine: 'line-through' });
   expect(await screen.findByText(/今日の実施済み/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'TOEIC Listeningを削除' })).toBeNull();
   const undo = screen.getByRole('checkbox', { name: 'TOEIC Listeningの今日の実施を取り消す' });
   expect(undo.props.accessibilityState.checked).toBe(true);
   await fireEvent.press(undo);
   expect(recommendations.undo).toHaveBeenCalledWith(date, 'task', task.id, 'completed');
-  await fireEvent.press(screen.getByRole('button', { name: '完了済みを閉じる' }));
-  expect(await screen.findByRole('button', { name: '完了済み（0）' })).toBeTruthy();
+  expect(screen.queryByTestId('tasks-completed-section')).toBeNull();
   expect(screen.getByText('TOEIC Listening')).not.toHaveStyle({
     textDecorationLine: 'line-through',
   });
@@ -357,7 +358,7 @@ it('hides a recurring task after today completion and lets the user undo from co
   expect(screen.getByRole('button', { name: 'タスクを削除' })).toBeTruthy();
 });
 
-it('limits bulk deletion to completed Tasks and confirms the count before writing', async () => {
+it('limits inline row delete and bulk deletion to single-occurrence completed Tasks and confirms before writing', async () => {
   const date = '2026-11-18';
   const done: Task[] = [
     { ...task, title: '読み終えた本', status: 'completed' },
@@ -405,27 +406,35 @@ it('limits bulk deletion to completed Tasks and confirms the count before writin
         now={new Date(date + 'T04:00Z')}
       />,
     );
-    expect(screen.queryByText('読み終えた本')).toBeNull();
-    await fireEvent.press(await screen.findByRole('button', { name: '完了済み（3）' }));
-    expect(screen.getByText('読み終えた本')).toHaveStyle({ textDecorationLine: 'line-through' });
-    expect(screen.getByText('繰り返しタスクの今日の実施')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: '複数選択' }));
-    expect(screen.queryByRole('checkbox', { name: '散歩を選択' })).toBeNull();
-    for (const item of done)
-      await fireEvent.press(screen.getByRole('checkbox', { name: item.title + 'を選択' }));
-    await fireEvent.press(screen.getByRole('button', { name: '2件を削除' }));
+    expect(await screen.findByText('読み終えた本')).toHaveStyle({
+      textDecorationLine: 'line-through',
+    });
+    expect(screen.getByText('散歩')).toHaveStyle({ textDecorationLine: 'line-through' });
+    expect(screen.getByRole('button', { name: '読み終えた本を削除' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '送信したメールを削除' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '散歩を削除' })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: '読み終えた本を削除' }));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm.mock.calls[0][0]).toBe('タスクを削除しますか？');
+    await act(async () =>
+      confirm.mock.calls[0][2]?.find((button) => button.style === 'destructive')?.onPress?.(),
+    );
+    expect(repository.remove).toHaveBeenCalledWith(done[0].id);
+
+    await fireEvent.press(screen.getByRole('button', { name: '完了済みをすべて削除' }));
     expect(removeCompleted).not.toHaveBeenCalled();
-    const [title, message, actions] = confirm.mock.calls[0];
-    expect(title).toBe('2件のタスクを削除しますか？');
+    const [title, message, actions] = confirm.mock.calls[1];
+    expect(title).toBe('1件の完了済みタスクを削除しますか？');
     expect(message).toMatch(/実施記録や時間割の記録は残ります/);
     await act(async () => actions?.find((button) => button.style === 'destructive')?.onPress?.());
-    expect(removeCompleted).toHaveBeenCalledWith(done.map((item) => item.id));
+    expect(removeCompleted).toHaveBeenCalledWith([done[1].id]);
   } finally {
     confirm.mockRestore();
   }
 });
 
-it('defaults to incomplete Tasks, separates navigation from filters and preserves overdue route entries', async () => {
+it('defaults to all Tasks with a collapsible inline completed section, separates navigation from filters, and preserves overdue route entries', async () => {
   const date = '2026-11-27';
   const completed = { ...task, id: 'done', title: '完了した作業', status: 'completed' as const };
   const recurring = {
@@ -454,16 +463,24 @@ it('defaults to incomplete Tasks, separates navigation from filters and preserve
     onOpenGoals: jest.fn(),
   };
   const screen = await render(<TasksScreen {...props} />);
-  expect(screen.getByRole('tab', { name: '未完了（2）' }).props.accessibilityState.selected).toBe(
+  expect(screen.getByRole('tab', { name: 'すべて（3）' }).props.accessibilityState.selected).toBe(
     true,
   );
-  expect(screen.queryByText(completed.title)).toBeNull();
+  expect(screen.getByText(completed.title)).toHaveStyle({ textDecorationLine: 'line-through' });
+  expect(screen.getByRole('button', { name: '完了した作業を削除' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'TOEIC Listeningを削除' })).toBeNull();
   expect(screen.getByRole('button', { name: '目標' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: '完了済み（1）' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: '完了済み（1）' })).toBeNull();
   expect(screen.getByText('期限切れ 2026年10月25日')).toBeTruthy();
   expect(screen.getAllByText('優先度 高')).toHaveLength(2);
-  await fireEvent.press(screen.getByRole('tab', { name: 'すべて（3）' }));
+
+  await fireEvent.press(screen.getByRole('button', { name: '完了済み（1）を折りたたむ' }));
+  expect(screen.queryByText(completed.title)).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: '完了済み（1）を表示' }));
   expect(screen.getByText(completed.title)).toBeTruthy();
+
+  await fireEvent.press(screen.getByRole('tab', { name: '未完了（2）' }));
+  expect(screen.queryByText(completed.title)).toBeNull();
   await fireEvent.press(screen.getByRole('tab', { name: '繰り返し（1）' }));
   expect(screen.queryByText(task.title)).toBeNull();
   expect(screen.getByText(recurring.title)).toBeTruthy();

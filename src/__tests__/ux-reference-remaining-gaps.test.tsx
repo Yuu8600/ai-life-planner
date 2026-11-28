@@ -1,12 +1,10 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { Platform } from 'react-native';
 
 import { ChatScreen } from '@/features/ai-chat/v2/ChatScreen';
 import type { ChatRepository } from '@/features/ai-chat/v2/repository';
 import { AccountPanel } from '@/features/auth/components/AccountPanel';
 import { AuthForm } from '@/features/auth/components/AuthForm';
-import { FocusTimerProvider } from '@/features/focus-timer';
-import { defaultTimerMinutes } from '@/features/focus-timer/timer';
+import { ActionStepsScreen } from '@/features/recommendations/ActionStepsScreen';
 import { TodayRecommendationsScreen } from '@/features/recommendations/TodayRecommendationsScreen';
 import type { RecommendationRepository } from '@/features/recommendations/repository';
 import { selectTaskList } from '@/features/tasks/selectTaskList';
@@ -29,18 +27,7 @@ function makeTask(overrides: Partial<Task> & { id: string; title: string }): Tas
 }
 
 describe('APP_IMPLEMENTATION_REFERENCE remaining gaps', () => {
-  it('computes default timer minutes from valid estimates and falls back to 25', () => {
-    expect(defaultTimerMinutes(15)).toBe('15');
-    expect(defaultTimerMinutes(180)).toBe('180');
-    expect(defaultTimerMinutes(null)).toBe('25');
-    expect(defaultTimerMinutes(undefined)).toBe('25');
-    expect(defaultTimerMinutes(0)).toBe('25');
-    expect(defaultTimerMinutes(240)).toBe('25');
-  });
-
-  it('launches FocusTimer with estimated minutes from Today candidate details and clarifies schedule/duration labels', async () => {
-    const original = Platform.OS;
-    Platform.OS = 'android';
+  it('omits timer buttons from Today candidate details and ActionSteps while clarifying schedule/duration labels', async () => {
     const tasks = [
       makeTask({
         id: 'urgent-long',
@@ -77,43 +64,68 @@ describe('APP_IMPLEMENTATION_REFERENCE remaining gaps', () => {
       updateStep: jest.fn(),
       removeStep: jest.fn(),
     };
+    const stepsRepository: RecommendationRepository = {
+      ...repository,
+      listSteps: jest.fn().mockResolvedValue([
+        {
+          id: 'step-1',
+          taskId: 'urgent-long',
+          title: '構成メモを書く',
+          minutes: 10,
+          effort: 'light',
+          repeatable: false,
+          completed: false,
+          createdAt: '2026-11-28T00:00:00.000Z',
+        },
+      ]),
+    };
 
-    try {
-      const screen = await render(
-        <FocusTimerProvider>
-          <TodayRecommendationsScreen
-            taskRepository={taskRepository}
-            repository={repository}
-            timezone="Asia/Tokyo"
-            date="2026-11-28"
-            revision={0}
-            initialConditions={{ minutes: 30, effort: 'normal' }}
-            saveConditions={jest.fn()}
-            calendarWindow={{ minutes: null, until: null, availability: 'all' }}
-            openChat={jest.fn()}
-            openSettings={jest.fn()}
-            openTasks={jest.fn()}
-            openStep={jest.fn()}
-          />
-        </FocusTimerProvider>,
-      );
+    const screen = await render(
+      <TodayRecommendationsScreen
+        taskRepository={taskRepository}
+        repository={repository}
+        timezone="Asia/Tokyo"
+        date="2026-11-28"
+        revision={0}
+        initialConditions={{ minutes: 30, effort: 'normal' }}
+        saveConditions={jest.fn()}
+        calendarWindow={{ minutes: null, until: null, availability: 'all' }}
+        openChat={jest.fn()}
+        openSettings={jest.fn()}
+        openTasks={jest.fn()}
+        openStep={jest.fn()}
+      />,
+    );
 
-      expect(await screen.findByText('このあとの予定はありません')).toBeTruthy();
-      expect(screen.getByText('設定時間超過（期限優先）')).toBeTruthy();
+    expect(await screen.findByText('このあとの予定はありません')).toBeTruthy();
+    expect(screen.getByText('設定時間超過（期限優先）')).toBeTruthy();
 
-      await fireEvent.press(screen.getByRole('button', { name: '重要レポートの詳細を開く' }));
-      await fireEvent.press(
-        screen.getByRole('button', { name: '重要レポートの作業タイマーを開く' }),
-      );
-      expect(screen.getByDisplayValue('60')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: '重要レポートの詳細を開く' }));
+    expect(screen.queryByRole('button', { name: /作業タイマーを開く/ })).toBeNull();
+    const dismiss = screen.getByTestId('candidate-details-presentation').props.onDismiss;
+    await fireEvent.press(screen.getByRole('button', { name: '詳細を閉じる' }));
+    await act(() => dismiss());
+    await fireEvent.press(screen.getByRole('button', { name: 'これまでの記録' }));
+    expect(screen.getByText(/2026年11月27日 ・ 完了・実施 ・ 昨日の読書/)).toBeTruthy();
+    await screen.unmount();
 
-      await fireEvent.press(screen.getByRole('button', { name: 'パネルを閉じる' }));
-      await fireEvent.press(screen.getByRole('button', { name: 'これまでの記録' }));
-      expect(screen.getByText(/2026年11月27日 ・ 完了・実施 ・ 昨日の読書/)).toBeTruthy();
-      await screen.unmount();
-    } finally {
-      Platform.OS = original;
-    }
+    const stepsScreen = await render(
+      <ActionStepsScreen
+        taskId="urgent-long"
+        date="2026-11-28"
+        revision={0}
+        dayError=""
+        refreshDay={jest.fn()}
+        tasks={taskRepository}
+        repository={stepsRepository}
+        close={jest.fn()}
+        openAI={jest.fn()}
+      />,
+    );
+    expect(await stepsScreen.findByText('構成メモを書く')).toBeTruthy();
+    expect(stepsScreen.queryByRole('button', { name: /作業タイマーを開く/ })).toBeNull();
+    expect(stepsScreen.queryByRole('button', { name: 'タイマー' })).toBeNull();
+    await stepsScreen.unmount();
   });
 
   it('supports password reset flow from AuthForm without losing the typed email', async () => {

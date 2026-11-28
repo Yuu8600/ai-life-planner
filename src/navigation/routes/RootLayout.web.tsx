@@ -1,4 +1,3 @@
-import { FocusTimerProvider } from '@/features/focus-timer';
 import { Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
@@ -14,20 +13,18 @@ function WebRootContent() {
       <View style={styles.background}>
         <View style={styles.frame}>
           <DemoBanner />
-          <FocusTimerProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.background },
-                animation: 'none',
-              }}
-            >
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="settings" />
-              <Stack.Screen name="(auth)" />
-            </Stack>
-          </FocusTimerProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+              animation: 'none',
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="settings" />
+            <Stack.Screen name="(auth)" />
+          </Stack>
         </View>
       </View>
     </DemoProvider>

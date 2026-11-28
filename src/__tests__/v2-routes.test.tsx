@@ -5,6 +5,7 @@ import AiRoute from '@/app/(tabs)/ai';
 import CalendarRoute from '@/app/(tabs)/calendar';
 import TodayRoute from '@/app/(tabs)/today';
 import AdvancedPlannerRoute from '@/app/advanced-planner';
+import SettingsRoute from '@/app/settings';
 import type { PlanProposal } from '@/features/ai-chat/v2/repository';
 
 const userId = '11111111-1111-4111-8111-111111111111';
@@ -47,7 +48,28 @@ jest.mock('@/features/recommendations/TodayRecommendationsScreen', () => ({
     </MockText>
   ),
 }));
-jest.mock('@/features/auth', () => ({ useAuth: () => mockUseAuth() }));
+jest.mock('@/features/auth', () => ({
+  AccountSection: () => <MockText>アカウント</MockText>,
+  useAuth: () => mockUseAuth(),
+}));
+jest.mock('@/navigation/SettingsExitControl', () => ({
+  SettingsExitControl: () => null,
+}));
+jest.mock('@/features/settings/SettingsScreen', () => ({
+  SettingsScreen: ({
+    planningAccessory,
+    accountSection,
+  }: {
+    planningAccessory?: unknown;
+    accountSection?: unknown;
+  }) => (
+    <>
+      <MockText>設定画面</MockText>
+      {planningAccessory}
+      {accountSection}
+    </>
+  ),
+}));
 jest.mock('@/services/calendar/ExpoCalendarRepository', () => ({
   createExpoCalendarRepository: () => ({}),
 }));
@@ -165,4 +187,13 @@ it('opens the timetable for the selected calendar day without loading Planner fi
   ).toBe(86400000);
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/advanced-planner', params: { date } });
   expect(mockCreateDailyRepository).not.toHaveBeenCalled();
+});
+
+it('omits timetable and fixed-event launcher buttons from V2 Settings route', async () => {
+  mockUseAuth.mockReturnValue({ session: { user: { id: userId } } });
+  const screen = await render(<SettingsRoute />);
+  expect(screen.getByText('設定画面')).toBeTruthy();
+  expect(screen.queryByText('時間割・生活予定')).toBeNull();
+  expect(screen.queryByRole('button', { name: '時間割を開く' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '固定・生活予定を管理' })).toBeNull();
 });

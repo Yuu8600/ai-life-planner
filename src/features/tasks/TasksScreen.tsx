@@ -1,4 +1,3 @@
-import { useFocusTimer } from '@/features/focus-timer';
 import { SwipeActions } from '@/shared/components/SwipeActions';
 import { useSuccessFeedback } from '@/shared/feedback/SuccessFeedback';
 import { formatCalendarDateJa } from '@/shared/dateInput';
@@ -9,7 +8,6 @@ import type {
 } from '@/features/recommendations/repository';
 import { CompletionCheckbox } from '@/shared/components/CompletionCheckbox';
 import { getTaskErrorMessage } from './errors';
-import { ModalFrame } from '@/shared/components/ModalFrame';
 import { Notice } from '@/shared/components/Notice';
 import { ToastBanner } from '@/shared/components/ToastBanner';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -20,7 +18,6 @@ import { AppScreen } from '@/shared/components/AppScreen';
 import { Badge } from '@/shared/components/Badge';
 import { Card } from '@/shared/components/Card';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
-import { SectionHeader } from '@/shared/components/SectionHeader';
 import { appAlert } from '@/shared/feedback/appAlert';
 import { radius, spacing, useTheme } from '@/shared/theme';
 
@@ -74,7 +71,6 @@ export function TasksScreen({
   repository,
 }: TasksScreenProps) {
   const theme = useTheme();
-  const timer = useFocusTimer();
   const notifySuccess = useSuccessFeedback();
   const {
     clearMutationError,
@@ -95,21 +91,20 @@ export function TasksScreen({
   } = useTasks(repository, refreshToken);
   const [mountedAt] = useState(() => new Date());
   const [activeFilter, setActiveFilter] = useState<TaskFilterId>(initialFilter ?? 'all');
-  const [nativeFilter, setNativeFilter] = useState<'incomplete' | 'all' | 'overdue' | 'recurring'>(
-    initialFilter === 'overdue' ? 'overdue' : 'incomplete',
+  const [nativeFilter, setNativeFilter] = useState<'all' | 'incomplete' | 'overdue' | 'recurring'>(
+    initialFilter === 'overdue' ? 'overdue' : 'all',
   );
   const filterSyncKey = `${initialFilter ?? ''}:${filterEntry ?? ''}`;
   const [lastFilterSync, setLastFilterSync] = useState(filterSyncKey);
   if (filterSyncKey !== lastFilterSync) {
     setLastFilterSync(filterSyncKey);
-    setNativeFilter(initialFilter === 'overdue' ? 'overdue' : 'incomplete');
+    setNativeFilter(initialFilter === 'overdue' ? 'overdue' : 'all');
   }
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<TaskSort>('recent');
   const [goal, setGoal] = useState('all');
   const [refinements, setRefinements] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
-  const [taskSelection, setTaskSelection] = useState<string[] | null>(null);
+  const [completedExpanded, setCompletedExpanded] = useState(true);
   const [batchMessage, setBatchMessage] = useState('');
   const [editingTask, setEditingTask] = useState<Task | null | undefined>(undefined);
   const today = planningTimezone ? getLocalDate(now ?? mountedAt, planningTimezone) : undefined;
@@ -166,12 +161,13 @@ export function TasksScreen({
     );
   };
   const goalTitleById = new Map(goalOptions.map((goal) => [goal.id, goal.title]));
+  const incompleteTasks = recommendationMode ? tasks.filter((task) => !isComplete(task)) : [];
+  const completedTasks = recommendationMode ? tasks.filter(isComplete) : [];
   const overdueCount = recommendationMode
-    ? tasks.filter((task) => !isComplete(task) && isOverdue(task)).length
+    ? incompleteTasks.filter((task) => isOverdue(task)).length
     : 0;
   const recurringCount = recommendationMode
-    ? tasks.filter((task) => !isComplete(task) && (task.recurrence?.kind ?? 'once') !== 'once')
-        .length
+    ? incompleteTasks.filter((task) => (task.recurrence?.kind ?? 'once') !== 'once').length
     : 0;
   const statusTasks = recommendationMode
     ? tasks.filter((task) => {
@@ -182,16 +178,18 @@ export function TasksScreen({
         return true;
       })
     : tasks.filter((task) => matchesTaskFilter(task, activeFilter, now));
-  const completedTasks = recommendationMode ? tasks.filter(isComplete) : [];
-  const finishedTasks = completedTasks.filter((task) => task.status === 'completed');
-  const performedToday = completedTasks.filter((task) => task.status !== 'completed');
-  const selectedTasks = finishedTasks.filter((task) => taskSelection?.includes(task.id));
-  const visibleTasks = selectTaskList(statusTasks, {
+  const listOptions = {
     query,
     goal,
     sort,
     timezone: planningTimezone,
-  });
+  };
+  const visibleTasks = selectTaskList(statusTasks, listOptions);
+  const activeVisibleTasks = recommendationMode ? selectTaskList(incompleteTasks, listOptions) : [];
+  const completedVisibleTasks = recommendationMode
+    ? selectTaskList(completedTasks, listOptions)
+    : [];
+  const finishedVisibleTasks = completedVisibleTasks.filter((task) => task.status === 'completed');
   const initialLoading = isLoading && (!recommendationMode || !tasks.length);
   const isMutating = pendingMutation !== null || actionBusy;
   const isSaving = pendingMutation === 'create' || pendingMutation?.startsWith('update:') === true;
@@ -259,7 +257,6 @@ export function TasksScreen({
     setLastAction(undefined);
     try {
       await operation();
-      setTaskSelection(null);
       setBatchMessage(message);
     } catch (error) {
       setActionMessage(getTaskErrorMessage(error));
@@ -271,26 +268,11 @@ export function TasksScreen({
     }
   }
 
-  function reopenSelected() {
-    if (!recommendations?.undoBatch || !today || daily?.date !== today || !selectedTasks.length)
-      return;
-    void runBatch(`${selectedTasks.length}件を未完了に戻しました。`, () =>
-      recommendations.undoBatch!(
-        today,
-        selectedTasks.map((task) => ({
-          kind: 'task',
-          id: task.id,
-          expected: results.get(task.id) === 'completed' ? 'completed' : 'reopen',
-        })),
-      ),
-    );
-  }
-
-  function deleteSelected() {
-    if (!repository?.removeCompleted || !selectedTasks.length) return;
-    const ids = selectedTasks.map((task) => task.id);
+  function confirmDeleteCompleted() {
+    if (!repository?.removeCompleted || !finishedVisibleTasks.length || isMutating) return;
+    const ids = finishedVisibleTasks.map((task) => task.id);
     appAlert.alert(
-      `${ids.length}件のタスクを削除しますか？`,
+      `${ids.length}件の完了済みタスクを削除しますか？`,
       '関連する小さな行動とタスク向けの推薦方針も削除されます。実施記録や時間割の記録は残ります。削除は元に戻せません。',
       [
         { style: 'cancel', text: 'キャンセル' },
@@ -298,7 +280,7 @@ export function TasksScreen({
           style: 'destructive',
           text: `${ids.length}件を削除`,
           onPress: () =>
-            void runBatch(`${ids.length}件のタスクを削除しました。`, () =>
+            void runBatch(`${ids.length}件の完了済みタスクを削除しました。`, () =>
               repository.removeCompleted!(ids),
             ),
         },
@@ -308,6 +290,7 @@ export function TasksScreen({
 
   const dismissActionToast = useCallback(() => {
     setLastAction(undefined);
+    setBatchMessage('');
   }, []);
 
   const openCreateForm = () => {
@@ -352,21 +335,22 @@ export function TasksScreen({
     );
   };
 
-  function taskRow(task: Task, selecting = false, isLast = false) {
+  function taskRow(task: Task, isLast = false) {
     const deadline = deadlineOf(task);
     const checked = isComplete(task);
     const overdue = !checked && isOverdue(task);
     const skipped = !checked && results.get(task.id) === 'skipped';
     const recurring = (task.recurrence?.kind ?? 'once') !== 'once';
     const dailyCheck = recurring && (!checked || results.get(task.id) === 'completed');
+    const canRowDelete = task.status === 'completed';
     const goalTitle = task.goalId ? goalTitleById.get(task.goalId) : undefined;
-    const rowBusy = busyTaskId === task.id;
+    const rowBusy = busyTaskId === task.id || pendingMutation === `delete:${task.id}`;
 
     return (
       <SwipeActions
         key={task.id}
         label={task.title}
-        disabled={isMutating || selecting}
+        disabled={isMutating}
         onDelete={() => confirmDelete(task)}
       >
         <View
@@ -380,20 +364,7 @@ export function TasksScreen({
           ]}
           testID={`task-card-${task.id}`}
         >
-          {selecting ? (
-            <CompletionCheckbox
-              checked={taskSelection?.includes(task.id) ?? false}
-              label={`${task.title}を選択`}
-              disabled={isMutating}
-              onPress={() =>
-                setTaskSelection((prior) =>
-                  prior?.includes(task.id)
-                    ? prior.filter((id) => id !== task.id)
-                    : [...(prior ?? []), task.id],
-                )
-              }
-            />
-          ) : skipped ? (
+          {skipped ? (
             <ActionButton
               label="戻す"
               accessibilityLabel={`${task.title}をおすすめ対象に戻す`}
@@ -416,11 +387,8 @@ export function TasksScreen({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${task.title}を編集する`}
-            disabled={isMutating || selecting}
-            onPress={() => {
-              setShowCompleted(false);
-              openEditForm(task);
-            }}
+            disabled={isMutating}
+            onPress={() => openEditForm(task)}
             style={({ pressed }) => [styles.rowTitle, pressed && { opacity: 0.65 }]}
           >
             <View style={styles.rowContent}>
@@ -461,27 +429,39 @@ export function TasksScreen({
                 {goalTitle ? <Badge label={goalTitle} tone="info" /> : null}
               </View>
             </View>
-            {!selecting ? (
+            {!canRowDelete ? (
               <Text style={{ ...theme.typography.sectionTitle, color: theme.colors.textSecondary }}>
                 ›
               </Text>
             ) : null}
           </Pressable>
-          {timer && !selecting ? (
-            <ActionButton
-              label="タイマー"
-              accessibilityLabel={`${task.title}の作業タイマーを開く`}
-              variant="ghost"
+          {canRowDelete ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${task.title}を削除`}
+              accessibilityState={{
+                disabled: isMutating,
+                busy: pendingMutation === `delete:${task.id}`,
+              }}
               disabled={isMutating}
-              onPress={() =>
-                timer.open({
-                  kind: 'task',
-                  id: task.id,
-                  title: task.title,
-                  initialMinutes: task.estimatedMinutes,
-                })
-              }
-            />
+              onPress={() => confirmDelete(task)}
+              style={({ pressed }) => [
+                styles.rowDeleteButton,
+                {
+                  borderColor: isMutating ? theme.colors.borderSubtle : theme.colors.error,
+                  backgroundColor: pressed ? theme.colors.surfaceSubtle : 'transparent',
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  ...theme.typography.label,
+                  color: isMutating ? theme.colors.disabledText : theme.colors.error,
+                }}
+              >
+                削除
+              </Text>
+            </Pressable>
           ) : null}
         </View>
       </SwipeActions>
@@ -492,26 +472,9 @@ export function TasksScreen({
     lastAction?.date === today ? tasks.find((task) => task.id === lastAction?.taskId) : undefined;
   const lastOutcome = lastTask ? results.get(lastTask.id) : undefined;
   const actionUndo = lastOutcome && lastTask && lastAction?.undo ? lastTask : undefined;
-  const modalActionFeedback =
-    lastTask && lastAction && !actionMessage && !dailyError ? (
-      <Notice
-        tone="success"
-        message={lastAction.message}
-        action={
-          actionUndo ? (
-            <ActionButton
-              label="元に戻す"
-              variant="ghost"
-              disabled={isMutating || !!dayError}
-              onPress={() => void toggle(actionUndo)}
-            />
-          ) : undefined
-        }
-      />
-    ) : null;
 
   const toastOverlay =
-    !showCompleted && lastTask && lastAction && !actionMessage && !dailyError ? (
+    lastTask && lastAction && !actionMessage && !dailyError ? (
       <ToastBanner
         message={lastAction.message}
         actionLabel={actionUndo ? '元に戻す' : undefined}
@@ -519,6 +482,8 @@ export function TasksScreen({
         onAction={actionUndo ? () => void toggle(actionUndo) : undefined}
         onDismiss={dismissActionToast}
       />
+    ) : batchMessage && !actionMessage && !dailyError ? (
+      <ToastBanner message={batchMessage} onDismiss={dismissActionToast} />
     ) : null;
 
   return (
@@ -604,35 +569,25 @@ export function TasksScreen({
       </View>
       {recommendationMode ? (
         <View style={{ gap: spacing.sm }}>
-          <View style={styles.secondaryActions}>
-            {onOpenGoals ? (
+          {onOpenGoals ? (
+            <View style={styles.secondaryActions}>
               <ActionButton
                 label="目標 ›"
                 accessibilityLabel="目標"
                 variant="ghost"
                 onPress={onOpenGoals}
               />
-            ) : null}
-            <ActionButton
-              label={`完了済み（${completedTasks.length}） ›`}
-              accessibilityLabel={`完了済み（${completedTasks.length}）`}
-              variant="ghost"
-              onPress={() => {
-                setTaskSelection(null);
-                setBatchMessage('');
-                setShowCompleted(true);
-              }}
-            />
-          </View>
+            </View>
+          ) : null}
           {tasks.length > 0 ? (
             <View accessibilityRole="tablist" style={styles.filterRow}>
               {(
                 [
+                  { id: 'all', label: `すべて（${tasks.length}）` },
                   {
                     id: 'incomplete',
-                    label: `未完了（${tasks.filter((task) => !isComplete(task)).length}）`,
+                    label: `未完了（${incompleteTasks.length}）`,
                   },
-                  { id: 'all', label: `すべて（${tasks.length}）` },
                   ...(overdueCount > 0 || nativeFilter === 'overdue'
                     ? [{ id: 'overdue' as const, label: `期限切れ（${overdueCount}）` }]
                     : []),
@@ -735,6 +690,82 @@ export function TasksScreen({
           testID="tasks-empty-state"
           title="まだタスクがありません"
         />
+      ) : recommendationMode && nativeFilter === 'all' ? (
+        activeVisibleTasks.length === 0 && completedVisibleTasks.length === 0 ? (
+          <TaskStatePanel
+            message="検索語・目標・状態フィルターを変更すると、ほかのタスクを確認できます。"
+            testID="tasks-filter-empty-state"
+            title="該当するタスクはありません"
+          />
+        ) : (
+          <>
+            {activeVisibleTasks.length > 0 ? (
+              <Card style={styles.listCard}>
+                {activeVisibleTasks.map((task, index) =>
+                  taskRow(task, index === activeVisibleTasks.length - 1),
+                )}
+              </Card>
+            ) : null}
+            {completedVisibleTasks.length > 0 ? (
+              <View style={styles.completedSection} testID="tasks-completed-section">
+                <View style={styles.completedHeader}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      completedExpanded
+                        ? `完了済み（${completedVisibleTasks.length}）を折りたたむ`
+                        : `完了済み（${completedVisibleTasks.length}）を表示`
+                    }
+                    accessibilityState={{ expanded: completedExpanded }}
+                    onPress={() => setCompletedExpanded((value) => !value)}
+                    style={({ pressed }) => [styles.completedToggle, pressed && { opacity: 0.65 }]}
+                  >
+                    <Text
+                      style={{
+                        ...theme.typography.sectionTitle,
+                        color: theme.colors.textSecondary,
+                      }}
+                    >
+                      {`完了済み（${completedVisibleTasks.length}） ${completedExpanded ? '▾' : '▸'}`}
+                    </Text>
+                  </Pressable>
+                  {repository?.removeCompleted && finishedVisibleTasks.length > 0 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="完了済みをすべて削除"
+                      accessibilityState={{ disabled: isMutating || initialLoading }}
+                      disabled={isMutating || initialLoading}
+                      onPress={confirmDeleteCompleted}
+                      style={({ pressed }) => [
+                        styles.clearCompletedButton,
+                        pressed && { opacity: 0.65 },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          ...theme.typography.label,
+                          color:
+                            isMutating || initialLoading
+                              ? theme.colors.disabledText
+                              : theme.colors.error,
+                        }}
+                      >
+                        完了済みをすべて削除
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                {completedExpanded ? (
+                  <Card style={styles.completedListCard}>
+                    {completedVisibleTasks.map((task, index) =>
+                      taskRow(task, index === completedVisibleTasks.length - 1),
+                    )}
+                  </Card>
+                ) : null}
+              </View>
+            ) : null}
+          </>
+        )
       ) : visibleTasks.length === 0 ? (
         <TaskStatePanel
           message="検索語・目標・状態フィルターを変更すると、ほかのタスクを確認できます。"
@@ -743,9 +774,7 @@ export function TasksScreen({
         />
       ) : recommendationMode ? (
         <Card style={styles.listCard}>
-          {visibleTasks.map((task, index) =>
-            taskRow(task, false, index === visibleTasks.length - 1),
-          )}
+          {visibleTasks.map((task, index) => taskRow(task, index === visibleTasks.length - 1))}
         </Card>
       ) : (
         <View style={styles.list}>
@@ -761,17 +790,6 @@ export function TasksScreen({
                 isDeleting={pendingMutation === `delete:${task.id}`}
                 isLast={index === visibleTasks.length - 1}
                 key={task.id}
-                onTimer={
-                  timer
-                    ? () =>
-                        timer.open({
-                          kind: 'task',
-                          id: task.id,
-                          title: task.title,
-                          initialMinutes: task.estimatedMinutes,
-                        })
-                    : undefined
-                }
                 onDelete={() => confirmDelete(task)}
                 onEdit={() => openEditForm(task)}
                 task={toTaskSummary(
@@ -799,86 +817,6 @@ export function TasksScreen({
         <View style={{ marginTop: spacing.md }}>
           <Notice tone="error" message={mutationError} />
         </View>
-      ) : null}
-
-      {showCompleted ? (
-        <ModalFrame
-          title="完了済み"
-          closeLabel="完了済みを閉じる"
-          onClose={() => setShowCompleted(false)}
-          closeDisabled={actionBusy}
-          footer={
-            taskSelection && finishedTasks.length ? (
-              <View style={{ gap: spacing.xs }}>
-                {recommendations?.undoBatch ? (
-                  <ActionButton
-                    label={`${selectedTasks.length}件を未完了に戻す`}
-                    loading={actionBusy}
-                    disabled={
-                      !selectedTasks.length ||
-                      initialLoading ||
-                      !today ||
-                      daily?.date !== today ||
-                      !!dailyError ||
-                      !!dayError
-                    }
-                    onPress={reopenSelected}
-                  />
-                ) : null}
-                {repository?.removeCompleted ? (
-                  <ActionButton
-                    label={`${selectedTasks.length}件を削除`}
-                    variant="destructive"
-                    disabled={!selectedTasks.length || isMutating || initialLoading}
-                    onPress={deleteSelected}
-                  />
-                ) : null}
-              </View>
-            ) : undefined
-          }
-        >
-          {actionMessage || dailyError ? (
-            <Notice tone="error" message={actionMessage || dailyError} />
-          ) : null}
-          {batchMessage ? <Notice tone="success" message={batchMessage} /> : null}
-          {modalActionFeedback}
-          {finishedTasks.length ? (
-            <>
-              <View style={styles.secondaryActions}>
-                <SectionHeader compact title="完了したタスク" />
-                {recommendations?.undoBatch || repository?.removeCompleted ? (
-                  <ActionButton
-                    label={taskSelection ? '選択をやめる' : '複数選択'}
-                    variant="ghost"
-                    disabled={isMutating || initialLoading}
-                    onPress={() => {
-                      setBatchMessage('');
-                      setTaskSelection(taskSelection ? null : []);
-                    }}
-                  />
-                ) : null}
-              </View>
-              <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
-                {finishedTasks.map((task, index) =>
-                  taskRow(task, !!taskSelection, index === finishedTasks.length - 1),
-                )}
-              </Card>
-            </>
-          ) : null}
-          {!taskSelection && performedToday.length ? (
-            <>
-              <SectionHeader compact title="繰り返しタスクの今日の実施" />
-              <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
-                {performedToday.map((task, index) =>
-                  taskRow(task, false, index === performedToday.length - 1),
-                )}
-              </Card>
-            </>
-          ) : null}
-          {!completedTasks.length ? (
-            <Text style={{ color: theme.colors.textSecondary }}>完了したタスクはありません。</Text>
-          ) : null}
-        </ModalFrame>
       ) : null}
 
       {editingTask !== undefined ? (
@@ -964,6 +902,41 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 6,
+  },
+  rowDeleteButton: {
+    minHeight: 38,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completedSection: {
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  completedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  completedToggle: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+  },
+  clearCompletedButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  completedListCard: {
+    padding: 0,
+    gap: 0,
+    overflow: 'hidden',
   },
   addButton: { minHeight: 42, paddingHorizontal: spacing.md, borderRadius: radius.pill },
 });

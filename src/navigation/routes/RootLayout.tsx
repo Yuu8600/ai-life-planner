@@ -1,4 +1,3 @@
-import { FocusTimerProvider } from '@/features/focus-timer';
 import { SuccessFeedbackProvider } from '@/shared/feedback/SuccessFeedback';
 import { successFeedback } from '@/services/haptics/successFeedback';
 import { Stack } from 'expo-router';
@@ -13,7 +12,7 @@ export function RootNavigator() {
   const { isRestoring, session } = useAuth();
 
   return (
-    <FocusTimerProvider key={session?.user.id ?? 'signed-out'}>
+    <>
       <StatusBar style={name === 'clear-dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
@@ -33,7 +32,7 @@ export function RootNavigator() {
           <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
         </Stack.Protected>
       </Stack>
-    </FocusTimerProvider>
+    </>
   );
 }
 

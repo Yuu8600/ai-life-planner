@@ -1,4 +1,3 @@
-import { useFocusTimer } from '@/features/focus-timer';
 import { SwipeActions } from '@/shared/components/SwipeActions';
 import { useSuccessFeedback } from '@/shared/feedback/SuccessFeedback';
 import { effectivePolicies, policyLabels, type RecommendationPolicy } from './policy';
@@ -108,7 +107,6 @@ export function TodayRecommendationsScreen({
   openStep,
 }: Props) {
   const notifySuccess = useSuccessFeedback();
-  const timer = useFocusTimer();
   const { colors, controls, radius, spacing, typography } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const [editingTask, setEditingTask] = useState<Task>();
@@ -1193,25 +1191,6 @@ export function TodayRecommendationsScreen({
             </Card>
             {editorError ? <Notice tone="error" message={editorError} /> : null}
             <View style={{ gap: spacing.sm }}>
-              {timer ? (
-                <ActionButton
-                  label="作業タイマーを開く"
-                  accessibilityLabel={`${selectedCandidate.title}の作業タイマーを開く`}
-                  variant="secondary"
-                  disabled={actionDisabled}
-                  onPress={() => {
-                    const target = selectedCandidate;
-                    closeCandidate(() =>
-                      timer.open({
-                        kind: target.kind,
-                        id: target.id,
-                        title: target.title,
-                        initialMinutes: target.minutes,
-                      }),
-                    );
-                  }}
-                />
-              ) : null}
               <ActionButton
                 label={selectedCandidate.kind === 'step' ? '親タスクを編集' : 'タスクを編集'}
                 variant="secondary"
